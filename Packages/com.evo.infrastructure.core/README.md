@@ -11,3 +11,5 @@ Core infrastructure package for Unity:
 
 - Some code still uses original namespaces from source project.
 - Odin-specific inspector attributes are wrapped with `#if ODIN_INSPECTOR`.
+- Add these dependencies in the consumer project's `Packages/manifest.json`:
+`jp.hadashikick.vcontainer`, `com.cysharp.r3`, `com.cysharp.unitask`.
