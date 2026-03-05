@@ -15,7 +15,7 @@ namespace Evo.Infrastructure.Core.Editor
     public sealed class InfrastructureSetupWizardWindow : EditorWindow
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
-        private const string RuntimeGitTag = "v0.3.1";
+        private const string RuntimeGitTag = "v0.3.2";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
         private const string R3GitUrl = "https://github.com/Cysharp/R3.git?path=src/R3.Unity/Assets/R3.Unity";
         private const string EntryScenePath = "Assets/_Project/Scenes/EntryPointScene.unity";
@@ -27,19 +27,13 @@ namespace Evo.Infrastructure.Core.Editor
         private const string ConfigCatalogPath = "Assets/_Project/Configs/ScriptableConfigCatalog.asset";
         private const string LifetimeScopePrefabPath = "Assets/_Project/Prefabs/Runtime/InfrastructureProjectLifetimeScope.prefab";
 
-        private static readonly string[] RequiredDependencyIds =
-        {
-            "jp.hadashikick.vcontainer",
-            "com.cysharp.unitask",
-            "com.github-glitchenzo.nugetforunity"
-        };
-
-        private static readonly string[] RequiredDependencySources =
-        {
-            "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer",
-            "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
-            "https://github.com/GlitchEnzo/NuGetForUnity.git?path=src/NuGetForUnity"
-        };
+        private const string VContainerSource = "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer";
+        private const string UniTaskSource = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask";
+        private const string NuGetForUnitySource = "https://github.com/GlitchEnzo/NuGetForUnity.git?path=src/NuGetForUnity";
+        private const string AddressablesSource = "com.unity.addressables@2.8.1";
+        private const string LocalizationSource = "com.unity.localization@1.5.9";
+        private const string InputSystemSource = "com.unity.inputsystem@1.7.0";
+        private const string UguiSource = "com.unity.ugui@2.0.0";
 
         private static readonly string[] StructureFolders =
         {
@@ -69,10 +63,18 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _structureReady;
         private bool _r3Ready;
         private bool _observableCollectionsReady;
+        private bool _vContainerInstalled;
+        private bool _uniTaskInstalled;
+        private bool _nuGetForUnityInstalled;
+        private bool _addressablesInstalled;
+        private bool _localizationInstalled;
+        private bool _inputSystemInstalled;
+        private bool _uguiInstalled;
         private bool _isRefreshingState;
+        private bool _isInstalling;
         private string _statusLine = "Ready";
 
-        [MenuItem("Tools/EvoTools/evo.infrastructure/Setup Wizard")]
+        [MenuItem("EvoTools/Setup")]
         public static void OpenWindow()
         {
             var window = GetWindow<InfrastructureSetupWizardWindow>("Evo Setup");
@@ -95,6 +97,7 @@ namespace Evo.Infrastructure.Core.Editor
         private void OnGUI()
         {
             DrawHeader();
+            DrawProgress();
             DrawState();
             GUILayout.Space(10f);
             DrawActions();
@@ -112,6 +115,13 @@ namespace Evo.Infrastructure.Core.Editor
         {
             EditorGUILayout.Space(8f);
             DrawStatusRow("Dependencies installed", _dependenciesInstalled);
+            DrawStatusRow("VContainer installed", _vContainerInstalled);
+            DrawStatusRow("UniTask installed", _uniTaskInstalled);
+            DrawStatusRow("NuGetForUnity installed", _nuGetForUnityInstalled);
+            DrawStatusRow("Addressables installed", _addressablesInstalled);
+            DrawStatusRow("Localization installed", _localizationInstalled);
+            DrawStatusRow("Input System installed", _inputSystemInstalled);
+            DrawStatusRow("UGUI installed", _uguiInstalled);
             DrawStatusRow("R3 installed", _r3Ready);
             DrawStatusRow("ObservableCollections installed", _observableCollectionsReady);
             DrawStatusRow("Project structure created", _structureReady);
@@ -132,42 +142,82 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void DrawActions()
         {
+            var depsDone = _dependenciesInstalled;
+            var canInstallDeps = !_isInstalling;
             DrawActionButton(
-                "1) Install Dependencies",
-                "Install VContainer, UniTask and NuGetForUnity.",
-                true,
+                depsDone ? "1) Install Dependencies (Already done)" : "1) Install Dependencies",
+                depsDone
+                    ? "Dependencies already installed."
+                    : "Install all missing dependencies in sequence (add -> wait -> next): VContainer, UniTask, NuGetForUnity, Addressables, Localization, InputSystem, UGUI.",
+                !depsDone && canInstallDeps,
                 InstallDependencies);
 
             DrawActionButton(
-                "2) Create Project Structure",
-                "Create base folders under Assets/_Project.",
-                true,
+                _vContainerInstalled ? "1.1) Install VContainer (Already done)" : "1.1) Install VContainer",
+                _vContainerInstalled
+                    ? "VContainer is already installed."
+                    : "Install VContainer from Git URL.",
+                !_vContainerInstalled && canInstallDeps,
+                InstallVContainer);
+
+            DrawActionButton(
+                _uniTaskInstalled ? "1.2) Install UniTask (Already done)" : "1.2) Install UniTask",
+                _uniTaskInstalled
+                    ? "UniTask is already installed."
+                    : "Install UniTask from Git URL.",
+                !_uniTaskInstalled && canInstallDeps,
+                InstallUniTask);
+
+            DrawActionButton(
+                _nuGetForUnityInstalled ? "1.3) Install NuGetForUnity (Already done)" : "1.3) Install NuGetForUnity",
+                _nuGetForUnityInstalled
+                    ? "NuGetForUnity is already installed."
+                    : "Install NuGetForUnity from Git URL.",
+                !_nuGetForUnityInstalled && canInstallDeps,
+                InstallNuGetForUnity);
+
+            var structureDone = _structureReady;
+            DrawActionButton(
+                structureDone ? "2) Create Project Structure (Already done)" : "2) Create Project Structure",
+                structureDone
+                    ? "Project folder structure is already ready."
+                    : "Create base folders under Assets/_Project.",
+                !structureDone,
                 CreateProjectStructure);
 
-            var canInstallR3 = _dependenciesInstalled;
+            var r3Done = _r3Ready;
+            var canInstallR3 = _dependenciesInstalled && !r3Done && !_isInstalling;
             DrawActionButton(
-                "3) Install R3 (Git URL)",
-                canInstallR3
-                    ? "Install R3 Unity package from Git URL."
-                    : "Requires: Step 1 (Install Dependencies).",
+                r3Done ? "3) Install R3 (Git URL) (Already done)" : "3) Install R3 (Git URL)",
+                r3Done
+                    ? "R3 is already installed."
+                    : canInstallR3
+                        ? "Install R3 Unity package from Git URL."
+                        : "Requires: Step 1 (Install Dependencies).",
                 canInstallR3,
                 InstallR3FromGit);
 
-            var canInstallRuntime = _dependenciesInstalled && _r3Ready && _observableCollectionsReady;
+            var runtimeDone = _runtimeInstalled;
+            var canInstallRuntime = _dependenciesInstalled && _r3Ready && _observableCollectionsReady && !runtimeDone && !_isInstalling;
             DrawActionButton(
-                "4) Install Infrastructure Runtime",
-                canInstallRuntime
-                    ? "Install runtime package from Git tag."
-                    : "Requires: Step 1 + R3 + ObservableCollections.",
+                runtimeDone ? "4) Install Infrastructure Runtime (Already done)" : "4) Install Infrastructure Runtime",
+                runtimeDone
+                    ? "Infrastructure runtime is already installed."
+                    : canInstallRuntime
+                        ? "Install runtime package from Git tag."
+                        : "Requires: Step 1 + R3 + ObservableCollections.",
                 canInstallRuntime,
                 InstallRuntimePackage);
 
-            var canSetupScaffold = _dependenciesInstalled && _r3Ready && _observableCollectionsReady && _runtimeInstalled;
+            var scaffoldDone = HasStarterScaffold();
+            var canSetupScaffold = _dependenciesInstalled && _r3Ready && _observableCollectionsReady && _runtimeInstalled && !scaffoldDone && !_isInstalling;
             DrawActionButton(
-                "5) Setup Starter Runtime Scaffold",
-                canSetupScaffold
-                    ? "Create starter scenes, configs and build settings."
-                    : "Requires: Step 4 (Infrastructure Runtime installed).",
+                scaffoldDone ? "5) Setup Starter Runtime Scaffold (Already done)" : "5) Setup Starter Runtime Scaffold",
+                scaffoldDone
+                    ? "Starter runtime scaffold is already created."
+                    : canSetupScaffold
+                        ? "Create starter scenes, configs and build settings."
+                        : "Requires: Step 4 (Infrastructure Runtime installed).",
                 canSetupScaffold,
                 SetupStarterRuntimeScaffold);
 
@@ -202,24 +252,57 @@ namespace Evo.Infrastructure.Core.Editor
         private void InstallDependencies()
         {
             _installQueue.Clear();
-            for (var i = 0; i < RequiredDependencySources.Length; i++)
-            {
-                _installQueue.Enqueue(RequiredDependencySources[i]);
-            }
+            if (!_vContainerInstalled) _installQueue.Enqueue(VContainerSource);
+            if (!_uniTaskInstalled) _installQueue.Enqueue(UniTaskSource);
+            if (!_nuGetForUnityInstalled) _installQueue.Enqueue(NuGetForUnitySource);
+            if (!_addressablesInstalled) _installQueue.Enqueue(AddressablesSource);
+            if (!_localizationInstalled) _installQueue.Enqueue(LocalizationSource);
+            if (!_inputSystemInstalled) _installQueue.Enqueue(InputSystemSource);
+            if (!_uguiInstalled) _installQueue.Enqueue(UguiSource);
 
-            _statusLine = "Installing dependencies (VContainer, UniTask, NuGetForUnity)...";
+            _isInstalling = _installQueue.Count > 0;
+            _statusLine = "Installing dependencies (VContainer, UniTask, NuGetForUnity, Addressables, Localization, InputSystem, UGUI)...";
+        }
+
+        private void InstallVContainer()
+        {
+            EnqueueSingleInstall(VContainerSource, "Installing VContainer...");
+        }
+
+        private void InstallUniTask()
+        {
+            EnqueueSingleInstall(UniTaskSource, "Installing UniTask...");
+        }
+
+        private void InstallNuGetForUnity()
+        {
+            EnqueueSingleInstall(NuGetForUnitySource, "Installing NuGetForUnity...");
         }
 
         private void InstallRuntimePackage()
         {
             _installQueue.Enqueue($"{RuntimeGitUrl}#{RuntimeGitTag}");
+            _isInstalling = true;
             _statusLine = $"Installing runtime package from git tag {RuntimeGitTag}...";
         }
 
         private void InstallR3FromGit()
         {
             _installQueue.Enqueue(R3GitUrl);
+            _isInstalling = true;
             _statusLine = "Installing R3 from Git URL...";
+        }
+
+        private void EnqueueSingleInstall(string source, string status)
+        {
+            if (_isInstalling)
+            {
+                return;
+            }
+
+            _installQueue.Enqueue(source);
+            _isInstalling = true;
+            _statusLine = status;
         }
 
         private void CreateProjectStructure()
@@ -370,6 +453,7 @@ namespace Evo.Infrastructure.Core.Editor
             {
                 if (!_addRequest.IsCompleted)
                 {
+                    _isInstalling = true;
                     return;
                 }
 
@@ -389,7 +473,16 @@ namespace Evo.Infrastructure.Core.Editor
             if (_addRequest == null && _installQueue.Count > 0)
             {
                 var source = _installQueue.Dequeue();
+                _statusLine = $"Installing package: {source}";
+                _isInstalling = true;
                 _addRequest = Client.Add(source);
+                Repaint();
+                return;
+            }
+
+            if (_addRequest == null && _installQueue.Count == 0)
+            {
+                _isInstalling = false;
             }
         }
 
@@ -416,7 +509,20 @@ namespace Evo.Infrastructure.Core.Editor
             if (_listRequest.Status == StatusCode.Success)
             {
                 var names = new HashSet<string>(_listRequest.Result.Select(x => x.name), StringComparer.OrdinalIgnoreCase);
-                _dependenciesInstalled = RequiredDependencyIds.All(names.Contains);
+                _vContainerInstalled = HasAnyPackage(names, "jp.hadashikick.vcontainer", "vcontainer");
+                _uniTaskInstalled = HasAnyPackage(names, "com.cysharp.unitask", "unitask");
+                _nuGetForUnityInstalled = HasAnyPackage(names, "com.github-glitchenzo.nugetforunity", "com.github-glitchenzo.nuget-for-unity", "nugetforunity");
+                _addressablesInstalled = HasAnyPackage(names, "com.unity.addressables", "addressables");
+                _localizationInstalled = HasAnyPackage(names, "com.unity.localization", "localization");
+                _inputSystemInstalled = HasAnyPackage(names, "com.unity.inputsystem", "inputsystem");
+                _uguiInstalled = HasAnyPackage(names, "com.unity.ugui", "ugui");
+                _dependenciesInstalled = _vContainerInstalled &&
+                                         _uniTaskInstalled &&
+                                         _nuGetForUnityInstalled &&
+                                         _addressablesInstalled &&
+                                         _localizationInstalled &&
+                                         _inputSystemInstalled &&
+                                         _uguiInstalled;
                 _runtimeInstalled = names.Contains(RuntimePackageName);
                 _r3Ready = IsAssemblyLoaded("R3");
                 _observableCollectionsReady = IsAssemblyLoaded("ObservableCollections");
@@ -425,6 +531,23 @@ namespace Evo.Infrastructure.Core.Editor
             _structureReady = HasProjectStructure();
             _isRefreshingState = false;
             Repaint();
+        }
+
+        private void DrawProgress()
+        {
+            if (!_isInstalling && _addRequest == null && _installQueue.Count == 0)
+            {
+                return;
+            }
+
+            EditorGUILayout.Space(6f);
+            EditorGUILayout.LabelField("Processing...", EditorStyles.boldLabel);
+            var label = _addRequest != null
+                ? "Installing package..."
+                : _installQueue.Count > 0
+                    ? $"Queued packages: {_installQueue.Count}"
+                    : "Finalizing...";
+            EditorGUILayout.HelpBox(label, MessageType.None);
         }
 
         private bool HasProjectStructure()
@@ -481,6 +604,33 @@ namespace Evo.Infrastructure.Core.Editor
                 if (string.Equals(name, assemblyName, StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasAnyPackage(HashSet<string> names, params string[] candidates)
+        {
+            for (var i = 0; i < candidates.Length; i++)
+            {
+                var candidate = candidates[i];
+                if (string.IsNullOrWhiteSpace(candidate))
+                {
+                    continue;
+                }
+
+                if (names.Contains(candidate))
+                {
+                    return true;
+                }
+
+                foreach (var name in names)
+                {
+                    if (name.IndexOf(candidate, StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return true;
+                    }
                 }
             }
 

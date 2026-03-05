@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.core",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "displayName": "Evo Infrastructure Core (Installer)",
   "description": "Bootstrap installer and project setup wizard for Evo infrastructure.",
   "unity": "2022.3",
