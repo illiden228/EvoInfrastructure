@@ -1,16 +1,10 @@
 {
   "name": "com.evo.infrastructure.core",
-  "version": "0.1.1",
-  "displayName": "Evo Infrastructure Core",
-  "description": "Core runtime infrastructure: loading pipeline, scene flow, resource/config/ui abstractions and base services.",
+  "version": "0.2.1",
+  "displayName": "Evo Infrastructure Core (Installer)",
+  "description": "Bootstrap installer and project setup wizard for Evo infrastructure.",
   "unity": "2022.3",
   "author": {
     "name": "Evo"
-  },
-  "dependencies": {
-    "com.unity.addressables": "2.8.1",
-    "com.unity.localization": "1.5.9",
-    "com.unity.inputsystem": "1.7.0",
-    "com.unity.ugui": "2.0.0"
   }
 }

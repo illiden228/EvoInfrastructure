@@ -1,6 +1,6 @@
 # com.evo.infrastructure.yandex
 
-Yandex-specific integrations for `com.evo.infrastructure.core`:
+Yandex-specific integrations for `com.evo.infrastructure.runtime`:
 
 - Yandex ads adapter/factory
 - Yandex analytics adapter

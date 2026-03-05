@@ -1,7 +1,7 @@
 {
   "name": "Evo.Infrastructure.Yandex",
   "references": [
-    "Evo.Infrastructure.Core",
+    "Evo.Infrastructure.Runtime",
     "UniTask"
   ],
   "includePlatforms": [],

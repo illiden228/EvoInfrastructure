@@ -9,6 +9,7 @@ on:
         type: choice
         options:
           - core
+          - runtime
           - yandex
 
 jobs:
@@ -27,6 +28,13 @@ jobs:
       - name: Publish core
         if: ${{ github.event.inputs.package == 'core' }}
         working-directory: Packages/com.evo.infrastructure.core
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish runtime
+        if: ${{ github.event.inputs.package == 'runtime' }}
+        working-directory: Packages/com.evo.infrastructure.runtime
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

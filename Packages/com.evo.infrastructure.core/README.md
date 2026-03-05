@@ -1,15 +1,15 @@
 # com.evo.infrastructure.core
 
-Core infrastructure package for Unity:
+Installer/bootstrap package.
 
-- DI bootstrap (`RuntimeProjectLifetimeScope`, `RuntimeEntryPoint`)
-- Loading pipeline and loading steps contracts
-- Scene loading abstractions
-- Resource/config/localization/audio/ui base services
+After installing this package open:
+`Tools/Evo/Infrastructure Setup Wizard`
 
-## Notes
+Wizard steps:
+1. Install dependencies (VContainer, UniTask, NuGetForUnity)
+2. Create project folder structure
+3. Install main infrastructure package (`com.evo.infrastructure.runtime`) from git tag
+4. Create starter runtime scaffold (scenes + basic assets)
 
-- Some code still uses original namespaces from source project.
-- Odin-specific inspector attributes are wrapped with `#if ODIN_INSPECTOR`.
-- Add these dependencies in the consumer project's `Packages/manifest.json`:
-`jp.hadashikick.vcontainer`, `com.cysharp.r3`, `com.cysharp.unitask`.
+Note:
+- Install `R3` (and `ObservableCollections` if needed) using NuGetForUnity before step 3.
