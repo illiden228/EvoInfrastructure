@@ -546,6 +546,7 @@ namespace Evo.Infrastructure.Core.Editor
 
                 _addRequest = null;
                 RefreshState();
+                QueueRefreshBurst();
             }
 
             if (_addRequest == null && _installQueue.Count > 0)
@@ -587,13 +588,20 @@ namespace Evo.Infrastructure.Core.Editor
             if (_listRequest.Status == StatusCode.Success)
             {
                 var packages = _listRequest.Result.ToList();
-                _vContainerInstalled = HasAnyPackage(packages, "jp.hadashikick.vcontainer", "vcontainer");
-                _uniTaskInstalled = HasAnyPackage(packages, "com.cysharp.unitask", "unitask");
-                _nuGetForUnityInstalled = HasAnyPackage(packages, "com.github-glitchenzo.nugetforunity", "com.github-glitchenzo.nuget-for-unity", "nugetforunity");
-                _addressablesInstalled = HasAnyPackage(packages, "com.unity.addressables", "addressables");
-                _localizationInstalled = HasAnyPackage(packages, "com.unity.localization", "localization");
-                _inputSystemInstalled = HasAnyPackage(packages, "com.unity.inputsystem", "inputsystem");
-                _uguiInstalled = HasAnyPackage(packages, "com.unity.ugui", "ugui");
+                _vContainerInstalled = HasAnyPackage(packages, "jp.hadashikick.vcontainer", "vcontainer") ||
+                                       ManifestHasAnyDependency("jp.hadashikick.vcontainer");
+                _uniTaskInstalled = HasAnyPackage(packages, "com.cysharp.unitask", "unitask") ||
+                                    ManifestHasAnyDependency("com.cysharp.unitask");
+                _nuGetForUnityInstalled = HasAnyPackage(packages, "com.github-glitchenzo.nugetforunity", "com.github-glitchenzo.nuget-for-unity", "nugetforunity") ||
+                                          ManifestHasAnyDependency("com.github-glitchenzo.nugetforunity", "com.github-glitchenzo.nuget-for-unity");
+                _addressablesInstalled = HasAnyPackage(packages, "com.unity.addressables", "addressables") ||
+                                         ManifestHasAnyDependency("com.unity.addressables");
+                _localizationInstalled = HasAnyPackage(packages, "com.unity.localization", "localization") ||
+                                         ManifestHasAnyDependency("com.unity.localization");
+                _inputSystemInstalled = HasAnyPackage(packages, "com.unity.inputsystem", "inputsystem") ||
+                                        ManifestHasAnyDependency("com.unity.inputsystem");
+                _uguiInstalled = HasAnyPackage(packages, "com.unity.ugui", "ugui") ||
+                                 ManifestHasAnyDependency("com.unity.ugui");
                 _dependenciesInstalled = _vContainerInstalled &&
                                          _uniTaskInstalled &&
                                          _nuGetForUnityInstalled &&
@@ -601,7 +609,8 @@ namespace Evo.Infrastructure.Core.Editor
                                          _localizationInstalled &&
                                          _inputSystemInstalled &&
                                          _uguiInstalled;
-                _runtimeInstalled = HasAnyPackage(packages, RuntimePackageName, "com.evo.infrastructure.runtime");
+                _runtimeInstalled = HasAnyPackage(packages, RuntimePackageName, "com.evo.infrastructure.runtime") ||
+                                    ManifestHasAnyDependency(RuntimePackageName);
                 ReadReactivePackagesConfig(out _r3InPackagesConfig, out _observableCollectionsInPackagesConfig);
                 _r3Ready = IsAssemblyLoaded("R3");
                 _observableCollectionsReady = IsAssemblyLoaded("ObservableCollections");
@@ -681,6 +690,51 @@ namespace Evo.Infrastructure.Core.Editor
             {
                 var name = assemblies[i].GetName().Name;
                 if (string.Equals(name, assemblyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ManifestHasAnyDependency(params string[] packageNames)
+        {
+            if (packageNames == null || packageNames.Length == 0)
+            {
+                return false;
+            }
+
+            var path = Path.Combine(Directory.GetCurrentDirectory(), "Packages", "manifest.json");
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            string json;
+            try
+            {
+                json = File.ReadAllText(path);
+            }
+            catch
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(json))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < packageNames.Length; i++)
+            {
+                var packageName = packageNames[i];
+                if (string.IsNullOrWhiteSpace(packageName))
+                {
+                    continue;
+                }
+
+                if (json.IndexOf($"\"{packageName}\"", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     return true;
                 }
@@ -823,6 +877,12 @@ namespace Evo.Infrastructure.Core.Editor
                     Debug.Log("[Evo Setup] NuGet restore menu not found. Run restore manually in NuGetForUnity if needed.");
                 }
             };
+        }
+
+        private void QueueRefreshBurst()
+        {
+            EditorApplication.delayCall += RefreshState;
+            EditorApplication.delayCall += () => EditorApplication.delayCall += RefreshState;
         }
     }
 }
