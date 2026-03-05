@@ -15,7 +15,7 @@ namespace Evo.Infrastructure.Core.Editor
     public sealed class InfrastructureSetupWizardWindow : EditorWindow
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
-        private const string RuntimeGitTag = "v0.2.0";
+        private const string RuntimeGitTag = "v0.3.1";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
         private const string R3GitUrl = "https://github.com/Cysharp/R3.git?path=src/R3.Unity/Assets/R3.Unity";
         private const string EntryScenePath = "Assets/_Project/Scenes/EntryPointScene.unity";

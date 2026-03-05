@@ -10,7 +10,7 @@ UPM monorepo with split packages:
 
 1. Add scoped registry and package dependency to `Packages/manifest.json`.
 2. Install `com.evo.infrastructure.core`.
-3. Open `Tools/Evo/Infrastructure Setup Wizard` and run steps.
+3. Open `Tools/EvoTools/evo.infrastructure/Setup Wizard` and run steps.
 4. Install Yandex plugin only if you use `com.evo.infrastructure.yandex`.
 
 Example snippet is in:

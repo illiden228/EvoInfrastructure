@@ -9,6 +9,6 @@
     }
   ],
   "dependencies": {
-    "com.evo.infrastructure.core": "0.2.1"
+    "com.evo.infrastructure.core": "0.3.1"
   }
 }

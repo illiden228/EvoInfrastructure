@@ -1,12 +1,13 @@
 #if UNITY_EDITOR
 using UnityEditor;
+using UnityEngine;
 
 namespace Evo.Infrastructure.Core.Editor
 {
     [InitializeOnLoad]
     internal static class InfrastructureSetupWizardBootstrap
     {
-        private const string PromptKey = "Evo.Infrastructure.Core.SetupPromptShown";
+        private const string PromptKeyPrefix = "Evo.Infrastructure.Core.SetupPromptShown.";
 
         static InfrastructureSetupWizardBootstrap()
         {
@@ -15,7 +16,8 @@ namespace Evo.Infrastructure.Core.Editor
 
         private static void TryShowPrompt()
         {
-            if (EditorPrefs.GetBool(PromptKey, false))
+            var promptKey = PromptKeyPrefix + Application.dataPath.GetHashCode();
+            if (EditorPrefs.GetBool(promptKey, false))
             {
                 return;
             }
@@ -26,7 +28,7 @@ namespace Evo.Infrastructure.Core.Editor
                 "Open Wizard",
                 "Later");
 
-            EditorPrefs.SetBool(PromptKey, true);
+            EditorPrefs.SetBool(promptKey, true);
             if (open)
             {
                 InfrastructureSetupWizardWindow.OpenWindow();

@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.runtime",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "displayName": "Evo Infrastructure Runtime",
   "description": "Main Evo runtime infrastructure package: loading pipeline, scene flow, services and UI runtime.",
   "unity": "2022.3",
