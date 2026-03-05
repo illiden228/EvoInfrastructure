@@ -1,0 +1,61 @@
+using System.Collections.Generic;
+using System.Threading;
+using _Project.Scripts.Application.Config;
+using _Project.Scripts.Application.Loading;
+using _Project.Scripts.Infrastructure.AddressablesExtension;
+using _Project.Scripts.Infrastructure.Services.Config;
+using Cysharp.Threading.Tasks;
+using UnityEngine.SceneManagement;
+using VContainer.Unity;
+
+namespace _Project.Scripts.Runtime.Bootstrap
+{
+    public sealed class RuntimeEntryPoint : IAsyncStartable
+    {
+        private readonly IReadOnlyList<ILoadingStep> _steps;
+        private readonly ILoadingProgress _progress;
+        private readonly LoadingRunner _runner;
+        private readonly ISceneLoadingPipeline _sceneLoadingPipeline;
+        private readonly IConfigService _configService;
+
+        public RuntimeEntryPoint(
+            IReadOnlyList<ILoadingStep> steps,
+            ISceneLoadingPipeline sceneLoadingPipeline,
+            IConfigService configService,
+            ILoadingProgress progress)
+        {
+            _steps = steps;
+            _progress = progress;
+            _runner = new LoadingRunner();
+            _sceneLoadingPipeline = sceneLoadingPipeline;
+            _configService = configService;
+        }
+
+        public async UniTask StartAsync(CancellationToken cancellationToken)
+        {
+            var allSteps = new List<ILoadingStep>();
+            if (_steps != null)
+            {
+                allSteps.AddRange(_steps);
+            }
+
+            var startupScene = GetStartupScene();
+            if (startupScene != null && !string.IsNullOrEmpty(startupScene.AssetGUID) && _sceneLoadingPipeline != null)
+            {
+                allSteps.AddRange(_sceneLoadingPipeline.CreateSteps(startupScene, LoadSceneMode.Single));
+            }
+
+            await _runner.RunAsync(allSteps, _progress, cancellationToken);
+        }
+
+        private AssetReferenceScene GetStartupScene()
+        {
+            if (_configService != null && _configService.TryGet<ProjectConfig>(out var config))
+            {
+                return config?.StartupScene;
+            }
+
+            return null;
+        }
+    }
+}

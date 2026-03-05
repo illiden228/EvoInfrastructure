@@ -1,0 +1,14 @@
+{
+  "scopedRegistries": [
+    {
+      "name": "evo",
+      "url": "https://registry.npmjs.org",
+      "scopes": [
+        "com.evo"
+      ]
+    }
+  ],
+  "dependencies": {
+    "com.evo.infrastructure.yandex": "0.1.0"
+  }
+}

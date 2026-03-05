@@ -1,0 +1,13 @@
+{
+  "name": "com.evo.infrastructure.yandex",
+  "version": "0.1.0",
+  "displayName": "Evo Infrastructure Yandex",
+  "description": "Yandex integrations for Evo infrastructure: ads, analytics, leaderboard, save and platform info provider.",
+  "unity": "2022.3",
+  "author": {
+    "name": "Evo"
+  },
+  "dependencies": {
+    "com.evo.infrastructure.core": "0.1.0"
+  }
+}
