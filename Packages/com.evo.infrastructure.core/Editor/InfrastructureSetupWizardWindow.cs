@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
@@ -15,9 +16,12 @@ namespace Evo.Infrastructure.Core.Editor
     public sealed class InfrastructureSetupWizardWindow : EditorWindow
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
-        private const string RuntimeGitTag = "v0.3.2";
+        private const string RuntimeGitTag = "v0.3.3";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
-        private const string R3GitUrl = "https://github.com/Cysharp/R3.git?path=src/R3.Unity/Assets/R3.Unity";
+        private const string R3NuGetId = "R3";
+        private const string R3NuGetVersion = "1.3.0";
+        private const string ObservableCollectionsNuGetId = "ObservableCollections";
+        private const string ObservableCollectionsNuGetVersion = "3.3.4";
         private const string EntryScenePath = "Assets/_Project/Scenes/EntryPointScene.unity";
         private const string LoadingScenePath = "Assets/_Project/Scenes/LoadingScene.unity";
         private const string TransitionScenePath = "Assets/_Project/Scenes/TransitionScene.unity";
@@ -63,6 +67,8 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _structureReady;
         private bool _r3Ready;
         private bool _observableCollectionsReady;
+        private bool _r3InPackagesConfig;
+        private bool _observableCollectionsInPackagesConfig;
         private bool _vContainerInstalled;
         private bool _uniTaskInstalled;
         private bool _nuGetForUnityInstalled;
@@ -122,6 +128,8 @@ namespace Evo.Infrastructure.Core.Editor
             DrawStatusRow("Localization installed", _localizationInstalled);
             DrawStatusRow("Input System installed", _inputSystemInstalled);
             DrawStatusRow("UGUI installed", _uguiInstalled);
+            DrawStatusRow("R3 in packages.config", _r3InPackagesConfig);
+            DrawStatusRow("ObservableCollections in packages.config", _observableCollectionsInPackagesConfig);
             DrawStatusRow("R3 installed", _r3Ready);
             DrawStatusRow("ObservableCollections installed", _observableCollectionsReady);
             DrawStatusRow("Project structure created", _structureReady);
@@ -185,17 +193,20 @@ namespace Evo.Infrastructure.Core.Editor
                 !structureDone,
                 CreateProjectStructure);
 
-            var r3Done = _r3Ready;
-            var canInstallR3 = _dependenciesInstalled && !r3Done && !_isInstalling;
+            var reactiveRequested = _r3InPackagesConfig && _observableCollectionsInPackagesConfig;
+            var r3Done = _r3Ready && _observableCollectionsReady;
+            var canInstallR3 = _dependenciesInstalled && _nuGetForUnityInstalled && !reactiveRequested && !r3Done && !_isInstalling;
             DrawActionButton(
-                r3Done ? "3) Install R3 (Git URL) (Already done)" : "3) Install R3 (Git URL)",
+                r3Done || reactiveRequested ? "3) Install R3 + ObservableCollections (NuGet) (Already done)" : "3) Install R3 + ObservableCollections (NuGet)",
                 r3Done
-                    ? "R3 is already installed."
+                    ? "R3 and ObservableCollections are installed."
+                    : reactiveRequested
+                        ? "R3 and ObservableCollections are already requested in packages.config."
                     : canInstallR3
-                        ? "Install R3 Unity package from Git URL."
-                        : "Requires: Step 1 (Install Dependencies).",
+                        ? "Add R3 and ObservableCollections to packages.config for NuGetForUnity restore."
+                        : "Requires: Step 1 and NuGetForUnity installed.",
                 canInstallR3,
-                InstallR3FromGit);
+                InstallReactiveFromNuGet);
 
             var runtimeDone = _runtimeInstalled;
             var canInstallRuntime = _dependenciesInstalled && _r3Ready && _observableCollectionsReady && !runtimeDone && !_isInstalling;
@@ -286,11 +297,31 @@ namespace Evo.Infrastructure.Core.Editor
             _statusLine = $"Installing runtime package from git tag {RuntimeGitTag}...";
         }
 
-        private void InstallR3FromGit()
+        private void InstallReactiveFromNuGet()
         {
-            _installQueue.Enqueue(R3GitUrl);
-            _isInstalling = true;
-            _statusLine = "Installing R3 from Git URL...";
+            if (!_nuGetForUnityInstalled)
+            {
+                _statusLine = "NuGetForUnity is not installed.";
+                return;
+            }
+
+            var packagesConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "packages.config");
+            var document = LoadOrCreatePackagesConfig(packagesConfigPath);
+            var root = document.Root;
+            if (root == null)
+            {
+                root = new XElement("packages");
+                document.Add(root);
+            }
+
+            EnsureNuGetPackage(root, R3NuGetId, R3NuGetVersion);
+            EnsureNuGetPackage(root, ObservableCollectionsNuGetId, ObservableCollectionsNuGetVersion);
+            document.Save(packagesConfigPath);
+
+            AssetDatabase.Refresh();
+            TryInvokeNuGetRestore();
+            _statusLine = "Added R3 and ObservableCollections to packages.config. Waiting for NuGet restore/import...";
+            RefreshState();
         }
 
         private void EnqueueSingleInstall(string source, string status)
@@ -524,6 +555,7 @@ namespace Evo.Infrastructure.Core.Editor
                                          _inputSystemInstalled &&
                                          _uguiInstalled;
                 _runtimeInstalled = names.Contains(RuntimePackageName);
+                ReadReactivePackagesConfig(out _r3InPackagesConfig, out _observableCollectionsInPackagesConfig);
                 _r3Ready = IsAssemblyLoaded("R3");
                 _observableCollectionsReady = IsAssemblyLoaded("ObservableCollections");
             }
@@ -591,7 +623,7 @@ namespace Evo.Infrastructure.Core.Editor
 
             var message =
                 $"Before steps 4 and 5 install missing reactive libraries: {string.Join(", ", missing)}.\n" +
-                "Use 'Install R3 (Git URL)' for R3. Install ObservableCollections via NuGetForUnity.";
+                "Use step 3 to add R3 and ObservableCollections to packages.config via NuGetForUnity.";
             EditorGUILayout.HelpBox(message, MessageType.Warning);
         }
 
@@ -635,6 +667,107 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             return false;
+        }
+
+        private static XDocument LoadOrCreatePackagesConfig(string path)
+        {
+            if (File.Exists(path))
+            {
+                try
+                {
+                    return XDocument.Load(path);
+                }
+                catch
+                {
+                    // Fall through and recreate if file is malformed.
+                }
+            }
+
+            return new XDocument(new XElement("packages"));
+        }
+
+        private static void EnsureNuGetPackage(XElement root, string id, string version)
+        {
+            if (root == null || string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(version))
+            {
+                return;
+            }
+
+            var existing = root.Elements("package")
+                .FirstOrDefault(x => string.Equals((string)x.Attribute("id"), id, StringComparison.OrdinalIgnoreCase));
+
+            if (existing == null)
+            {
+                root.Add(new XElement("package",
+                    new XAttribute("id", id),
+                    new XAttribute("version", version),
+                    new XAttribute("manuallyInstalled", "true")));
+                return;
+            }
+
+            existing.SetAttributeValue("version", version);
+            existing.SetAttributeValue("manuallyInstalled", "true");
+        }
+
+        private static void ReadReactivePackagesConfig(out bool hasR3, out bool hasObservableCollections)
+        {
+            hasR3 = false;
+            hasObservableCollections = false;
+
+            var path = Path.Combine(Directory.GetCurrentDirectory(), "packages.config");
+            if (!File.Exists(path))
+            {
+                return;
+            }
+
+            try
+            {
+                var document = XDocument.Load(path);
+                var root = document.Root;
+                if (root == null)
+                {
+                    return;
+                }
+
+                foreach (var package in root.Elements("package"))
+                {
+                    var id = (string)package.Attribute("id");
+                    if (string.IsNullOrWhiteSpace(id))
+                    {
+                        continue;
+                    }
+
+                    if (string.Equals(id, R3NuGetId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        hasR3 = true;
+                    }
+
+                    if (string.Equals(id, ObservableCollectionsNuGetId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        hasObservableCollections = true;
+                    }
+                }
+            }
+            catch
+            {
+                // Keep defaults as false.
+            }
+        }
+
+        private static void TryInvokeNuGetRestore()
+        {
+            EditorApplication.delayCall += () =>
+            {
+                var invoked =
+                    EditorApplication.ExecuteMenuItem("NuGet/Restore") ||
+                    EditorApplication.ExecuteMenuItem("NuGet/Restore packages") ||
+                    EditorApplication.ExecuteMenuItem("NuGet/Restore Packages");
+
+                if (!invoked)
+                {
+                    Debug.Log("[Evo Setup] NuGet restore menu not found. Run restore manually in NuGetForUnity if needed.");
+                }
+            };
         }
     }
 }
