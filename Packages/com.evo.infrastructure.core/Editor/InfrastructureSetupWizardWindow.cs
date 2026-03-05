@@ -38,18 +38,27 @@ namespace Evo.Infrastructure.Core.Editor
         {
             "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer",
             "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
-            "https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity"
+            "https://github.com/GlitchEnzo/NuGetForUnity.git?path=src/NuGetForUnity"
         };
 
         private static readonly string[] StructureFolders =
         {
             "Assets/_Project",
+            "Assets/_Project/Animations",
+            "Assets/_Project/Audio",
             "Assets/_Project/Scenes",
             "Assets/_Project/Configs",
             "Assets/_Project/Prefabs",
+            "Assets/_Project/Prefabs/UI",
+            "Assets/_Project/Materials",
+            "Assets/_Project/Models",
+            "Assets/_Project/Sprites",
+            "Assets/_Project/Textures",
+            "Assets/_Project/VFX",
+            "Assets/_Project/Fonts",
             "Assets/_Project/Scripts",
             "Assets/_Project/Scripts/Runtime",
-            "Assets/_Project/Scripts/Runtime/Bootstrap"
+            "Assets/_Project/Scripts/Runtime/EntryPoint"
         };
 
         private readonly Queue<string> _installQueue = new();
@@ -63,7 +72,7 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _isRefreshingState;
         private string _statusLine = "Ready";
 
-        [MenuItem("Tools/Evo/Infrastructure Setup Wizard")]
+        [MenuItem("Tools/EvoTools/evo.infrastructure/Setup Wizard")]
         public static void OpenWindow()
         {
             var window = GetWindow<InfrastructureSetupWizardWindow>("Evo Setup");
@@ -123,43 +132,71 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void DrawActions()
         {
-            if (GUILayout.Button("1) Install Dependencies", GUILayout.Height(34f)))
-            {
-                InstallDependencies();
-            }
+            DrawActionButton(
+                "1) Install Dependencies",
+                "Install VContainer, UniTask and NuGetForUnity.",
+                true,
+                InstallDependencies);
 
-            if (GUILayout.Button("2) Create Project Structure", GUILayout.Height(34f)))
-            {
-                CreateProjectStructure();
-            }
+            DrawActionButton(
+                "2) Create Project Structure",
+                "Create base folders under Assets/_Project.",
+                true,
+                CreateProjectStructure);
 
-            if (GUILayout.Button("Install R3 (Git URL)", GUILayout.Height(30f)))
-            {
-                InstallR3FromGit();
-            }
+            var canInstallR3 = _dependenciesInstalled;
+            DrawActionButton(
+                "3) Install R3 (Git URL)",
+                canInstallR3
+                    ? "Install R3 Unity package from Git URL."
+                    : "Requires: Step 1 (Install Dependencies).",
+                canInstallR3,
+                InstallR3FromGit);
 
-            using (new EditorGUI.DisabledScope(!_dependenciesInstalled || !_r3Ready || !_observableCollectionsReady))
-            {
-                if (GUILayout.Button("3) Install Infrastructure Runtime", GUILayout.Height(34f)))
-                {
-                    InstallRuntimePackage();
-                }
-            }
+            var canInstallRuntime = _dependenciesInstalled && _r3Ready && _observableCollectionsReady;
+            DrawActionButton(
+                "4) Install Infrastructure Runtime",
+                canInstallRuntime
+                    ? "Install runtime package from Git tag."
+                    : "Requires: Step 1 + R3 + ObservableCollections.",
+                canInstallRuntime,
+                InstallRuntimePackage);
 
-            using (new EditorGUI.DisabledScope(!_dependenciesInstalled || !_r3Ready || !_observableCollectionsReady || !_runtimeInstalled))
-            {
-                if (GUILayout.Button("4) Setup Starter Runtime Scaffold", GUILayout.Height(34f)))
-                {
-                    SetupStarterRuntimeScaffold();
-                }
-            }
+            var canSetupScaffold = _dependenciesInstalled && _r3Ready && _observableCollectionsReady && _runtimeInstalled;
+            DrawActionButton(
+                "5) Setup Starter Runtime Scaffold",
+                canSetupScaffold
+                    ? "Create starter scenes, configs and build settings."
+                    : "Requires: Step 4 (Infrastructure Runtime installed).",
+                canSetupScaffold,
+                SetupStarterRuntimeScaffold);
 
-            if (GUILayout.Button("Refresh State", GUILayout.Height(26f)))
-            {
-                RefreshState();
-            }
+            DrawActionButton(
+                "Refresh State",
+                "Re-check installed packages and setup status.",
+                true,
+                RefreshState,
+                26f);
 
             DrawReactiveWarning();
+        }
+
+        private void DrawActionButton(string label, string tooltip, bool enabled, Action onClick, float height = 34f)
+        {
+            using (new EditorGUI.DisabledScope(!enabled))
+            {
+                if (GUILayout.Button(new GUIContent(label, tooltip), GUILayout.Height(height)))
+                {
+                    onClick?.Invoke();
+                }
+            }
+
+            var rect = GUILayoutUtility.GetLastRect();
+            if (rect.Contains(Event.current.mousePosition))
+            {
+                _statusLine = tooltip;
+                Repaint();
+            }
         }
 
         private void InstallDependencies()
@@ -430,7 +467,7 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             var message =
-                $"Before steps 3 and 4 install missing reactive libraries: {string.Join(", ", missing)}.\n" +
+                $"Before steps 4 and 5 install missing reactive libraries: {string.Join(", ", missing)}.\n" +
                 "Use 'Install R3 (Git URL)' for R3. Install ObservableCollections via NuGetForUnity.";
             EditorGUILayout.HelpBox(message, MessageType.Warning);
         }
