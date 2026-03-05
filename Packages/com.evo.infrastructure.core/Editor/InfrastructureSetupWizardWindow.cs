@@ -16,7 +16,7 @@ namespace Evo.Infrastructure.Core.Editor
     public sealed class InfrastructureSetupWizardWindow : EditorWindow
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
-        private const string RuntimeGitTag = "v0.3.3";
+        private const string RuntimeGitTag = "v0.3.4";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
         private const string R3NuGetId = "R3";
         private const string R3NuGetVersion = "1.3.0";
@@ -79,6 +79,7 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _isRefreshingState;
         private bool _isInstalling;
         private string _statusLine = "Ready";
+        private Vector2 _scroll;
 
         [MenuItem("EvoTools/Setup")]
         public static void OpenWindow()
@@ -102,6 +103,7 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void OnGUI()
         {
+            _scroll = EditorGUILayout.BeginScrollView(_scroll);
             DrawHeader();
             DrawProgress();
             DrawState();
@@ -109,6 +111,7 @@ namespace Evo.Infrastructure.Core.Editor
             DrawActions();
             GUILayout.Space(8f);
             EditorGUILayout.HelpBox(_statusLine, MessageType.Info);
+            EditorGUILayout.EndScrollView();
         }
 
         private void DrawHeader()
@@ -150,18 +153,10 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void DrawActions()
         {
-            var depsDone = _dependenciesInstalled;
             var canInstallDeps = !_isInstalling;
-            DrawActionButton(
-                depsDone ? "1) Install Dependencies (Already done)" : "1) Install Dependencies",
-                depsDone
-                    ? "Dependencies already installed."
-                    : "Install all missing dependencies in sequence (add -> wait -> next): VContainer, UniTask, NuGetForUnity, Addressables, Localization, InputSystem, UGUI.",
-                !depsDone && canInstallDeps,
-                InstallDependencies);
 
             DrawActionButton(
-                _vContainerInstalled ? "1.1) Install VContainer (Already done)" : "1.1) Install VContainer",
+                _vContainerInstalled ? "1) Install VContainer (Already done)" : "1) Install VContainer",
                 _vContainerInstalled
                     ? "VContainer is already installed."
                     : "Install VContainer from Git URL.",
@@ -169,7 +164,7 @@ namespace Evo.Infrastructure.Core.Editor
                 InstallVContainer);
 
             DrawActionButton(
-                _uniTaskInstalled ? "1.2) Install UniTask (Already done)" : "1.2) Install UniTask",
+                _uniTaskInstalled ? "2) Install UniTask (Already done)" : "2) Install UniTask",
                 _uniTaskInstalled
                     ? "UniTask is already installed."
                     : "Install UniTask from Git URL.",
@@ -177,16 +172,48 @@ namespace Evo.Infrastructure.Core.Editor
                 InstallUniTask);
 
             DrawActionButton(
-                _nuGetForUnityInstalled ? "1.3) Install NuGetForUnity (Already done)" : "1.3) Install NuGetForUnity",
+                _nuGetForUnityInstalled ? "3) Install NuGetForUnity (Already done)" : "3) Install NuGetForUnity",
                 _nuGetForUnityInstalled
                     ? "NuGetForUnity is already installed."
                     : "Install NuGetForUnity from Git URL.",
                 !_nuGetForUnityInstalled && canInstallDeps,
                 InstallNuGetForUnity);
 
+            DrawActionButton(
+                _addressablesInstalled ? "4) Install Addressables (Already done)" : "4) Install Addressables",
+                _addressablesInstalled
+                    ? "Addressables is already installed."
+                    : "Install Unity Addressables package.",
+                !_addressablesInstalled && canInstallDeps,
+                InstallAddressables);
+
+            DrawActionButton(
+                _localizationInstalled ? "5) Install Localization (Already done)" : "5) Install Localization",
+                _localizationInstalled
+                    ? "Localization is already installed."
+                    : "Install Unity Localization package.",
+                !_localizationInstalled && canInstallDeps,
+                InstallLocalization);
+
+            DrawActionButton(
+                _inputSystemInstalled ? "6) Install Input System (Already done)" : "6) Install Input System",
+                _inputSystemInstalled
+                    ? "Input System is already installed."
+                    : "Install Unity Input System package.",
+                !_inputSystemInstalled && canInstallDeps,
+                InstallInputSystem);
+
+            DrawActionButton(
+                _uguiInstalled ? "7) Install UGUI (Already done)" : "7) Install UGUI",
+                _uguiInstalled
+                    ? "UGUI is already installed."
+                    : "Install Unity UGUI package.",
+                !_uguiInstalled && canInstallDeps,
+                InstallUgui);
+
             var structureDone = _structureReady;
             DrawActionButton(
-                structureDone ? "2) Create Project Structure (Already done)" : "2) Create Project Structure",
+                structureDone ? "8) Create Project Structure (Already done)" : "8) Create Project Structure",
                 structureDone
                     ? "Project folder structure is already ready."
                     : "Create base folders under Assets/_Project.",
@@ -197,7 +224,7 @@ namespace Evo.Infrastructure.Core.Editor
             var r3Done = _r3Ready && _observableCollectionsReady;
             var canInstallR3 = _dependenciesInstalled && _nuGetForUnityInstalled && !reactiveRequested && !r3Done && !_isInstalling;
             DrawActionButton(
-                r3Done || reactiveRequested ? "3) Install R3 + ObservableCollections (NuGet) (Already done)" : "3) Install R3 + ObservableCollections (NuGet)",
+                r3Done || reactiveRequested ? "9) Install R3 + ObservableCollections (NuGet) (Already done)" : "9) Install R3 + ObservableCollections (NuGet)",
                 r3Done
                     ? "R3 and ObservableCollections are installed."
                     : reactiveRequested
@@ -211,7 +238,7 @@ namespace Evo.Infrastructure.Core.Editor
             var runtimeDone = _runtimeInstalled;
             var canInstallRuntime = _dependenciesInstalled && _r3Ready && _observableCollectionsReady && !runtimeDone && !_isInstalling;
             DrawActionButton(
-                runtimeDone ? "4) Install Infrastructure Runtime (Already done)" : "4) Install Infrastructure Runtime",
+                runtimeDone ? "10) Install Infrastructure Runtime (Already done)" : "10) Install Infrastructure Runtime",
                 runtimeDone
                     ? "Infrastructure runtime is already installed."
                     : canInstallRuntime
@@ -223,7 +250,7 @@ namespace Evo.Infrastructure.Core.Editor
             var scaffoldDone = HasStarterScaffold();
             var canSetupScaffold = _dependenciesInstalled && _r3Ready && _observableCollectionsReady && _runtimeInstalled && !scaffoldDone && !_isInstalling;
             DrawActionButton(
-                scaffoldDone ? "5) Setup Starter Runtime Scaffold (Already done)" : "5) Setup Starter Runtime Scaffold",
+                scaffoldDone ? "11) Setup Starter Runtime Scaffold (Already done)" : "11) Setup Starter Runtime Scaffold",
                 scaffoldDone
                     ? "Starter runtime scaffold is already created."
                     : canSetupScaffold
@@ -288,6 +315,26 @@ namespace Evo.Infrastructure.Core.Editor
         private void InstallNuGetForUnity()
         {
             EnqueueSingleInstall(NuGetForUnitySource, "Installing NuGetForUnity...");
+        }
+
+        private void InstallAddressables()
+        {
+            EnqueueSingleInstall(AddressablesSource, "Installing Addressables...");
+        }
+
+        private void InstallLocalization()
+        {
+            EnqueueSingleInstall(LocalizationSource, "Installing Localization...");
+        }
+
+        private void InstallInputSystem()
+        {
+            EnqueueSingleInstall(InputSystemSource, "Installing Input System...");
+        }
+
+        private void InstallUgui()
+        {
+            EnqueueSingleInstall(UguiSource, "Installing UGUI...");
         }
 
         private void InstallRuntimePackage()
@@ -539,14 +586,14 @@ namespace Evo.Infrastructure.Core.Editor
             EditorApplication.update -= WaitForList;
             if (_listRequest.Status == StatusCode.Success)
             {
-                var names = new HashSet<string>(_listRequest.Result.Select(x => x.name), StringComparer.OrdinalIgnoreCase);
-                _vContainerInstalled = HasAnyPackage(names, "jp.hadashikick.vcontainer", "vcontainer");
-                _uniTaskInstalled = HasAnyPackage(names, "com.cysharp.unitask", "unitask");
-                _nuGetForUnityInstalled = HasAnyPackage(names, "com.github-glitchenzo.nugetforunity", "com.github-glitchenzo.nuget-for-unity", "nugetforunity");
-                _addressablesInstalled = HasAnyPackage(names, "com.unity.addressables", "addressables");
-                _localizationInstalled = HasAnyPackage(names, "com.unity.localization", "localization");
-                _inputSystemInstalled = HasAnyPackage(names, "com.unity.inputsystem", "inputsystem");
-                _uguiInstalled = HasAnyPackage(names, "com.unity.ugui", "ugui");
+                var packages = _listRequest.Result.ToList();
+                _vContainerInstalled = HasAnyPackage(packages, "jp.hadashikick.vcontainer", "vcontainer");
+                _uniTaskInstalled = HasAnyPackage(packages, "com.cysharp.unitask", "unitask");
+                _nuGetForUnityInstalled = HasAnyPackage(packages, "com.github-glitchenzo.nugetforunity", "com.github-glitchenzo.nuget-for-unity", "nugetforunity");
+                _addressablesInstalled = HasAnyPackage(packages, "com.unity.addressables", "addressables");
+                _localizationInstalled = HasAnyPackage(packages, "com.unity.localization", "localization");
+                _inputSystemInstalled = HasAnyPackage(packages, "com.unity.inputsystem", "inputsystem");
+                _uguiInstalled = HasAnyPackage(packages, "com.unity.ugui", "ugui");
                 _dependenciesInstalled = _vContainerInstalled &&
                                          _uniTaskInstalled &&
                                          _nuGetForUnityInstalled &&
@@ -554,7 +601,7 @@ namespace Evo.Infrastructure.Core.Editor
                                          _localizationInstalled &&
                                          _inputSystemInstalled &&
                                          _uguiInstalled;
-                _runtimeInstalled = names.Contains(RuntimePackageName);
+                _runtimeInstalled = HasAnyPackage(packages, RuntimePackageName, "com.evo.infrastructure.runtime");
                 ReadReactivePackagesConfig(out _r3InPackagesConfig, out _observableCollectionsInPackagesConfig);
                 _r3Ready = IsAssemblyLoaded("R3");
                 _observableCollectionsReady = IsAssemblyLoaded("ObservableCollections");
@@ -642,24 +689,32 @@ namespace Evo.Infrastructure.Core.Editor
             return false;
         }
 
-        private static bool HasAnyPackage(HashSet<string> names, params string[] candidates)
+        private static bool HasAnyPackage(IReadOnlyList<UnityEditor.PackageManager.PackageInfo> packages, params string[] candidates)
         {
-            for (var i = 0; i < candidates.Length; i++)
+            if (packages == null || packages.Count == 0 || candidates == null || candidates.Length == 0)
             {
-                var candidate = candidates[i];
-                if (string.IsNullOrWhiteSpace(candidate))
-                {
-                    continue;
-                }
+                return false;
+            }
 
-                if (names.Contains(candidate))
-                {
-                    return true;
-                }
+            for (var i = 0; i < packages.Count; i++)
+            {
+                var package = packages[i];
+                var name = package != null ? package.name : string.Empty;
+                var packageId = package != null ? package.packageId : string.Empty;
+                var resolvedPath = package != null ? package.resolvedPath : string.Empty;
 
-                foreach (var name in names)
+                for (var j = 0; j < candidates.Length; j++)
                 {
-                    if (name.IndexOf(candidate, StringComparison.OrdinalIgnoreCase) >= 0)
+                    var candidate = candidates[j];
+                    if (string.IsNullOrWhiteSpace(candidate))
+                    {
+                        continue;
+                    }
+
+                    if ((!string.IsNullOrEmpty(name) && name.Equals(candidate, StringComparison.OrdinalIgnoreCase)) ||
+                        (!string.IsNullOrEmpty(name) && name.IndexOf(candidate, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                        (!string.IsNullOrEmpty(packageId) && packageId.IndexOf(candidate, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                        (!string.IsNullOrEmpty(resolvedPath) && resolvedPath.IndexOf(candidate, StringComparison.OrdinalIgnoreCase) >= 0))
                     {
                         return true;
                     }
