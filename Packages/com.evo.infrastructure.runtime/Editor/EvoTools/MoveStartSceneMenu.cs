@@ -72,6 +72,13 @@ namespace _Project.Scripts.Editor.EvoTools
                 return fallback.path;
             }
 
+            var guid = AssetDatabase.FindAssets($"t:Scene {FALLBACK_NAME}")
+                .FirstOrDefault();
+            if (!string.IsNullOrEmpty(guid))
+            {
+                return AssetDatabase.GUIDToAssetPath(guid);
+            }
+
             return null;
         }
     }

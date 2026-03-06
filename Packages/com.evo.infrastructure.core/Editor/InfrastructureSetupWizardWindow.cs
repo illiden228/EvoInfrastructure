@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Xml.Linq;
 using UnityEditor;
@@ -11,13 +12,14 @@ using UnityEditor.PackageManager.Requests;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace Evo.Infrastructure.Core.Editor
 {
     public sealed class InfrastructureSetupWizardWindow : EditorWindow
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
-        private const string RuntimeGitTag = "v0.3.18";
+        private const string RuntimeGitTag = "v0.3.19";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
         private const string R3NuGetId = "R3";
         private const string R3NuGetVersion = "1.3.0";
@@ -446,6 +448,9 @@ namespace Evo.Infrastructure.Core.Editor
             EnsureStarterScripts();
             AssetDatabase.Refresh();
             EnsureDefaultAssets();
+            ConfigureStarterScenes();
+            EnsureMainMenuInAddressables();
+            ConfigureProjectConfigForStarterPipeline();
             EnsureBuildScenes();
             AssetDatabase.Refresh();
             _statusLine = "Starter runtime scaffold created.";
@@ -526,16 +531,14 @@ namespace Evo.Infrastructure.Core.Editor
             var required = new[]
             {
                 EntryScenePath,
-                LoadingScenePath,
-                TransitionScenePath,
-                MenuScenePath
+                TransitionScenePath
             };
 
-            var current = EditorBuildSettings.scenes?.ToList() ?? new List<EditorBuildSettingsScene>();
+            var current = new List<EditorBuildSettingsScene>();
             for (var i = 0; i < required.Length; i++)
             {
                 var path = required[i];
-                if (current.Any(x => string.Equals(x.path, path, StringComparison.OrdinalIgnoreCase)))
+                if (!File.Exists(path))
                 {
                     continue;
                 }
@@ -544,6 +547,357 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             EditorBuildSettings.scenes = current.ToArray();
+        }
+
+        private void ConfigureStarterScenes()
+        {
+            ConfigureEntryPointScene();
+            ConfigureLoadingScene();
+            ConfigureMainMenuScene();
+        }
+
+        private void ConfigureEntryPointScene()
+        {
+            if (!File.Exists(EntryScenePath))
+            {
+                return;
+            }
+
+            var scene = EditorSceneManager.OpenScene(EntryScenePath, OpenSceneMode.Single);
+            var root = GetOrCreateRoot(scene, "EntryPointRoot", null);
+            RemoveCanvasObjects(scene);
+            AddAnyProjectLifetimeScope(root);
+            EditorSceneManager.SaveScene(scene);
+        }
+
+        private void ConfigureLoadingScene()
+        {
+            if (!File.Exists(LoadingScenePath))
+            {
+                return;
+            }
+
+            var scene = EditorSceneManager.OpenScene(LoadingScenePath, OpenSceneMode.Single);
+            DeleteRootByName(scene, "LoadingRoot");
+            EnsureCanvasRoot(scene);
+            EditorSceneManager.SaveScene(scene);
+        }
+
+        private void ConfigureMainMenuScene()
+        {
+            if (!File.Exists(MenuScenePath))
+            {
+                return;
+            }
+
+            var scene = EditorSceneManager.OpenScene(MenuScenePath, OpenSceneMode.Single);
+            var context = GetOrCreateRoot(scene, "Context", "MainMenuRoot");
+            AddComponentIfMissing(context, "SceneLifetimeScope");
+            EditorSceneManager.SaveScene(scene);
+        }
+
+        private static GameObject GetOrCreateRoot(Scene scene, string name, string legacyName)
+        {
+            var roots = scene.GetRootGameObjects();
+            for (var i = 0; i < roots.Length; i++)
+            {
+                var root = roots[i];
+                if (root == null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(root.name, name, StringComparison.Ordinal))
+                {
+                    return root;
+                }
+
+                if (!string.IsNullOrEmpty(legacyName) && string.Equals(root.name, legacyName, StringComparison.Ordinal))
+                {
+                    root.name = name;
+                    return root;
+                }
+            }
+
+            var created = new GameObject(name);
+            SceneManager.MoveGameObjectToScene(created, scene);
+            return created;
+        }
+
+        private static void DeleteRootByName(Scene scene, string name)
+        {
+            var roots = scene.GetRootGameObjects();
+            for (var i = 0; i < roots.Length; i++)
+            {
+                if (roots[i] != null && string.Equals(roots[i].name, name, StringComparison.Ordinal))
+                {
+                    DestroyImmediate(roots[i]);
+                }
+            }
+        }
+
+        private static void EnsureCanvasRoot(Scene scene)
+        {
+            var roots = scene.GetRootGameObjects();
+            for (var i = 0; i < roots.Length; i++)
+            {
+                var root = roots[i];
+                if (root == null)
+                {
+                    continue;
+                }
+
+                var canvas = root.GetComponent<Canvas>();
+                if (canvas == null)
+                {
+                    continue;
+                }
+
+                if (!string.Equals(root.name, "Canvas", StringComparison.Ordinal))
+                {
+                    root.name = "Canvas";
+                }
+
+                EnsureCanvasSetup(root, canvas);
+                return;
+            }
+
+            var canvasRoot = new GameObject("Canvas");
+            var createdCanvas = canvasRoot.AddComponent<Canvas>();
+            EnsureCanvasSetup(canvasRoot, createdCanvas);
+            SceneManager.MoveGameObjectToScene(canvasRoot, scene);
+        }
+
+        private static void EnsureCanvasSetup(GameObject root, Canvas canvas)
+        {
+            if (root == null || canvas == null)
+            {
+                return;
+            }
+
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+            var scaler = root.GetComponent<CanvasScaler>();
+            if (scaler == null)
+            {
+                scaler = root.AddComponent<CanvasScaler>();
+            }
+
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
+            var raycaster = root.GetComponent<GraphicRaycaster>();
+            if (raycaster != null)
+            {
+                DestroyImmediate(raycaster);
+            }
+        }
+
+        private static void RemoveCanvasObjects(Scene scene)
+        {
+            var roots = scene.GetRootGameObjects();
+            for (var i = 0; i < roots.Length; i++)
+            {
+                var root = roots[i];
+                if (root == null)
+                {
+                    continue;
+                }
+
+                if (root.GetComponent<Canvas>() != null || string.Equals(root.name, "Canvas", StringComparison.Ordinal))
+                {
+                    DestroyImmediate(root);
+                }
+            }
+        }
+
+        private static void AddComponentIfMissing(GameObject target, string typeName)
+        {
+            if (target == null || string.IsNullOrWhiteSpace(typeName))
+            {
+                return;
+            }
+
+            var type = FindTypeByName(typeName);
+            if (type == null || !typeof(Component).IsAssignableFrom(type))
+            {
+                return;
+            }
+
+            if (target.GetComponent(type) == null)
+            {
+                target.AddComponent(type);
+            }
+        }
+
+        private static void AddAnyProjectLifetimeScope(GameObject target)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            if (target.GetComponent("RuntimeProjectLifetimeScope") != null)
+            {
+                return;
+            }
+
+            if (TryAddComponentByTypeName(target, "_Project.Scripts.Runtime.EntryPoint.RuntimeProjectLifetimeScope"))
+            {
+                return;
+            }
+
+            TryAddComponentByTypeName(target, "_Project.Scripts.Runtime.Bootstrap.RuntimeProjectLifetimeScope");
+        }
+
+        private static bool TryAddComponentByTypeName(GameObject target, string typeName)
+        {
+            var type = FindTypeByName(typeName);
+            if (type == null || !typeof(Component).IsAssignableFrom(type))
+            {
+                return false;
+            }
+
+            if (target.GetComponent(type) == null)
+            {
+                target.AddComponent(type);
+            }
+
+            return true;
+        }
+
+        private static void EnsureMainMenuInAddressables()
+        {
+            if (!File.Exists(MenuScenePath))
+            {
+                return;
+            }
+
+            var sceneGuid = AssetDatabase.AssetPathToGUID(MenuScenePath);
+            if (string.IsNullOrEmpty(sceneGuid))
+            {
+                return;
+            }
+
+            var settingsType = Type.GetType(
+                "UnityEditor.AddressableAssets.Settings.AddressableAssetSettingsDefaultObject, Unity.Addressables.Editor");
+            if (settingsType == null)
+            {
+                return;
+            }
+
+            var settingsProperty = settingsType.GetProperty("Settings", BindingFlags.Public | BindingFlags.Static);
+            var settings = settingsProperty?.GetValue(null);
+            if (settings == null)
+            {
+                var getSettingsMethod = settingsType
+                    .GetMethods(BindingFlags.Public | BindingFlags.Static)
+                    .FirstOrDefault(m =>
+                    {
+                        if (!string.Equals(m.Name, "GetSettings", StringComparison.Ordinal))
+                        {
+                            return false;
+                        }
+
+                        var p = m.GetParameters();
+                        return p.Length == 1 && p[0].ParameterType == typeof(bool);
+                    });
+
+                settings = getSettingsMethod?.Invoke(null, new object[] { true });
+            }
+            if (settings == null)
+            {
+                return;
+            }
+
+            var defaultGroupProperty = settings.GetType().GetProperty("DefaultGroup", BindingFlags.Public | BindingFlags.Instance);
+            var defaultGroup = defaultGroupProperty?.GetValue(settings);
+            if (defaultGroup == null)
+            {
+                return;
+            }
+
+            var createOrMoveEntryMethod = settings.GetType()
+                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .FirstOrDefault(m =>
+                {
+                    if (!string.Equals(m.Name, "CreateOrMoveEntry", StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+
+                    var p = m.GetParameters();
+                    return p.Length == 4 &&
+                           p[0].ParameterType == typeof(string) &&
+                           p[1].ParameterType.IsInstanceOfType(defaultGroup) &&
+                           p[2].ParameterType == typeof(bool) &&
+                           p[3].ParameterType == typeof(bool);
+                });
+
+            if (createOrMoveEntryMethod == null)
+            {
+                return;
+            }
+
+            var entry = createOrMoveEntryMethod.Invoke(settings, new object[] { sceneGuid, defaultGroup, false, false });
+            if (entry == null)
+            {
+                return;
+            }
+
+            var addressProperty = entry.GetType().GetProperty("address", BindingFlags.Public | BindingFlags.Instance);
+            if (addressProperty != null && addressProperty.CanWrite)
+            {
+                addressProperty.SetValue(entry, "MainMenuScene");
+            }
+
+            AssetDatabase.SaveAssets();
+        }
+
+        private static void ConfigureProjectConfigForStarterPipeline()
+        {
+            var config = AssetDatabase.LoadAssetAtPath<ScriptableObject>(ProjectConfigPath);
+            if (config == null)
+            {
+                return;
+            }
+
+            var startupGuid = AssetDatabase.AssetPathToGUID(MenuScenePath);
+            var loadingGuid = AssetDatabase.AssetPathToGUID(LoadingScenePath);
+            if (string.IsNullOrEmpty(startupGuid) || string.IsNullOrEmpty(loadingGuid))
+            {
+                return;
+            }
+
+            var so = new SerializedObject(config);
+            SetAssetReferenceGuid(so.FindProperty("startupScene"), startupGuid);
+            SetAssetReferenceGuid(so.FindProperty("gameplayScene"), startupGuid);
+            SetAssetReferenceGuid(so.FindProperty("loadingScene"), loadingGuid);
+            var transitionName = so.FindProperty("transitionSceneName");
+            if (transitionName != null)
+            {
+                transitionName.stringValue = Path.GetFileNameWithoutExtension(TransitionScenePath);
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(config);
+            AssetDatabase.SaveAssets();
+        }
+
+        private static void SetAssetReferenceGuid(SerializedProperty property, string guid)
+        {
+            if (property == null || string.IsNullOrEmpty(guid))
+            {
+                return;
+            }
+
+            var guidProperty = property.FindPropertyRelative("m_AssetGUID");
+            if (guidProperty != null)
+            {
+                guidProperty.stringValue = guid;
+            }
         }
 
         private void EnsureFolder(string path)
