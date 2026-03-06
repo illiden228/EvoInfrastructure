@@ -1,0 +1,318 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: EvoTools_en
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.StringTable
+  m_LocaleId:
+    m_Code: en
+  m_SharedData: {fileID: 11400000, guid: 2d9e7d9ac4d44e52a5b5d8f73929ab61, type: 2}
+  m_Metadata:
+    m_Items: []
+  m_TableData:
+  - m_Id: 24934080512
+    m_Localized: Resource Catalog Builder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2195964551168
+    m_Localized: Catalog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2237471383552
+    m_Localized: Catalog Folder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2286653792256
+    m_Localized: Catalog not found. You can create one in the default folder.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2435576750080
+    m_Localized: Create Catalog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2493885964288
+    m_Localized: Find Catalog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2559321300992
+    m_Localized: Import
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2598051504128
+    m_Localized: Assets Folder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2639940018176
+    m_Localized: Include Subfolders
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692033273856
+    m_Localized: Keys
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2729995919360
+    m_Localized: Key Prefix
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2768268943360
+    m_Localized: Options
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2805195595776
+    m_Localized: Overwrite Existing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2888263786496
+    m_Localized: Sprite import creates direct sprite entries (not atlas-based).
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2933021204480
+    m_Localized: Import
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2972372164608
+    m_Localized: ResourceCatalog is not assigned.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3031465713664
+    m_Localized: Assets folder is invalid.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3060993613824
+    m_Localized: 'ResourceCatalog import finished. Added: {0}, Updated: {1}, Skipped:
+      {2}. Folder: {3}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3146163150848
+    m_Localized: Multiple ResourceCatalog assets found in '{0}'. Using the first
+      one.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3179134574592
+    m_Localized: Scene Tools
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3227109023744
+    m_Localized: Filters
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3256494317568
+    m_Localized: Search
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3298340888576
+    m_Localized: Scenes Folder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3338081918976
+    m_Localized: Only In Build
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3382147276800
+    m_Localized: Refresh
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3418293788672
+    m_Localized: In Build
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3455027503104
+    m_Localized: Open
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3552041754624
+    m_Localized: Additive
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3581099892736
+    m_Localized: Close
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4688186433536
+    m_Localized: EvoTools Settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4722068021248
+    m_Localized: Localization
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4771502088192
+    m_Localized: Language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4794709172224
+    m_Localized: Open Localization Tables
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4828355878912
+    m_Localized: Ping EvoTools Localiazation Table
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4868398899200
+    m_Localized: EvoTools table not found.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5762972639232
+    m_Localized: No locales found.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335368
+    m_Localized: Save Tools
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335369
+    m_Localized: Save File Name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335370
+    m_Localized: Save Keys
+    m_Metadata:
+      m_Items: []
+  - m_Id: 28822282952704
+    m_Localized: Configs
+    m_Metadata:
+      m_Items: []
+  - m_Id: 28865383620608
+    m_Localized: Config Settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 28901442052096
+    m_Localized: General
+    m_Metadata:
+      m_Items: []
+  - m_Id: 28963530334208
+    m_Localized: Config Settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 28997634220032
+    m_Localized: Configure folders used for automatic config discovery.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29083617452032
+    m_Localized: Config catalog not found.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29130585268224
+    m_Localized: Rebuild
+    m_Metadata:
+      m_Items: []
+  - m_Id: 383805675266048
+    m_Localized: Create Missing Configs
+    m_Metadata:
+      m_Items: []
+  - m_Id: 383858032762880
+    m_Localized: Show Catalog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 812970501201920
+    m_Localized: Units per second.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813540649721856
+    m_Localized: Degrees per second.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813573893775360
+    m_Localized: Negative gravity acceleration.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813615144755200
+    m_Localized: Maximum falling speed.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813674242498560
+    m_Localized: Downward snap speed while grounded.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813771302887424
+    m_Localized: Character dies when below this height.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813814600687616
+    m_Localized: How often bot picks a new wander direction.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813886868545536
+    m_Localized: Steering intensity.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813937145667584
+    m_Localized: Smoothing delay towards target.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813992208490496
+    m_Localized: How much random wander is added.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814059535458304
+    m_Localized: Forward check distance.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335360
+    m_Localized: Raycast length to detect missing ground.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335361
+    m_Localized: Add tooltip text for keys in EvoTools localization table. Use Tooltip Key to reference it.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335362
+    m_Localized: Localization key in EvoTools table for tooltip. Leave empty to use Comment.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335363
+    m_Localized: Define adapter ids and tooltips. Use this catalog for dropdowns.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335364
+    m_Localized: Localization key in EvoTools table for tooltip. Leave empty to use Comment.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335365
+    m_Localized: Optional override. Leave empty to use default adapter id from code.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335366
+    m_Localized: Add tooltip text to EvoTools localization table for parameter keys.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335367
+    m_Localized: Value for the parameter key. Add tooltip text to EvoTools localization if needed.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335371
+    m_Localized: Clear Save
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335372
+    m_Localized: Delete local profile save file and cached save keys?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335373
+    m_Localized: Clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335374
+    m_Localized: Cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335375
+    m_Localized: Save cleared.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335376
+    m_Localized: Save was already clean.
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds: []
+

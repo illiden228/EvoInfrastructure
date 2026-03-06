@@ -1,0 +1,320 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: EvoTools Shared Data
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.SharedTableData
+  m_TableCollectionName: EvoTools
+  m_TableCollectionNameGuidString: 2d9e7d9ac4d44e52a5b5d8f73929ab61
+  m_Entries:
+  - m_Id: 24934080512
+    m_Key: resource_catalog.window_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2195964551168
+    m_Key: resource_catalog.title.catalog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2237471383552
+    m_Key: resource_catalog.catalog_folder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2286653792256
+    m_Key: resource_catalog.catalog_missing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2435576750080
+    m_Key: resource_catalog.button.create
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2493885964288
+    m_Key: resource_catalog.button.find
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2559321300992
+    m_Key: resource_catalog.title.import
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2598051504128
+    m_Key: resource_catalog.assets_folder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2639940018176
+    m_Key: resource_catalog.include_subfolders
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2692033273856
+    m_Key: resource_catalog.title.keys
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2729995919360
+    m_Key: resource_catalog.key_prefix
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2768268943360
+    m_Key: resource_catalog.title.options
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2805195595776
+    m_Key: resource_catalog.overwrite_existing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2888263786496
+    m_Key: resource_catalog.info.sprite_import
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2933021204480
+    m_Key: resource_catalog.button.import
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2972372164608
+    m_Key: resource_catalog.error.no_catalog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3031465713664
+    m_Key: resource_catalog.error.invalid_folder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3060993613824
+    m_Key: resource_catalog.import_finished
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3146163150848
+    m_Key: resource_catalog.warning.multiple_catalogs
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3179134574592
+    m_Key: scene_tools.window_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3227109023744
+    m_Key: scene_tools.title.filters
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3256494317568
+    m_Key: scene_tools.search
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3298340888576
+    m_Key: scene_tools.scenes_folder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3338081918976
+    m_Key: scene_tools.only_in_build
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3382147276800
+    m_Key: scene_tools.button.refresh
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3418293788672
+    m_Key: scene_tools.in_build
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3455027503104
+    m_Key: scene_tools.button.open
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3552041754624
+    m_Key: scene_tools.button.additive
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3581099892736
+    m_Key: scene_tools.button.close
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4688186433536
+    m_Key: evotools_settings.window_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4722068021248
+    m_Key: evotools_settings.title.localization
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4771502088192
+    m_Key: evotools_settings.locale
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4794709172224
+    m_Key: evotools_settings.button.open_tables
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4828355878912
+    m_Key: evotools_settings.button.ping_table
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4868398899200
+    m_Key: evotools_settings.warning.table_not_found
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5762972639232
+    m_Key: evotools_settings.warning.no_locales
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335368
+    m_Key: evotools_settings.title.save
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335369
+    m_Key: evotools_settings.save_file_name
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335370
+    m_Key: evotools_settings.save_keys
+    m_Metadata:
+      m_Items: []
+  - m_Id: 28822282952704
+    m_Key: config_hub.window_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 28865383620608
+    m_Key: config_hub.category.settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 28901442052096
+    m_Key: config_hub.category.general
+    m_Metadata:
+      m_Items: []
+  - m_Id: 28963530334208
+    m_Key: config_hub.title.settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 28997634220032
+    m_Key: config_hub.info.settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29083617452032
+    m_Key: config_hub.warning.no_catalog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 29130585268224
+    m_Key: config_hub.button.rebuild
+    m_Metadata:
+      m_Items: []
+  - m_Id: 383805675266048
+    m_Key: config_hub.button.create_missing
+    m_Metadata:
+      m_Items: []
+  - m_Id: 383858032762880
+    m_Key: config_hub.button.show_catalog
+    m_Metadata:
+      m_Items: []
+  - m_Id: 812970501201920
+    m_Key: character.move_speed.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813540649721856
+    m_Key: character.yaw_speed.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813573893775360
+    m_Key: character.gravity.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813615144755200
+    m_Key: character.terminal_velocity.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813674242498560
+    m_Key: character.grounded_snap.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813771302887424
+    m_Key: character.fall_kill_y.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813814600687616
+    m_Key: character.bot_change_interval.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813886868545536
+    m_Key: character.bot_yaw_bias.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813937145667584
+    m_Key: character.bot_aim_lag.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 813992208490496
+    m_Key: character.bot_wander_strength.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814059535458304
+    m_Key: character.bot_edge_look_ahead.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335360
+    m_Key: character.bot_edge_check_distance.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335361
+    m_Key: analytics.catalog.info
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335362
+    m_Key: analytics.catalog.tooltip_key
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335363
+    m_Key: analytics.adapter_catalog.info
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335364
+    m_Key: analytics.adapter_catalog.tooltip_key
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335365
+    m_Key: analytics.adapter_id.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335366
+    m_Key: analytics.extra_params.info
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335367
+    m_Key: analytics.extra_params.value.tooltip
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335371
+    m_Key: save_tools.clear.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335372
+    m_Key: save_tools.clear.confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335373
+    m_Key: save_tools.clear.confirm_button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335374
+    m_Key: save_tools.clear.cancel_button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335375
+    m_Key: save_tools.clear.done
+    m_Metadata:
+      m_Items: []
+  - m_Id: 814095560335376
+    m_Key: save_tools.clear.nothing
+    m_Metadata:
+      m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 7356179269552963826
+  references:
+    version: 2
+    RefIds:
+    - rid: 7356179269552963826
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1770125860177
