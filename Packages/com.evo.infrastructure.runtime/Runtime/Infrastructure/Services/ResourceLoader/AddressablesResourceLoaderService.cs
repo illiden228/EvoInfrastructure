@@ -387,8 +387,8 @@ namespace _Project.Scripts.Infrastructure.Services.ResourceLoader
             try
             {
                 var typedHandle = handle.Convert<T>();
-                var result = await typedHandle.ToUniTask(cancellationToken: cancellationToken);
-                return result;
+                await typedHandle.ToUniTask(cancellationToken: cancellationToken);
+                return typedHandle.Result;
             }
             catch (Exception ex)
             {

@@ -211,10 +211,10 @@ namespace _Project.Scripts.Infrastructure.Services.SceneLoader
 
             try
             {
-                var result = await handle.ToUniTask(cancellationToken: cancellationToken);
+                await handle.ToUniTask(cancellationToken: cancellationToken);
                 SceneLoadProgress?.Invoke(new SceneLoadProgress(info, 1f));
                 SceneLoadFinished?.Invoke(info);
-                return result;
+                return handle.Result;
             }
             catch (Exception ex)
             {

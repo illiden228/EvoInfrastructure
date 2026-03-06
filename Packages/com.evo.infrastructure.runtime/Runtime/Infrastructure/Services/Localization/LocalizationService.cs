@@ -223,7 +223,8 @@ namespace _Project.Scripts.Infrastructure.Services.Localization
             try
             {
                 var handle = LocalizationSettings.StringDatabase.GetTableAsync(table);
-                var stringTable = await handle.ToUniTask(cancellationToken: cancellationToken);
+                await handle.ToUniTask(cancellationToken: cancellationToken);
+                var stringTable = handle.Result as StringTable;
                 if (stringTable != null)
                 {
                     _loadedTables.Add(cacheKey);
