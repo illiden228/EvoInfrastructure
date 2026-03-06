@@ -1,49 +1,119 @@
-#if UNITY_EDITOR && ODIN_INSPECTOR
+#if UNITY_EDITOR
 using System.Collections.Generic;
-using _Project.Scripts.Infrastructure.AddressablesExtension;
-using Sirenix.OdinInspector;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEngine;
 
 namespace _Project.Scripts.Application.Config
 {
-    public sealed partial class ProjectConfig
+    [CustomEditor(typeof(ProjectConfig))]
+    public sealed class ProjectConfigEditor : UnityEditor.Editor
     {
-        [Title("Startup Scene")]
-        [ShowInInspector]
-        [ValueDropdown(nameof(GetAddressableScenes))]
-        [LabelText("Startup Scene (Addressables)")]
-        private SceneAsset StartupSceneAsset
+        private const string StartupScenePropertyName = "startupScene";
+        private const string GameplayScenePropertyName = "gameplayScene";
+        private const string LoadingScenePropertyName = "loadingScene";
+        private const string AssetGuidPropertyName = "m_AssetGUID";
+
+        private SerializedProperty _startupScene;
+        private SerializedProperty _gameplayScene;
+        private SerializedProperty _loadingScene;
+
+        private void OnEnable()
         {
-            get => GetSceneAsset(startupScene);
-            set => SetSceneAsset(value);
+            _startupScene = serializedObject.FindProperty(StartupScenePropertyName);
+            _gameplayScene = serializedObject.FindProperty(GameplayScenePropertyName);
+            _loadingScene = serializedObject.FindProperty(LoadingScenePropertyName);
         }
 
-        [ShowInInspector]
-        [ValueDropdown(nameof(GetAddressableScenes))]
-        [LabelText("Gameplay Scene (Addressables)")]
-        private SceneAsset GameplaySceneAsset
+        public override void OnInspectorGUI()
         {
-            get => GetSceneAsset(gameplayScene);
-            set => SetSceneAsset(value, isGameplay: true);
+            serializedObject.Update();
+
+            DrawAddressableSceneField("Startup Scene (Addressables)", _startupScene);
+            DrawAddressableSceneField("Gameplay Scene (Addressables)", _gameplayScene);
+            DrawAddressableSceneField("Loading Scene (Addressables)", _loadingScene);
+
+            DrawPropertiesExcluding(
+                serializedObject,
+                "m_Script",
+                StartupScenePropertyName,
+                GameplayScenePropertyName,
+                LoadingScenePropertyName);
+
+            serializedObject.ApplyModifiedProperties();
         }
 
-        [ShowInInspector]
-        [ValueDropdown(nameof(GetAddressableScenes))]
-        [LabelText("Loading Scene (Addressables)")]
-        private SceneAsset LoadingSceneAsset
+        private static void DrawAddressableSceneField(string label, SerializedProperty assetReferenceProperty)
         {
-            get => GetSceneAsset(loadingScene);
-            set => SetSceneAsset(value, isLoading: true);
+            if (assetReferenceProperty == null)
+            {
+                return;
+            }
+
+            var guidProperty = assetReferenceProperty.FindPropertyRelative(AssetGuidPropertyName);
+            if (guidProperty == null)
+            {
+                EditorGUILayout.PropertyField(assetReferenceProperty, new GUIContent(label));
+                return;
+            }
+
+            var currentScene = LoadSceneAssetByGuid(guidProperty.stringValue);
+            var selectedScene = (SceneAsset)EditorGUILayout.ObjectField(label, currentScene, typeof(SceneAsset), false);
+            if (selectedScene == currentScene)
+            {
+                return;
+            }
+
+            if (selectedScene == null)
+            {
+                guidProperty.stringValue = string.Empty;
+                return;
+            }
+
+            var selectedPath = AssetDatabase.GetAssetPath(selectedScene);
+            if (string.IsNullOrEmpty(selectedPath))
+            {
+                return;
+            }
+
+            if (!IsAddressableScenePath(selectedPath))
+            {
+                EditorGUILayout.HelpBox("Selected scene is not in Addressables groups.", MessageType.Warning);
+                return;
+            }
+
+            guidProperty.stringValue = AssetDatabase.AssetPathToGUID(selectedPath);
         }
 
-        private static IEnumerable<ValueDropdownItem<SceneAsset>> GetAddressableScenes()
+        private static SceneAsset LoadSceneAssetByGuid(string guid)
         {
+            if (string.IsNullOrEmpty(guid))
+            {
+                return null;
+            }
+
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            return AssetDatabase.LoadAssetAtPath<SceneAsset>(path);
+        }
+
+        private static bool IsAddressableScenePath(string path)
+        {
+            if (string.IsNullOrEmpty(path) || !path.EndsWith(".unity", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var addressablePaths = GetAddressableScenePaths();
+            return addressablePaths.Contains(path);
+        }
+
+        private static HashSet<string> GetAddressableScenePaths()
+        {
+            var result = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
             var settings = AddressableAssetSettingsDefaultObject.Settings;
             if (settings == null)
             {
-                yield break;
+                return result;
             }
 
             foreach (var group in settings.groups)
@@ -61,64 +131,14 @@ namespace _Project.Scripts.Application.Config
                     }
 
                     var path = entry.AssetPath;
-                    if (string.IsNullOrEmpty(path) || !path.EndsWith(".unity", System.StringComparison.OrdinalIgnoreCase))
+                    if (!string.IsNullOrEmpty(path) && path.EndsWith(".unity", System.StringComparison.OrdinalIgnoreCase))
                     {
-                        continue;
-                    }
-
-                    var asset = AssetDatabase.LoadAssetAtPath<SceneAsset>(path);
-                    if (asset != null)
-                    {
-                        yield return new ValueDropdownItem<SceneAsset>(asset.name, asset);
+                        result.Add(path);
                     }
                 }
             }
-        }
 
-        private static SceneAsset GetSceneAsset(AssetReferenceScene reference)
-        {
-            if (reference == null || string.IsNullOrEmpty(reference.AssetGUID))
-            {
-                return null;
-            }
-
-            var path = AssetDatabase.GUIDToAssetPath(reference.AssetGUID);
-            return AssetDatabase.LoadAssetAtPath<SceneAsset>(path);
-        }
-
-        private void SetSceneAsset(SceneAsset asset, bool isGameplay = false, bool isLoading = false)
-        {
-            if (asset == null)
-            {
-                if (isGameplay)
-                {
-                    gameplayScene = null;
-                }
-                else if (isLoading)
-                {
-                    loadingScene = null;
-                }
-                else
-                {
-                    startupScene = null;
-                }
-                return;
-            }
-
-            var path = AssetDatabase.GetAssetPath(asset);
-            var guid = AssetDatabase.AssetPathToGUID(path);
-            if (isGameplay)
-            {
-                gameplayScene = new AssetReferenceScene(guid);
-            }
-            else if (isLoading)
-            {
-                loadingScene = new AssetReferenceScene(guid);
-            }
-            else
-            {
-                startupScene = new AssetReferenceScene(guid);
-            }
+            return result;
         }
     }
 }

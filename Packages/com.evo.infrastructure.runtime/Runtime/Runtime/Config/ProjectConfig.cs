@@ -7,7 +7,7 @@ namespace _Project.Scripts.Application.Config
 {
     [CreateAssetMenu(fileName = "ProjectConfig", menuName = "Project/Project Config")]
     [GameConfig("Project")]
-    public sealed partial class ProjectConfig : ScriptableObject, IGameConfig
+    public sealed class ProjectConfig : ScriptableObject, IGameConfig
     {
         [SerializeField] private AssetReferenceScene startupScene;
         [SerializeField] private AssetReferenceScene gameplayScene;
