@@ -6,7 +6,7 @@ using Sirenix.OdinInspector;
 #endif
 using UnityEngine;
 
-#if UNITY_EDITOR
+#if UNITY_EDITOR && EVO_ADDRESSABLES_EDITOR
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
@@ -32,7 +32,7 @@ namespace _Project.Scripts.Application.Config
         public float VirtualInputHideSeconds => virtualInputHideSeconds;
         public float DeathDespawnSeconds => deathDespawnSeconds;
 
-#if UNITY_EDITOR && ODIN_INSPECTOR
+#if UNITY_EDITOR && ODIN_INSPECTOR && EVO_ADDRESSABLES_EDITOR
         [Title("Startup Scene")]
         [ShowInInspector]
         [ValueDropdown(nameof(GetAddressableScenes))]

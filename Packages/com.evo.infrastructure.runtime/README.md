@@ -6,6 +6,7 @@ Contains:
 - Loading pipeline and loading steps contracts
 - Scene flow runtime
 - Infrastructure services (resource/config/save/audio/ui and others)
-- Runtime bootstrap (`RuntimeProjectLifetimeScope`, `RuntimeEntryPoint`)
+- Reusable runtime modules for project starter bootstrap
+- Editor tools menu for runtime package utilities
 
-Install this package after dependency preinstall (VContainer, R3, UniTask).
+Install this package after dependency preinstall (VContainer, R3, UniTask, PrimeTween).

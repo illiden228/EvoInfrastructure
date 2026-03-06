@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Xml.Linq;
 using UnityEditor;
 using UnityEditor.PackageManager;
@@ -22,6 +23,14 @@ namespace Evo.Infrastructure.Core.Editor
         private const string R3NuGetVersion = "1.3.0";
         private const string ObservableCollectionsNuGetId = "ObservableCollections";
         private const string ObservableCollectionsNuGetVersion = "3.3.4";
+        private const string BclAsyncInterfacesNuGetId = "Microsoft.Bcl.AsyncInterfaces";
+        private const string BclAsyncInterfacesNuGetVersion = "6.0.0";
+        private const string BclTimeProviderNuGetId = "Microsoft.Bcl.TimeProvider";
+        private const string BclTimeProviderNuGetVersion = "8.0.0";
+        private const string ComponentAnnotationsNuGetId = "System.ComponentModel.Annotations";
+        private const string ComponentAnnotationsNuGetVersion = "5.0.0";
+        private const string ThreadingChannelsNuGetId = "System.Threading.Channels";
+        private const string ThreadingChannelsNuGetVersion = "8.0.0";
         private const string EntryScenePath = "Assets/_Project/Scenes/EntryPointScene.unity";
         private const string LoadingScenePath = "Assets/_Project/Scenes/LoadingScene.unity";
         private const string TransitionScenePath = "Assets/_Project/Scenes/TransitionScene.unity";
@@ -30,6 +39,9 @@ namespace Evo.Infrastructure.Core.Editor
         private const string UiSystemConfigPath = "Assets/_Project/Configs/UiSystemConfig.asset";
         private const string ConfigCatalogPath = "Assets/_Project/Configs/ScriptableConfigCatalog.asset";
         private const string LifetimeScopePrefabPath = "Assets/_Project/Prefabs/Runtime/InfrastructureProjectLifetimeScope.prefab";
+        private const string StarterRuntimeProjectLifetimeScopePath = "Assets/_Project/Scripts/Runtime/EntryPoint/RuntimeProjectLifetimeScope.cs";
+        private const string StarterRuntimeEntryPointPath = "Assets/_Project/Scripts/Runtime/EntryPoint/RuntimeEntryPoint.cs";
+        private const string StarterLoadingSceneLifetimeScopePath = "Assets/_Project/Scripts/Runtime/Loading/LoadingSceneLifetimeScope.cs";
 
         private const string VContainerSource = "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer";
         private const string UniTaskSource = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask";
@@ -38,6 +50,10 @@ namespace Evo.Infrastructure.Core.Editor
         private const string LocalizationSource = "com.unity.localization@1.5.9";
         private const string InputSystemSource = "com.unity.inputsystem@1.7.0";
         private const string UguiSource = "com.unity.ugui@2.0.0";
+        private const string PrimeTweenSource = "com.kyrylokuzyk.primetween@1.3.8";
+        private const string PrimeTweenPackageName = "com.kyrylokuzyk.primetween";
+        private const string PrimeTweenScope = "com.kyrylokuzyk";
+        private const string NpmRegistryUrl = "https://registry.npmjs.org";
 
         private static readonly string[] StructureFolders =
         {
@@ -56,7 +72,8 @@ namespace Evo.Infrastructure.Core.Editor
             "Assets/_Project/Fonts",
             "Assets/_Project/Scripts",
             "Assets/_Project/Scripts/Runtime",
-            "Assets/_Project/Scripts/Runtime/EntryPoint"
+            "Assets/_Project/Scripts/Runtime/EntryPoint",
+            "Assets/_Project/Scripts/Runtime/Loading"
         };
 
         private readonly Queue<string> _installQueue = new();
@@ -76,8 +93,10 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _localizationInstalled;
         private bool _inputSystemInstalled;
         private bool _uguiInstalled;
+        private bool _primeTweenInstalled;
         private bool _isRefreshingState;
         private bool _isInstalling;
+        private double _refreshStartedAt;
         private string _statusLine = "Ready";
         private Vector2 _scroll;
 
@@ -123,7 +142,6 @@ namespace Evo.Infrastructure.Core.Editor
         private void DrawState()
         {
             EditorGUILayout.Space(8f);
-            DrawStatusRow("Dependencies installed", _dependenciesInstalled);
             DrawStatusRow("VContainer installed", _vContainerInstalled);
             DrawStatusRow("UniTask installed", _uniTaskInstalled);
             DrawStatusRow("NuGetForUnity installed", _nuGetForUnityInstalled);
@@ -131,8 +149,7 @@ namespace Evo.Infrastructure.Core.Editor
             DrawStatusRow("Localization installed", _localizationInstalled);
             DrawStatusRow("Input System installed", _inputSystemInstalled);
             DrawStatusRow("UGUI installed", _uguiInstalled);
-            DrawStatusRow("R3 in packages.config", _r3InPackagesConfig);
-            DrawStatusRow("ObservableCollections in packages.config", _observableCollectionsInPackagesConfig);
+            DrawStatusRow("PrimeTween installed", _primeTweenInstalled);
             DrawStatusRow("R3 installed", _r3Ready);
             DrawStatusRow("ObservableCollections installed", _observableCollectionsReady);
             DrawStatusRow("Project structure created", _structureReady);
@@ -211,9 +228,17 @@ namespace Evo.Infrastructure.Core.Editor
                 !_uguiInstalled && canInstallDeps,
                 InstallUgui);
 
+            DrawActionButton(
+                _primeTweenInstalled ? "8) Install PrimeTween (Already done)" : "8) Install PrimeTween",
+                _primeTweenInstalled
+                    ? "PrimeTween is already installed."
+                    : "Install PrimeTween and ensure scoped registry.",
+                !_primeTweenInstalled && canInstallDeps,
+                InstallPrimeTween);
+
             var structureDone = _structureReady;
             DrawActionButton(
-                structureDone ? "8) Create Project Structure (Already done)" : "8) Create Project Structure",
+                structureDone ? "9) Create Project Structure (Already done)" : "9) Create Project Structure",
                 structureDone
                     ? "Project folder structure is already ready."
                     : "Create base folders under Assets/_Project.",
@@ -222,40 +247,40 @@ namespace Evo.Infrastructure.Core.Editor
 
             var reactiveRequested = _r3InPackagesConfig && _observableCollectionsInPackagesConfig;
             var r3Done = _r3Ready && _observableCollectionsReady;
-            var canInstallR3 = _dependenciesInstalled && _nuGetForUnityInstalled && !reactiveRequested && !r3Done && !_isInstalling;
+            var canInstallR3 = _nuGetForUnityInstalled && !reactiveRequested && !r3Done && !_isInstalling;
             DrawActionButton(
-                r3Done || reactiveRequested ? "9) Install R3 + ObservableCollections (NuGet) (Already done)" : "9) Install R3 + ObservableCollections (NuGet)",
+                r3Done || reactiveRequested ? "10) Install R3 + ObservableCollections (NuGet) (Already done)" : "10) Install R3 + ObservableCollections (NuGet)",
                 r3Done
                     ? "R3 and ObservableCollections are installed."
                     : reactiveRequested
                         ? "R3 and ObservableCollections are already requested in packages.config."
                     : canInstallR3
                         ? "Add R3 and ObservableCollections to packages.config for NuGetForUnity restore."
-                        : "Requires: Step 1 and NuGetForUnity installed.",
+                        : "Requires: NuGetForUnity installed.",
                 canInstallR3,
                 InstallReactiveFromNuGet);
 
             var runtimeDone = _runtimeInstalled;
-            var canInstallRuntime = _dependenciesInstalled && _r3Ready && _observableCollectionsReady && !runtimeDone && !_isInstalling;
+            var canInstallRuntime = _dependenciesInstalled && _primeTweenInstalled && _r3Ready && _observableCollectionsReady && !runtimeDone && !_isInstalling;
             DrawActionButton(
-                runtimeDone ? "10) Install Infrastructure Runtime (Already done)" : "10) Install Infrastructure Runtime",
+                runtimeDone ? "11) Install Infrastructure Runtime (Already done)" : "11) Install Infrastructure Runtime",
                 runtimeDone
                     ? "Infrastructure runtime is already installed."
                     : canInstallRuntime
                         ? "Install runtime package from Git tag."
-                        : "Requires: Step 1 + R3 + ObservableCollections.",
+                        : "Requires: base dependencies + PrimeTween + R3 + ObservableCollections.",
                 canInstallRuntime,
                 InstallRuntimePackage);
 
             var scaffoldDone = HasStarterScaffold();
-            var canSetupScaffold = _dependenciesInstalled && _r3Ready && _observableCollectionsReady && _runtimeInstalled && !scaffoldDone && !_isInstalling;
+            var canSetupScaffold = _dependenciesInstalled && _primeTweenInstalled && _r3Ready && _observableCollectionsReady && _runtimeInstalled && !scaffoldDone && !_isInstalling;
             DrawActionButton(
-                scaffoldDone ? "11) Setup Starter Runtime Scaffold (Already done)" : "11) Setup Starter Runtime Scaffold",
+                scaffoldDone ? "12) Setup Starter Runtime Scaffold (Already done)" : "12) Setup Starter Runtime Scaffold",
                 scaffoldDone
                     ? "Starter runtime scaffold is already created."
                     : canSetupScaffold
                         ? "Create starter scenes, configs and build settings."
-                        : "Requires: Step 4 (Infrastructure Runtime installed).",
+                        : "Requires: Step 11 (Infrastructure Runtime installed).",
                 canSetupScaffold,
                 SetupStarterRuntimeScaffold);
 
@@ -337,6 +362,17 @@ namespace Evo.Infrastructure.Core.Editor
             EnqueueSingleInstall(UguiSource, "Installing UGUI...");
         }
 
+        private void InstallPrimeTween()
+        {
+            if (!EnsurePrimeTweenScopedRegistry())
+            {
+                _statusLine = "Failed to add scoped registry for PrimeTween in Packages/manifest.json.";
+                return;
+            }
+
+            EnqueueSingleInstall(PrimeTweenSource, "Installing PrimeTween...");
+        }
+
         private void InstallRuntimePackage()
         {
             _installQueue.Enqueue($"{RuntimeGitUrl}#{RuntimeGitTag}");
@@ -352,7 +388,7 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            var packagesConfigPath = Path.Combine(Directory.GetCurrentDirectory(), "packages.config");
+            var packagesConfigPath = GetNuGetPackagesConfigPath();
             var document = LoadOrCreatePackagesConfig(packagesConfigPath);
             var root = document.Root;
             if (root == null)
@@ -363,6 +399,10 @@ namespace Evo.Infrastructure.Core.Editor
 
             EnsureNuGetPackage(root, R3NuGetId, R3NuGetVersion);
             EnsureNuGetPackage(root, ObservableCollectionsNuGetId, ObservableCollectionsNuGetVersion);
+            EnsureNuGetPackage(root, BclAsyncInterfacesNuGetId, BclAsyncInterfacesNuGetVersion);
+            EnsureNuGetPackage(root, BclTimeProviderNuGetId, BclTimeProviderNuGetVersion);
+            EnsureNuGetPackage(root, ComponentAnnotationsNuGetId, ComponentAnnotationsNuGetVersion);
+            EnsureNuGetPackage(root, ThreadingChannelsNuGetId, ThreadingChannelsNuGetVersion);
             document.Save(packagesConfigPath);
 
             AssetDatabase.Refresh();
@@ -403,6 +443,8 @@ namespace Evo.Infrastructure.Core.Editor
             EnsureScene(LoadingScenePath, "LoadingRoot");
             EnsureScene(TransitionScenePath, "TransitionRoot");
             EnsureScene(MenuScenePath, "MainMenuRoot");
+            EnsureStarterScripts();
+            AssetDatabase.Refresh();
             EnsureDefaultAssets();
             EnsureBuildScenes();
             AssetDatabase.Refresh();
@@ -453,7 +495,8 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            var type = Type.GetType("_Project.Scripts.Runtime.Bootstrap.RuntimeProjectLifetimeScope, Evo.Infrastructure.Runtime");
+            var type = FindTypeByName("_Project.Scripts.Runtime.EntryPoint.RuntimeProjectLifetimeScope") ??
+                       FindTypeByName("_Project.Scripts.Runtime.Bootstrap.RuntimeProjectLifetimeScope");
             if (type == null || !typeof(Component).IsAssignableFrom(type))
             {
                 return;
@@ -567,19 +610,49 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void RefreshState()
         {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                _statusLine = "Waiting for Unity to finish compile/update before refresh...";
+                EditorApplication.delayCall += RefreshState;
+                return;
+            }
+
+            if (_isRefreshingState)
+            {
+                var elapsed = EditorApplication.timeSinceStartup - _refreshStartedAt;
+                if (elapsed <= 10d)
+                {
+                    return;
+                }
+
+                // Recover from stale/hanging PackageManager request.
+                EditorApplication.update -= WaitForList;
+                _isRefreshingState = false;
+                _listRequest = null;
+                _statusLine = "Recovered from stale package state request. Retrying...";
+            }
+
             if (_isRefreshingState)
             {
                 return;
             }
 
             _isRefreshingState = true;
-            _listRequest = Client.List(true, false);
+            _refreshStartedAt = EditorApplication.timeSinceStartup;
+            _listRequest = Client.List(false, false);
             EditorApplication.update += WaitForList;
         }
 
         private void WaitForList()
         {
-            if (_listRequest == null || !_listRequest.IsCompleted)
+            if (_listRequest == null)
+            {
+                _isRefreshingState = false;
+                EditorApplication.update -= WaitForList;
+                return;
+            }
+
+            if (!_listRequest.IsCompleted)
             {
                 return;
             }
@@ -602,6 +675,8 @@ namespace Evo.Infrastructure.Core.Editor
                                         ManifestHasAnyDependency("com.unity.inputsystem");
                 _uguiInstalled = HasAnyPackage(packages, "com.unity.ugui", "ugui") ||
                                  ManifestHasAnyDependency("com.unity.ugui");
+                _primeTweenInstalled = HasAnyPackage(packages, PrimeTweenPackageName, "primetween") ||
+                                       ManifestHasAnyDependency(PrimeTweenPackageName);
                 _dependenciesInstalled = _vContainerInstalled &&
                                          _uniTaskInstalled &&
                                          _nuGetForUnityInstalled &&
@@ -612,8 +687,8 @@ namespace Evo.Infrastructure.Core.Editor
                 _runtimeInstalled = HasAnyPackage(packages, RuntimePackageName, "com.evo.infrastructure.runtime") ||
                                     ManifestHasAnyDependency(RuntimePackageName);
                 ReadReactivePackagesConfig(out _r3InPackagesConfig, out _observableCollectionsInPackagesConfig);
-                _r3Ready = IsAssemblyLoaded("R3");
-                _observableCollectionsReady = IsAssemblyLoaded("ObservableCollections");
+                _r3Ready = _r3InPackagesConfig || IsAssemblyLoaded("R3");
+                _observableCollectionsReady = _observableCollectionsInPackagesConfig || IsAssemblyLoaded("ObservableCollections");
             }
 
             _structureReady = HasProjectStructure();
@@ -656,7 +731,10 @@ namespace Evo.Infrastructure.Core.Editor
             return File.Exists(EntryScenePath) &&
                    File.Exists(LoadingScenePath) &&
                    File.Exists(TransitionScenePath) &&
-                   File.Exists(MenuScenePath);
+                   File.Exists(MenuScenePath) &&
+                   File.Exists(StarterRuntimeProjectLifetimeScopePath) &&
+                   File.Exists(StarterRuntimeEntryPointPath) &&
+                   File.Exists(StarterLoadingSceneLifetimeScopePath);
         }
 
         private void DrawReactiveWarning()
@@ -678,8 +756,8 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             var message =
-                $"Before steps 4 and 5 install missing reactive libraries: {string.Join(", ", missing)}.\n" +
-                "Use step 3 to add R3 and ObservableCollections to packages.config via NuGetForUnity.";
+                $"Install missing reactive libraries: {string.Join(", ", missing)}.\n" +
+                "Use step 10 to add R3 and ObservableCollections to packages.config via NuGetForUnity.";
             EditorGUILayout.HelpBox(message, MessageType.Warning);
         }
 
@@ -705,7 +783,7 @@ namespace Evo.Infrastructure.Core.Editor
                 return false;
             }
 
-            var path = Path.Combine(Directory.GetCurrentDirectory(), "Packages", "manifest.json");
+            var path = Path.Combine(GetProjectRootPath(), "Packages", "manifest.json");
             if (!File.Exists(path))
             {
                 return false;
@@ -823,7 +901,7 @@ namespace Evo.Infrastructure.Core.Editor
             hasR3 = false;
             hasObservableCollections = false;
 
-            var path = Path.Combine(Directory.GetCurrentDirectory(), "packages.config");
+            var path = GetNuGetPackagesConfigPath();
             if (!File.Exists(path))
             {
                 return;
@@ -867,16 +945,354 @@ namespace Evo.Infrastructure.Core.Editor
         {
             EditorApplication.delayCall += () =>
             {
-                var invoked =
-                    EditorApplication.ExecuteMenuItem("NuGet/Restore") ||
-                    EditorApplication.ExecuteMenuItem("NuGet/Restore packages") ||
-                    EditorApplication.ExecuteMenuItem("NuGet/Restore Packages");
+                var submenus = Unsupported.GetSubmenus("NuGet");
+                if (submenus == null || submenus.Length == 0)
+                {
+                    Debug.Log("[Evo Setup] NuGet menu not found. Run restore manually in NuGetForUnity if needed.");
+                    return;
+                }
+
+                string restoreMenuPath = null;
+                for (var i = 0; i < submenus.Length; i++)
+                {
+                    var menu = submenus[i];
+                    if (string.IsNullOrWhiteSpace(menu))
+                    {
+                        continue;
+                    }
+
+                    if (menu.IndexOf("restore", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        restoreMenuPath = menu;
+                        break;
+                    }
+                }
+
+                var invoked = !string.IsNullOrWhiteSpace(restoreMenuPath) &&
+                              EditorApplication.ExecuteMenuItem(restoreMenuPath);
 
                 if (!invoked)
                 {
-                    Debug.Log("[Evo Setup] NuGet restore menu not found. Run restore manually in NuGetForUnity if needed.");
+                    Debug.Log("[Evo Setup] NuGet restore menu item not found. Run restore manually in NuGetForUnity if needed.");
                 }
             };
+        }
+
+        private static string GetProjectRootPath()
+        {
+            var assetsPath = Application.dataPath;
+            if (string.IsNullOrWhiteSpace(assetsPath))
+            {
+                return Directory.GetCurrentDirectory();
+            }
+
+            var root = Path.GetDirectoryName(assetsPath);
+            return string.IsNullOrWhiteSpace(root) ? Directory.GetCurrentDirectory() : root;
+        }
+
+        private static string GetNuGetPackagesConfigPath()
+        {
+            var assetsPath = Application.dataPath;
+            if (string.IsNullOrWhiteSpace(assetsPath))
+            {
+                return Path.Combine(GetProjectRootPath(), "Assets", "packages.config");
+            }
+
+            return Path.Combine(assetsPath, "packages.config");
+        }
+
+        private static bool EnsurePrimeTweenScopedRegistry()
+        {
+            var manifestPath = Path.Combine(GetProjectRootPath(), "Packages", "manifest.json");
+            if (!File.Exists(manifestPath))
+            {
+                return false;
+            }
+
+            var json = File.ReadAllText(manifestPath);
+            if (json.IndexOf($"\"{PrimeTweenScope}\"", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            var registryObject = BuildPrimeTweenScopedRegistryJson();
+            if (json.IndexOf("\"scopedRegistries\"", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var inserted = InsertIntoScopedRegistriesArray(json, registryObject);
+                if (inserted == null)
+                {
+                    return false;
+                }
+
+                File.WriteAllText(manifestPath, inserted);
+                AssetDatabase.Refresh();
+                return true;
+            }
+
+            var dependenciesIndex = json.IndexOf("\"dependencies\"", StringComparison.OrdinalIgnoreCase);
+            if (dependenciesIndex < 0)
+            {
+                return false;
+            }
+
+            var block = $"  \"scopedRegistries\": [\n{registryObject}\n  ],\n";
+            var withScoped = json.Insert(dependenciesIndex, block);
+            File.WriteAllText(manifestPath, withScoped);
+            AssetDatabase.Refresh();
+            return true;
+        }
+
+        private static string InsertIntoScopedRegistriesArray(string json, string registryObject)
+        {
+            var keyIndex = json.IndexOf("\"scopedRegistries\"", StringComparison.OrdinalIgnoreCase);
+            if (keyIndex < 0)
+            {
+                return null;
+            }
+
+            var arrayStart = json.IndexOf('[', keyIndex);
+            if (arrayStart < 0)
+            {
+                return null;
+            }
+
+            var depth = 0;
+            var arrayEnd = -1;
+            for (var i = arrayStart; i < json.Length; i++)
+            {
+                var ch = json[i];
+                if (ch == '[')
+                {
+                    depth++;
+                }
+                else if (ch == ']')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        arrayEnd = i;
+                        break;
+                    }
+                }
+            }
+
+            if (arrayEnd < 0)
+            {
+                return null;
+            }
+
+            var inner = json.Substring(arrayStart + 1, arrayEnd - arrayStart - 1);
+            var hasAny = !string.IsNullOrWhiteSpace(inner);
+            var insertion = hasAny
+                ? $"\n{registryObject},\n"
+                : $"\n{registryObject}\n";
+            return json.Insert(arrayStart + 1, insertion);
+        }
+
+        private static string BuildPrimeTweenScopedRegistryJson()
+        {
+            var sb = new StringBuilder();
+            sb.Append("    {\n");
+            sb.Append("      \"name\": \"npm\",\n");
+            sb.Append($"      \"url\": \"{NpmRegistryUrl}\",\n");
+            sb.Append("      \"scopes\": [\n");
+            sb.Append($"        \"{PrimeTweenScope}\"\n");
+            sb.Append("      ]\n");
+            sb.Append("    }");
+            return sb.ToString();
+        }
+
+        private static Type FindTypeByName(string fullName)
+        {
+            if (string.IsNullOrWhiteSpace(fullName))
+            {
+                return null;
+            }
+
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            for (var i = 0; i < assemblies.Length; i++)
+            {
+                var type = assemblies[i].GetType(fullName, false);
+                if (type != null)
+                {
+                    return type;
+                }
+            }
+
+            return null;
+        }
+
+        private static void EnsureStarterScripts()
+        {
+            EnsureStarterScript(StarterRuntimeProjectLifetimeScopePath, BuildRuntimeProjectLifetimeScopeStarterScript());
+            EnsureStarterScript(StarterRuntimeEntryPointPath, BuildRuntimeEntryPointStarterScript());
+            EnsureStarterScript(StarterLoadingSceneLifetimeScopePath, BuildLoadingSceneLifetimeScopeStarterScript());
+        }
+
+        private static void EnsureStarterScript(string path, string content)
+        {
+            if (File.Exists(path))
+            {
+                return;
+            }
+
+            File.WriteAllText(path, content);
+        }
+
+        private static string BuildRuntimeProjectLifetimeScopeStarterScript()
+        {
+            return
+"using System;\n" +
+"using System.Collections.Generic;\n" +
+"using _Project.Scripts.Application.Loading;\n" +
+"using _Project.Scripts.Application.UI;\n" +
+"using _Project.Scripts.Infrastructure.Services.Audio;\n" +
+"using _Project.Scripts.Infrastructure.Services.Config;\n" +
+"using _Project.Scripts.Infrastructure.Services.Focus;\n" +
+"using _Project.Scripts.Infrastructure.Services.Localization;\n" +
+"using _Project.Scripts.Infrastructure.Services.PlatformInfo;\n" +
+"using _Project.Scripts.Infrastructure.Services.ResourceCatalog;\n" +
+"using _Project.Scripts.Infrastructure.Services.ResourceLoader;\n" +
+"using _Project.Scripts.Infrastructure.Services.ResourceProvider;\n" +
+"using _Project.Scripts.Infrastructure.Services.SceneLoader;\n" +
+"using _Project.Scripts.Infrastructure.Services.ScenePayload;\n" +
+"using _Project.Scripts.Infrastructure.Services.UI;\n" +
+"using UnityEngine;\n" +
+"using VContainer;\n" +
+"using VContainer.Unity;\n" +
+"\n" +
+"namespace _Project.Scripts.Runtime.EntryPoint\n" +
+"{\n" +
+"    public sealed class RuntimeProjectLifetimeScope : LifetimeScope\n" +
+"    {\n" +
+"        [SerializeField] private ResourceCatalog resourceCatalog;\n" +
+"        [SerializeField] private ScriptableConfigCatalog[] configCatalogs;\n" +
+"        [SerializeField] private UiSystemConfig uiSystemConfig;\n" +
+"\n" +
+"        protected override void Awake()\n" +
+"        {\n" +
+"            base.Awake();\n" +
+"            DontDestroyOnLoad(gameObject);\n" +
+"        }\n" +
+"\n" +
+"        protected override void Configure(IContainerBuilder builder)\n" +
+"        {\n" +
+"            if (resourceCatalog != null)\n" +
+"            {\n" +
+"                builder.RegisterInstance<IResourceCatalog>(resourceCatalog);\n" +
+"            }\n" +
+"\n" +
+"            builder.RegisterInstance<IReadOnlyList<ScriptableConfigCatalog>>(configCatalogs ?? Array.Empty<ScriptableConfigCatalog>());\n" +
+"            builder.Register<IConfigProvider, ScriptableObjectConfigProvider>(Lifetime.Singleton);\n" +
+"            builder.Register<IConfigService, ConfigService>(Lifetime.Singleton);\n" +
+"\n" +
+"            builder.Register<IPlatformInfoProvider, UnityPlatformInfoProvider>(Lifetime.Singleton);\n" +
+"            builder.Register<IPlatformInfoService, PlatformInfoService>(Lifetime.Singleton);\n" +
+"            builder.Register<IFocusService, FocusService>(Lifetime.Singleton);\n" +
+"\n" +
+"            builder.Register<IResourceLoaderService, AddressablesResourceLoaderService>(Lifetime.Singleton);\n" +
+"            builder.Register<ISceneLoaderService, SceneLoaderService>(Lifetime.Singleton);\n" +
+"            builder.Register<IResourceProviderService, ResourceProviderService>(Lifetime.Singleton);\n" +
+"            builder.Register<IScenePayloadService, ScenePayloadService>(Lifetime.Singleton);\n" +
+"            builder.Register<ILocalizationService, LocalizationService>(Lifetime.Singleton);\n" +
+"            builder.Register<IAudioService, AudioService>(Lifetime.Singleton);\n" +
+"\n" +
+"            if (uiSystemConfig != null)\n" +
+"            {\n" +
+"                builder.RegisterInstance(uiSystemConfig);\n" +
+"            }\n" +
+"\n" +
+"            builder.Register<IUiService, UiService>(Lifetime.Singleton);\n" +
+"            builder.Register<ILoadingProgress, LoadingProgressReporter>(Lifetime.Singleton);\n" +
+"            builder.Register<ISceneLoadingPipeline, SceneLoadingPipeline>(Lifetime.Singleton);\n" +
+"            builder.Register<ILoadingStep, TargetFrameRateStep>(Lifetime.Singleton);\n" +
+"            builder.RegisterEntryPoint<RuntimeEntryPoint>();\n" +
+"        }\n" +
+"    }\n" +
+"}\n";
+        }
+
+        private static string BuildRuntimeEntryPointStarterScript()
+        {
+            return
+"using System.Collections.Generic;\n" +
+"using System.Threading;\n" +
+"using _Project.Scripts.Application.Config;\n" +
+"using _Project.Scripts.Application.Loading;\n" +
+"using _Project.Scripts.Infrastructure.AddressablesExtension;\n" +
+"using _Project.Scripts.Infrastructure.Services.Config;\n" +
+"using Cysharp.Threading.Tasks;\n" +
+"using UnityEngine.SceneManagement;\n" +
+"using VContainer.Unity;\n" +
+"\n" +
+"namespace _Project.Scripts.Runtime.EntryPoint\n" +
+"{\n" +
+"    public sealed class RuntimeEntryPoint : IAsyncStartable\n" +
+"    {\n" +
+"        private readonly IReadOnlyList<ILoadingStep> _steps;\n" +
+"        private readonly ILoadingProgress _progress;\n" +
+"        private readonly LoadingRunner _runner;\n" +
+"        private readonly ISceneLoadingPipeline _sceneLoadingPipeline;\n" +
+"        private readonly IConfigService _configService;\n" +
+"\n" +
+"        public RuntimeEntryPoint(\n" +
+"            IReadOnlyList<ILoadingStep> steps,\n" +
+"            ISceneLoadingPipeline sceneLoadingPipeline,\n" +
+"            IConfigService configService,\n" +
+"            ILoadingProgress progress)\n" +
+"        {\n" +
+"            _steps = steps;\n" +
+"            _progress = progress;\n" +
+"            _runner = new LoadingRunner();\n" +
+"            _sceneLoadingPipeline = sceneLoadingPipeline;\n" +
+"            _configService = configService;\n" +
+"        }\n" +
+"\n" +
+"        public async Cysharp.Threading.Tasks.UniTask StartAsync(CancellationToken cancellationToken)\n" +
+"        {\n" +
+"            var allSteps = new List<ILoadingStep>();\n" +
+"            if (_steps != null)\n" +
+"            {\n" +
+"                allSteps.AddRange(_steps);\n" +
+"            }\n" +
+"\n" +
+"            var startupScene = GetStartupScene();\n" +
+"            if (startupScene != null && !string.IsNullOrEmpty(startupScene.AssetGUID) && _sceneLoadingPipeline != null)\n" +
+"            {\n" +
+"                allSteps.AddRange(_sceneLoadingPipeline.CreateSteps(startupScene, LoadSceneMode.Single));\n" +
+"            }\n" +
+"\n" +
+"            await _runner.RunAsync(allSteps, _progress, cancellationToken);\n" +
+"        }\n" +
+"\n" +
+"        private AssetReferenceScene GetStartupScene()\n" +
+"        {\n" +
+"            if (_configService != null && _configService.TryGet<ProjectConfig>(out var config))\n" +
+"            {\n" +
+"                return config?.StartupScene;\n" +
+"            }\n" +
+"\n" +
+"            return null;\n" +
+"        }\n" +
+"    }\n" +
+"}\n";
+        }
+
+        private static string BuildLoadingSceneLifetimeScopeStarterScript()
+        {
+            return
+"using VContainer;\n" +
+"using VContainer.Unity;\n" +
+"\n" +
+"namespace _Project.Scripts.Runtime.Loading\n" +
+"{\n" +
+"    public sealed class LoadingSceneLifetimeScope : LifetimeScope\n" +
+"    {\n" +
+"        protected override void Configure(IContainerBuilder builder)\n" +
+"        {\n" +
+"        }\n" +
+"    }\n" +
+"}\n";
         }
 
         private void QueueRefreshBurst()
