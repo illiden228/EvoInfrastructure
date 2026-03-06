@@ -2,7 +2,10 @@
   "name": "Evo.Infrastructure.Runtime.Editor",
   "references": [
     "Evo.Infrastructure.Runtime",
-    "Unity.Addressables.Editor"
+    "Unity.Addressables",
+    "Unity.Addressables.Editor",
+    "Unity.Localization",
+    "Unity.Localization.Editor"
   ],
   "includePlatforms": [
     "Editor"
