@@ -4,12 +4,11 @@ using _Project.Scripts.Infrastructure.Services.Config;
 #if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
 #endif
+using UnityEngine.AddressableAssets;
 using UnityEngine;
 
 #if UNITY_EDITOR && ODIN_INSPECTOR
 using UnityEditor;
-using UnityEditor.AddressableAssets;
-using UnityEditor.AddressableAssets.Settings;
 #endif
 
 namespace _Project.Scripts.Application.Config
@@ -63,7 +62,7 @@ namespace _Project.Scripts.Application.Config
 
         private static IEnumerable<ValueDropdownItem<SceneAsset>> GetAddressableScenes()
         {
-            var settings = AddressableAssetSettingsDefaultObject.Settings;
+            var settings = UnityEditor.AddressableAssets.Settings.AddressableAssetSettingsDefaultObject.Settings;
             if (settings == null)
             {
                 yield break;
