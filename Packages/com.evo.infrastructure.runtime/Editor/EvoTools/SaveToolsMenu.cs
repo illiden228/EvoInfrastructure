@@ -10,6 +10,8 @@ namespace _Project.Scripts.Editor.EvoTools
         private const string MENU_CLEAR_SAVE = "EvoTools/Clear Save";
         private const int MAX_DIALOG_BUTTON_TEXT_LENGTH = 63;
         private const string SOURCE = nameof(SaveToolsMenu);
+        private const string SETTINGS_FOLDER = "Assets/_Project/Configs/Editor";
+        private const string SETTINGS_ASSET_NAME = "EvoToolsSettings.asset";
         private static readonly string[] DefaultSaveKeys =
         {
             "BLINDSHOT_SAVE_FULL_PREFS",
@@ -31,7 +33,7 @@ namespace _Project.Scripts.Editor.EvoTools
                 return;
             }
 
-            var settings = EvoToolsSettingsWindow.LoadOrCreateSettings();
+            var settings = LoadOrCreateSettings();
             var saveFileName = settings != null && !string.IsNullOrWhiteSpace(settings.SaveFileName)
                 ? settings.SaveFileName
                 : "save.json";
@@ -83,6 +85,44 @@ namespace _Project.Scripts.Editor.EvoTools
             }
 
             return localized;
+        }
+
+        private static EvoToolsSettings LoadOrCreateSettings()
+        {
+            var assetPath = $"{SETTINGS_FOLDER}/{SETTINGS_ASSET_NAME}";
+            var settings = AssetDatabase.LoadAssetAtPath<EvoToolsSettings>(assetPath);
+            if (settings != null)
+            {
+                return settings;
+            }
+
+            EnsureFolderExists(SETTINGS_FOLDER);
+            settings = ScriptableObject.CreateInstance<EvoToolsSettings>();
+            AssetDatabase.CreateAsset(settings, assetPath);
+            AssetDatabase.SaveAssets();
+            return settings;
+        }
+
+        private static void EnsureFolderExists(string folder)
+        {
+            var normalized = folder.Replace('\\', '/').TrimEnd('/');
+            if (AssetDatabase.IsValidFolder(normalized))
+            {
+                return;
+            }
+
+            var segments = normalized.Split('/');
+            var current = segments[0];
+            for (var i = 1; i < segments.Length; i++)
+            {
+                var next = $"{current}/{segments[i]}";
+                if (!AssetDatabase.IsValidFolder(next))
+                {
+                    AssetDatabase.CreateFolder(current, segments[i]);
+                }
+
+                current = next;
+            }
         }
     }
 }

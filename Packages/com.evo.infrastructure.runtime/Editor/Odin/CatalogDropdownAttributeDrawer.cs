@@ -1,3 +1,4 @@
+#if ODIN_INSPECTOR
 using System;
 using System.Collections.Generic;
 using _Project.Scripts.Infrastructure.Services.Analytics.Config;
@@ -262,3 +263,4 @@ namespace _Project.Scripts.Editor.Odin
         }
     }
 }
+#endif

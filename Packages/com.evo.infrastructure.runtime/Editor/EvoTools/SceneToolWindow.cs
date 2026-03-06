@@ -1,3 +1,4 @@
+#if ODIN_INSPECTOR
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -271,3 +272,4 @@ namespace _Project.Scripts.Editor.EvoTools
         }
     }
 }
+#endif

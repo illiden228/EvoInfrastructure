@@ -1,3 +1,4 @@
+#if ODIN_INSPECTOR
 using System.Collections.Generic;
 using System.Linq;
 using Sirenix.OdinInspector;
@@ -173,3 +174,4 @@ namespace _Project.Scripts.Editor.EvoTools
         }
     }
 }
+#endif
