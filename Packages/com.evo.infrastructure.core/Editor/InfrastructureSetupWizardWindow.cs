@@ -19,7 +19,7 @@ namespace Evo.Infrastructure.Core.Editor
     public sealed class InfrastructureSetupWizardWindow : EditorWindow
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
-        private const string RuntimeGitTag = "v0.3.19";
+        private const string RuntimeGitTag = "v0.3.20";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
         private const string R3NuGetId = "R3";
         private const string R3NuGetVersion = "1.3.0";
@@ -816,6 +816,23 @@ namespace Evo.Infrastructure.Core.Editor
             var defaultGroup = defaultGroupProperty?.GetValue(settings);
             if (defaultGroup == null)
             {
+                var groupsProperty = settings.GetType().GetProperty("groups", BindingFlags.Public | BindingFlags.Instance);
+                var groups = groupsProperty?.GetValue(settings) as System.Collections.IEnumerable;
+                if (groups != null)
+                {
+                    foreach (var group in groups)
+                    {
+                        if (group != null)
+                        {
+                            defaultGroup = group;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (defaultGroup == null)
+            {
                 return;
             }
 
@@ -829,11 +846,9 @@ namespace Evo.Infrastructure.Core.Editor
                     }
 
                     var p = m.GetParameters();
-                    return p.Length == 4 &&
+                    return p.Length >= 2 &&
                            p[0].ParameterType == typeof(string) &&
-                           p[1].ParameterType.IsInstanceOfType(defaultGroup) &&
-                           p[2].ParameterType == typeof(bool) &&
-                           p[3].ParameterType == typeof(bool);
+                           p[1].ParameterType.IsInstanceOfType(defaultGroup);
                 });
 
             if (createOrMoveEntryMethod == null)
@@ -841,7 +856,22 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            var entry = createOrMoveEntryMethod.Invoke(settings, new object[] { sceneGuid, defaultGroup, false, false });
+            var parameters = createOrMoveEntryMethod.GetParameters();
+            object[] args;
+            if (parameters.Length == 2)
+            {
+                args = new object[] { sceneGuid, defaultGroup };
+            }
+            else if (parameters.Length == 3)
+            {
+                args = new object[] { sceneGuid, defaultGroup, false };
+            }
+            else
+            {
+                args = new object[] { sceneGuid, defaultGroup, false, false };
+            }
+
+            var entry = createOrMoveEntryMethod.Invoke(settings, args);
             if (entry == null)
             {
                 return;
@@ -853,6 +883,7 @@ namespace Evo.Infrastructure.Core.Editor
                 addressProperty.SetValue(entry, "MainMenuScene");
             }
 
+            EditorUtility.SetDirty((UnityEngine.Object)settings);
             AssetDatabase.SaveAssets();
         }
 
