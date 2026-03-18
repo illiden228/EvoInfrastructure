@@ -15,6 +15,7 @@ namespace _Project.Scripts.Application.Loading
         public event Action Started;
         public event Action<LoadingProgress> ProgressChanged;
         public event Action Finished;
+        public event Action Hidden;
 
         public void Report(float percent, string message, int stepIndex, int stepCount)
         {
@@ -51,6 +52,11 @@ namespace _Project.Scripts.Application.Loading
             IsActive = false;
             _finishedTcs?.TrySetResult();
             Finished?.Invoke();
+        }
+        
+        public void NotifyHidden()
+        {
+            Hidden?.Invoke();
         }
 
         public UniTask WaitForFinishedAsync(CancellationToken cancellationToken)

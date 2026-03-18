@@ -17,6 +17,7 @@ namespace _Project.Scripts.Application.Loading
         void NotifyReady();
         void NotifyStarted();
         void NotifyFinished();
+        void NotifyHidden();
         UniTask WaitForFinishedAsync(CancellationToken cancellationToken);
     }
 }
