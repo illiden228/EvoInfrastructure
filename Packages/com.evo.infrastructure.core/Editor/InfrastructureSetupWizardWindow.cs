@@ -19,7 +19,7 @@ namespace Evo.Infrastructure.Core.Editor
     public sealed class InfrastructureSetupWizardWindow : EditorWindow
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
-        private const string RuntimeGitTag = "v0.3.21";
+        private const string RuntimeGitTag = "v0.3.22";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
         private const string R3NuGetId = "R3";
         private const string R3NuGetVersion = "1.3.0";
@@ -44,6 +44,7 @@ namespace Evo.Infrastructure.Core.Editor
         private const string StarterRuntimeProjectLifetimeScopePath = "Assets/_Project/Scripts/Runtime/EntryPoint/RuntimeProjectLifetimeScope.cs";
         private const string StarterRuntimeEntryPointPath = "Assets/_Project/Scripts/Runtime/EntryPoint/RuntimeEntryPoint.cs";
         private const string StarterLoadingSceneLifetimeScopePath = "Assets/_Project/Scripts/Runtime/Loading/LoadingSceneLifetimeScope.cs";
+        private const string ProjectScopeTypeName = "RuntimeProjectLifetimeScope";
 
         private const string VContainerSource = "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer";
         private const string UniTaskSource = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask";
@@ -84,6 +85,7 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _dependenciesInstalled;
         private bool _runtimeInstalled;
         private bool _structureReady;
+        private bool _bootstrapScopesReady;
         private bool _r3Ready;
         private bool _observableCollectionsReady;
         private bool _r3InPackagesConfig;
@@ -157,6 +159,7 @@ namespace Evo.Infrastructure.Core.Editor
             DrawStatusRow("Project structure created", _structureReady);
             DrawStatusRow("Infrastructure runtime installed", _runtimeInstalled);
             DrawStatusRow("Starter runtime scaffold ready", HasStarterScaffold());
+            DrawStatusRow("Bootstrap scopes valid", _bootstrapScopesReady);
         }
 
         private static void DrawStatusRow(string label, bool ready)
@@ -292,6 +295,15 @@ namespace Evo.Infrastructure.Core.Editor
                 true,
                 RefreshState,
                 26f);
+
+            var canValidateBootstrapScopes = !_isInstalling && HasStarterScaffold();
+            DrawActionButton(
+                "Validate/Fix Bootstrap Scopes",
+                canValidateBootstrapScopes
+                    ? "Validate EntryPoint/MainMenu/Loading scopes and auto-fix missing parent scope links."
+                    : "Requires starter scaffold scenes/scripts.",
+                canValidateBootstrapScopes,
+                ValidateAndFixBootstrapScopes);
 
             DrawReactiveWarning();
         }
@@ -452,6 +464,7 @@ namespace Evo.Infrastructure.Core.Editor
             EnsureMainMenuInAddressables();
             ConfigureProjectConfigForStarterPipeline();
             EnsureBuildScenes();
+            ValidateAndFixBootstrapScopes();
             AssetDatabase.Refresh();
             _statusLine = "Starter runtime scaffold created.";
             RefreshState();
@@ -580,6 +593,12 @@ namespace Evo.Infrastructure.Core.Editor
             var scene = EditorSceneManager.OpenScene(LoadingScenePath, OpenSceneMode.Single);
             DeleteRootByName(scene, "LoadingRoot");
             EnsureCanvasRoot(scene);
+            EnsureSceneScopeParent(
+                scene,
+                "Context",
+                null,
+                "_Project.Scripts.Runtime.Loading.LoadingSceneLifetimeScope",
+                "SceneLifetimeScope");
             EditorSceneManager.SaveScene(scene);
         }
 
@@ -592,7 +611,11 @@ namespace Evo.Infrastructure.Core.Editor
 
             var scene = EditorSceneManager.OpenScene(MenuScenePath, OpenSceneMode.Single);
             var context = GetOrCreateRoot(scene, "Context", "MainMenuRoot");
-            AddComponentIfMissing(context, "SceneLifetimeScope");
+            var scope = GetOrAddScopeComponent(
+                context,
+                "_Project.Scripts.Runtime.MainMenu.MainMenuSceneLifetimeScope",
+                "SceneLifetimeScope");
+            EnsureParentReferenceTypeName(scope, ProjectScopeTypeName);
             EditorSceneManager.SaveScene(scene);
         }
 
@@ -729,6 +752,208 @@ namespace Evo.Infrastructure.Core.Editor
             if (target.GetComponent(type) == null)
             {
                 target.AddComponent(type);
+            }
+        }
+
+        private static Component GetOrAddScopeComponent(GameObject target, params string[] preferredTypeNames)
+        {
+            if (target == null || preferredTypeNames == null || preferredTypeNames.Length == 0)
+            {
+                return null;
+            }
+
+            var existingComponents = target.GetComponents<Component>();
+            for (var i = 0; i < existingComponents.Length; i++)
+            {
+                var component = existingComponents[i];
+                if (component == null)
+                {
+                    continue;
+                }
+
+                var typeName = component.GetType().Name;
+                if (!typeName.EndsWith("LifetimeScope", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                return component;
+            }
+
+            for (var i = 0; i < preferredTypeNames.Length; i++)
+            {
+                var preferredTypeName = preferredTypeNames[i];
+                if (string.IsNullOrWhiteSpace(preferredTypeName))
+                {
+                    continue;
+                }
+
+                var type = FindTypeByName(preferredTypeName);
+                if (type == null || !typeof(Component).IsAssignableFrom(type))
+                {
+                    continue;
+                }
+
+                var existing = target.GetComponent(type);
+                if (existing != null)
+                {
+                    return existing;
+                }
+
+                return target.AddComponent(type);
+            }
+
+            return null;
+        }
+
+        private static bool EnsureParentReferenceTypeName(Component scope, string parentTypeName)
+        {
+            if (scope == null || string.IsNullOrWhiteSpace(parentTypeName))
+            {
+                return false;
+            }
+
+            var serialized = new SerializedObject(scope);
+            var parentReference = serialized.FindProperty("parentReference");
+            if (parentReference == null)
+            {
+                return false;
+            }
+
+            var typeName = parentReference.FindPropertyRelative("TypeName");
+            if (typeName == null || string.Equals(typeName.stringValue, parentTypeName, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            typeName.stringValue = parentTypeName;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(scope);
+            return true;
+        }
+
+        private static bool EnsureSceneScopeParent(
+            Scene scene,
+            string rootName,
+            string legacyRootName,
+            params string[] preferredScopeTypeNames)
+        {
+            if (!scene.IsValid())
+            {
+                return false;
+            }
+
+            var changed = false;
+            var root = GetOrCreateRoot(scene, rootName, legacyRootName);
+            var scope = GetOrAddScopeComponent(root, preferredScopeTypeNames);
+            if (scope != null && EnsureParentReferenceTypeName(scope, ProjectScopeTypeName))
+            {
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private void ValidateAndFixBootstrapScopes()
+        {
+            var fixedItems = new List<string>();
+            var issues = new List<string>();
+
+            ValidateAndFixEntryPointScope(fixedItems, issues);
+            ValidateAndFixSceneScope(
+                MenuScenePath,
+                "Context",
+                "MainMenuRoot",
+                fixedItems,
+                issues,
+                "_Project.Scripts.Runtime.MainMenu.MainMenuSceneLifetimeScope",
+                "SceneLifetimeScope");
+            ValidateAndFixSceneScope(
+                LoadingScenePath,
+                "Context",
+                "LoadingRoot",
+                fixedItems,
+                issues,
+                "_Project.Scripts.Runtime.Loading.LoadingSceneLifetimeScope",
+                "SceneLifetimeScope");
+
+            if (issues.Count == 0)
+            {
+                _statusLine = fixedItems.Count == 0
+                    ? "Bootstrap scope validation passed. No changes required."
+                    : $"Bootstrap scope validation passed. Auto-fixed: {string.Join(", ", fixedItems)}.";
+            }
+            else
+            {
+                _statusLine = "Bootstrap scope validation found issues: " + string.Join(" | ", issues);
+            }
+
+            RefreshState();
+        }
+
+        private static void ValidateAndFixEntryPointScope(ICollection<string> fixedItems, ICollection<string> issues)
+        {
+            if (!File.Exists(EntryScenePath))
+            {
+                issues.Add("EntryPoint scene is missing.");
+                return;
+            }
+
+            var scene = EditorSceneManager.OpenScene(EntryScenePath, OpenSceneMode.Single);
+            var root = GetOrCreateRoot(scene, "EntryPointRoot", null);
+            var projectScope = root.GetComponent(ProjectScopeTypeName);
+            if (projectScope == null)
+            {
+                AddAnyProjectLifetimeScope(root);
+                projectScope = root.GetComponent(ProjectScopeTypeName);
+                if (projectScope != null)
+                {
+                    fixedItems.Add("EntryPoint project scope");
+                    EditorSceneManager.SaveScene(scene);
+                }
+            }
+
+            if (projectScope == null)
+            {
+                issues.Add("EntryPointRoot does not contain RuntimeProjectLifetimeScope.");
+            }
+        }
+
+        private static void ValidateAndFixSceneScope(
+            string scenePath,
+            string rootName,
+            string legacyRootName,
+            ICollection<string> fixedItems,
+            ICollection<string> issues,
+            params string[] preferredScopeTypeNames)
+        {
+            if (!File.Exists(scenePath))
+            {
+                issues.Add($"{Path.GetFileNameWithoutExtension(scenePath)} scene is missing.");
+                return;
+            }
+
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            var changed = EnsureSceneScopeParent(scene, rootName, legacyRootName, preferredScopeTypeNames);
+            if (changed)
+            {
+                fixedItems.Add(Path.GetFileNameWithoutExtension(scenePath));
+                EditorSceneManager.SaveScene(scene);
+            }
+
+            var context = GetOrCreateRoot(scene, rootName, legacyRootName);
+            var scope = GetOrAddScopeComponent(context, preferredScopeTypeNames);
+            if (scope == null)
+            {
+                issues.Add($"{Path.GetFileNameWithoutExtension(scenePath)} has no scene lifetime scope.");
+                return;
+            }
+
+            var serialized = new SerializedObject(scope);
+            var typeName = serialized.FindProperty("parentReference")?.FindPropertyRelative("TypeName");
+            if (typeName == null || !string.Equals(typeName.stringValue, ProjectScopeTypeName, StringComparison.Ordinal))
+            {
+                issues.Add($"{Path.GetFileNameWithoutExtension(scenePath)} scope parent is not '{ProjectScopeTypeName}'.");
             }
         }
 
@@ -1077,8 +1302,70 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             _structureReady = HasProjectStructure();
+            _bootstrapScopesReady = AreBootstrapScopesValid();
             _isRefreshingState = false;
             Repaint();
+        }
+
+        private static bool AreBootstrapScopesValid()
+        {
+            return HasEntryPointScope() &&
+                   HasSceneScopeWithParent(MenuScenePath, "Context", "MainMenuRoot") &&
+                   HasSceneScopeWithParent(LoadingScenePath, "Context", "LoadingRoot");
+        }
+
+        private static bool HasEntryPointScope()
+        {
+            if (!File.Exists(EntryScenePath))
+            {
+                return false;
+            }
+
+            var text = SafeReadAllText(EntryScenePath);
+            if (string.IsNullOrEmpty(text))
+            {
+                return false;
+            }
+
+            return text.IndexOf("m_Name: EntryPointRoot", StringComparison.Ordinal) >= 0 &&
+                   text.IndexOf("RuntimeProjectLifetimeScope", StringComparison.Ordinal) >= 0;
+        }
+
+        private static bool HasSceneScopeWithParent(string scenePath, string rootName, string legacyRootName)
+        {
+            if (!File.Exists(scenePath))
+            {
+                return false;
+            }
+
+            var text = SafeReadAllText(scenePath);
+            if (string.IsNullOrEmpty(text))
+            {
+                return false;
+            }
+
+            var rootMarker = $"m_Name: {rootName}";
+            var legacyMarker = string.IsNullOrWhiteSpace(legacyRootName) ? null : $"m_Name: {legacyRootName}";
+            var rootExists = text.IndexOf(rootMarker, StringComparison.Ordinal) >= 0 ||
+                             (!string.IsNullOrEmpty(legacyMarker) && text.IndexOf(legacyMarker, StringComparison.Ordinal) >= 0);
+            if (!rootExists)
+            {
+                return false;
+            }
+
+            return text.IndexOf("TypeName: RuntimeProjectLifetimeScope", StringComparison.Ordinal) >= 0;
+        }
+
+        private static string SafeReadAllText(string path)
+        {
+            try
+            {
+                return File.ReadAllText(path);
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
 
         private void DrawProgress()

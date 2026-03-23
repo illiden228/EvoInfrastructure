@@ -216,6 +216,14 @@ namespace _Project.Scripts.Infrastructure.Services.SceneLoader
                 SceneLoadFinished?.Invoke(info);
                 return handle.Result;
             }
+            catch (OperationCanceledException)
+            {
+                EvoDebug.LogWarning(
+                    $"Scene load canceled for '{info.SceneKey}'.",
+                    nameof(SceneLoaderService));
+                SceneLoadFinished?.Invoke(info);
+                throw;
+            }
             catch (Exception ex)
             {
                 EvoDebug.LogError(
@@ -248,7 +256,18 @@ namespace _Project.Scripts.Infrastructure.Services.SceneLoader
             while (!reloadOperation.isDone)
             {
                 SceneLoadProgress?.Invoke(new SceneLoadProgress(info, reloadOperation.progress));
-                await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+                try
+                {
+                    await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    EvoDebug.LogWarning(
+                        $"ReloadActiveAsync canceled for scene '{sceneName}'.",
+                        nameof(SceneLoaderService));
+                    SceneLoadFinished?.Invoke(info);
+                    return;
+                }
             }
 
             SceneLoadProgress?.Invoke(new SceneLoadProgress(info, 1f));
@@ -260,10 +279,17 @@ namespace _Project.Scripts.Infrastructure.Services.SceneLoader
             SceneLoadInfo info,
             CancellationToken cancellationToken)
         {
-            while (handle.IsValid() && !handle.IsDone)
+            try
             {
-                SceneLoadProgress?.Invoke(new SceneLoadProgress(info, handle.PercentComplete));
-                await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+                while (handle.IsValid() && !handle.IsDone)
+                {
+                    SceneLoadProgress?.Invoke(new SceneLoadProgress(info, handle.PercentComplete));
+                    await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Ignore cancellation: progress reporter is fire-and-forget helper.
             }
         }
 
