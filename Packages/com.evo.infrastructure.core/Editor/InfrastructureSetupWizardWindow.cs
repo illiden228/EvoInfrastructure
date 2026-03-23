@@ -19,12 +19,14 @@ namespace Evo.Infrastructure.Core.Editor
     public sealed class InfrastructureSetupWizardWindow : EditorWindow
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
-        private const string RuntimeGitTag = "v0.3.23";
+        private const string RuntimeGitTag = "v0.3.24";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
         private const string R3NuGetId = "R3";
         private const string R3NuGetVersion = "1.3.0";
         private const string ObservableCollectionsNuGetId = "ObservableCollections";
         private const string ObservableCollectionsNuGetVersion = "3.3.4";
+        private const string ObservableCollectionsR3NuGetId = "ObservableCollections.R3";
+        private const string ObservableCollectionsR3NuGetVersion = "3.3.4";
         private const string BclAsyncInterfacesNuGetId = "Microsoft.Bcl.AsyncInterfaces";
         private const string BclAsyncInterfacesNuGetVersion = "6.0.0";
         private const string BclTimeProviderNuGetId = "Microsoft.Bcl.TimeProvider";
@@ -44,7 +46,24 @@ namespace Evo.Infrastructure.Core.Editor
         private const string StarterRuntimeProjectLifetimeScopePath = "Assets/_Project/Scripts/Runtime/EntryPoint/RuntimeProjectLifetimeScope.cs";
         private const string StarterRuntimeEntryPointPath = "Assets/_Project/Scripts/Runtime/EntryPoint/RuntimeEntryPoint.cs";
         private const string StarterLoadingSceneLifetimeScopePath = "Assets/_Project/Scripts/Runtime/Loading/LoadingSceneLifetimeScope.cs";
+        private const string StarterProjectConfigPath = "Assets/_Project/Scripts/Runtime/Config/ProjectConfig.cs";
+        private const string StarterLoadingScreenModelPath = "Assets/_Project/Scripts/Runtime/Loading/LoadingScreenModel.cs";
+        private const string TemplatesRootPath = "Packages/com.evo.infrastructure.core/Editor/Templates";
+        private const string RuntimeProjectLifetimeScopeTemplateName = "RuntimeProjectLifetimeScope.cs.txt";
+        private const string RuntimeEntryPointTemplateName = "RuntimeEntryPoint.cs.txt";
+        private const string LoadingSceneLifetimeScopeTemplateName = "LoadingSceneLifetimeScope.cs.txt";
+        private const string ProjectConfigTemplateName = "ProjectConfig.cs.txt";
+        private const string LoadingScreenModelTemplateName = "LoadingScreenModel.cs.txt";
         private const string ProjectScopeTypeName = "RuntimeProjectLifetimeScope";
+        private const string OneClickStateKeyPrefix = "Evo.Infrastructure.Core.OneClickSetup.";
+        private static readonly StarterScriptTemplate[] StarterScriptTemplates =
+        {
+            new(StarterRuntimeProjectLifetimeScopePath, RuntimeProjectLifetimeScopeTemplateName),
+            new(StarterRuntimeEntryPointPath, RuntimeEntryPointTemplateName),
+            new(StarterLoadingSceneLifetimeScopePath, LoadingSceneLifetimeScopeTemplateName),
+            new(StarterProjectConfigPath, ProjectConfigTemplateName),
+            new(StarterLoadingScreenModelPath, LoadingScreenModelTemplateName)
+        };
 
         private const string VContainerSource = "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer";
         private const string UniTaskSource = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask";
@@ -54,7 +73,9 @@ namespace Evo.Infrastructure.Core.Editor
         private const string InputSystemSource = "com.unity.inputsystem@1.7.0";
         private const string UguiSource = "com.unity.ugui@2.0.0";
         private const string PrimeTweenSource = "com.kyrylokuzyk.primetween@1.3.8";
+        private const string R3UnitySource = "https://github.com/Cysharp/R3.git?path=src/R3.Unity/Assets/R3.Unity";
         private const string PrimeTweenPackageName = "com.kyrylokuzyk.primetween";
+        private const string R3UnityPackageName = "com.cysharp.r3";
         private const string PrimeTweenScope = "com.kyrylokuzyk";
         private const string NpmRegistryUrl = "https://registry.npmjs.org";
 
@@ -75,6 +96,7 @@ namespace Evo.Infrastructure.Core.Editor
             "Assets/_Project/Fonts",
             "Assets/_Project/Scripts",
             "Assets/_Project/Scripts/Runtime",
+            "Assets/_Project/Scripts/Runtime/Config",
             "Assets/_Project/Scripts/Runtime/EntryPoint",
             "Assets/_Project/Scripts/Runtime/Loading"
         };
@@ -88,8 +110,11 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _bootstrapScopesReady;
         private bool _r3Ready;
         private bool _observableCollectionsReady;
+        private bool _observableCollectionsR3Ready;
+        private bool _r3UnityInstalled;
         private bool _r3InPackagesConfig;
         private bool _observableCollectionsInPackagesConfig;
+        private bool _observableCollectionsR3InPackagesConfig;
         private bool _vContainerInstalled;
         private bool _uniTaskInstalled;
         private bool _nuGetForUnityInstalled;
@@ -100,9 +125,14 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _primeTweenInstalled;
         private bool _isRefreshingState;
         private bool _isInstalling;
+        private bool _oneClickSetupRequested;
+        private bool _templatesReady;
+        private bool _scaffoldScriptsUpToDate;
         private double _refreshStartedAt;
         private string _statusLine = "Ready";
         private Vector2 _scroll;
+        private readonly List<string> _setupReport = new();
+        private readonly List<string> _templateValidationIssues = new();
 
         [MenuItem("EvoTools/Setup")]
         public static void OpenWindow()
@@ -117,6 +147,7 @@ namespace Evo.Infrastructure.Core.Editor
         {
             RefreshState();
             EditorApplication.update += UpdateInstallQueue;
+            ResumeOneClickSetupIfNeeded();
         }
 
         private void OnDisable()
@@ -132,6 +163,7 @@ namespace Evo.Infrastructure.Core.Editor
             DrawState();
             GUILayout.Space(10f);
             DrawActions();
+            DrawSetupReport();
             GUILayout.Space(8f);
             EditorGUILayout.HelpBox(_statusLine, MessageType.Info);
             EditorGUILayout.EndScrollView();
@@ -154,12 +186,23 @@ namespace Evo.Infrastructure.Core.Editor
             DrawStatusRow("Input System installed", _inputSystemInstalled);
             DrawStatusRow("UGUI installed", _uguiInstalled);
             DrawStatusRow("PrimeTween installed", _primeTweenInstalled);
+            DrawStatusRow("R3.Unity installed", _r3UnityInstalled);
             DrawStatusRow("R3 installed", _r3Ready);
             DrawStatusRow("ObservableCollections installed", _observableCollectionsReady);
+            DrawStatusRow("ObservableCollections.R3 installed", _observableCollectionsR3Ready);
             DrawStatusRow("Project structure created", _structureReady);
             DrawStatusRow("Infrastructure runtime installed", _runtimeInstalled);
             DrawStatusRow("Starter runtime scaffold ready", HasStarterScaffold());
+            DrawStatusRow("Scaffold templates valid", _templatesReady);
+            DrawStatusRow("Scaffold scripts up to date", _scaffoldScriptsUpToDate);
             DrawStatusRow("Bootstrap scopes valid", _bootstrapScopesReady);
+
+            if (_templateValidationIssues.Count > 0)
+            {
+                EditorGUILayout.HelpBox(
+                    "Template issues:\n" + string.Join("\n", _templateValidationIssues),
+                    MessageType.Warning);
+            }
         }
 
         private static void DrawStatusRow(string label, bool ready)
@@ -241,53 +284,94 @@ namespace Evo.Infrastructure.Core.Editor
                 !_primeTweenInstalled && canInstallDeps,
                 InstallPrimeTween);
 
+            DrawActionButton(
+                _r3UnityInstalled ? "9) Install R3.Unity (Already done)" : "9) Install R3.Unity",
+                _r3UnityInstalled
+                    ? "R3.Unity is already installed."
+                    : "Install R3.Unity package from Git URL.",
+                !_r3UnityInstalled && canInstallDeps,
+                InstallR3Unity);
+
             var structureDone = _structureReady;
             DrawActionButton(
-                structureDone ? "9) Create Project Structure (Already done)" : "9) Create Project Structure",
+                structureDone ? "10) Create Project Structure (Already done)" : "10) Create Project Structure",
                 structureDone
                     ? "Project folder structure is already ready."
                     : "Create base folders under Assets/_Project.",
                 !structureDone,
                 CreateProjectStructure);
 
-            var reactiveRequested = _r3InPackagesConfig && _observableCollectionsInPackagesConfig;
-            var r3Done = _r3Ready && _observableCollectionsReady;
+            var reactiveRequested = _r3InPackagesConfig && _observableCollectionsInPackagesConfig && _observableCollectionsR3InPackagesConfig;
+            var r3Done = _r3Ready && _observableCollectionsReady && _observableCollectionsR3Ready;
             var canInstallR3 = _nuGetForUnityInstalled && !reactiveRequested && !r3Done && !_isInstalling;
             DrawActionButton(
-                r3Done || reactiveRequested ? "10) Install R3 + ObservableCollections (NuGet) (Already done)" : "10) Install R3 + ObservableCollections (NuGet)",
+                r3Done || reactiveRequested ? "11) Install R3 + ObservableCollections + ObservableCollections.R3 (NuGet) (Already done)" : "11) Install R3 + ObservableCollections + ObservableCollections.R3 (NuGet)",
                 r3Done
-                    ? "R3 and ObservableCollections are installed."
+                    ? "R3, ObservableCollections and ObservableCollections.R3 are installed."
                     : reactiveRequested
-                        ? "R3 and ObservableCollections are already requested in packages.config."
+                        ? "Reactive dependencies are already requested in packages.config."
                     : canInstallR3
-                        ? "Add R3 and ObservableCollections to packages.config for NuGetForUnity restore."
+                        ? "Add R3, ObservableCollections and ObservableCollections.R3 to packages.config for NuGetForUnity restore."
                         : "Requires: NuGetForUnity installed.",
                 canInstallR3,
                 InstallReactiveFromNuGet);
 
             var runtimeDone = _runtimeInstalled;
-            var canInstallRuntime = _dependenciesInstalled && _primeTweenInstalled && _r3Ready && _observableCollectionsReady && !runtimeDone && !_isInstalling;
+            var canInstallRuntime = _dependenciesInstalled &&
+                                    _primeTweenInstalled &&
+                                    _r3UnityInstalled &&
+                                    _r3Ready &&
+                                    _observableCollectionsReady &&
+                                    _observableCollectionsR3Ready &&
+                                    !runtimeDone &&
+                                    !_isInstalling;
             DrawActionButton(
-                runtimeDone ? "11) Install Infrastructure Runtime (Already done)" : "11) Install Infrastructure Runtime",
+                runtimeDone ? "12) Install Infrastructure Runtime (Already done)" : "12) Install Infrastructure Runtime",
                 runtimeDone
                     ? "Infrastructure runtime is already installed."
                     : canInstallRuntime
                         ? "Install runtime package from Git tag."
-                        : "Requires: base dependencies + PrimeTween + R3 + ObservableCollections.",
+                        : "Requires: base dependencies + PrimeTween + R3.Unity + R3 + ObservableCollections + ObservableCollections.R3.",
                 canInstallRuntime,
                 InstallRuntimePackage);
 
             var scaffoldDone = HasStarterScaffold();
-            var canSetupScaffold = _dependenciesInstalled && _primeTweenInstalled && _r3Ready && _observableCollectionsReady && _runtimeInstalled && !scaffoldDone && !_isInstalling;
+            var canSetupScaffold = _dependenciesInstalled &&
+                                   _primeTweenInstalled &&
+                                   _r3UnityInstalled &&
+                                   _r3Ready &&
+                                   _observableCollectionsReady &&
+                                   _observableCollectionsR3Ready &&
+                                   _runtimeInstalled &&
+                                   !scaffoldDone &&
+                                   !_isInstalling;
             DrawActionButton(
-                scaffoldDone ? "12) Setup Starter Runtime Scaffold (Already done)" : "12) Setup Starter Runtime Scaffold",
+                scaffoldDone ? "13) Setup Starter Runtime Scaffold (Already done)" : "13) Setup Starter Runtime Scaffold",
                 scaffoldDone
                     ? "Starter runtime scaffold is already created."
                     : canSetupScaffold
                         ? "Create starter scenes, configs and build settings."
-                        : "Requires: Step 11 (Infrastructure Runtime installed).",
+                        : "Requires: Step 12 (Infrastructure Runtime installed).",
                 canSetupScaffold,
                 SetupStarterRuntimeScaffold);
+
+            var canUpdateScaffoldScripts = !_isInstalling && scaffoldDone && _templatesReady && !_scaffoldScriptsUpToDate;
+            DrawActionButton(
+                "Update Scaffold Scripts",
+                canUpdateScaffoldScripts
+                    ? "Replace scaffold scripts with current package templates."
+                    : "No scaffold updates required or templates are not valid.",
+                canUpdateScaffoldScripts,
+                UpdateScaffoldScriptsFromTemplates);
+
+            var canRunOneClickSetup = !_isInstalling;
+            DrawActionButton(
+                "One-Click Setup",
+                canRunOneClickSetup
+                    ? "Install dependencies, reactive packages, runtime package and scaffold in one flow."
+                    : "Wait until current installation process completes.",
+                canRunOneClickSetup,
+                StartOneClickSetup);
 
             DrawActionButton(
                 "Refresh State",
@@ -323,6 +407,23 @@ namespace Evo.Infrastructure.Core.Editor
             {
                 _statusLine = tooltip;
                 Repaint();
+            }
+        }
+
+        private void DrawSetupReport()
+        {
+            if (_setupReport == null || _setupReport.Count == 0)
+            {
+                return;
+            }
+
+            EditorGUILayout.Space(8f);
+            EditorGUILayout.LabelField("Setup Report", EditorStyles.boldLabel);
+
+            var startIndex = Mathf.Max(0, _setupReport.Count - 10);
+            for (var i = startIndex; i < _setupReport.Count; i++)
+            {
+                EditorGUILayout.LabelField(_setupReport[i], EditorStyles.wordWrappedMiniLabel);
             }
         }
 
@@ -387,6 +488,11 @@ namespace Evo.Infrastructure.Core.Editor
             EnqueueSingleInstall(PrimeTweenSource, "Installing PrimeTween...");
         }
 
+        private void InstallR3Unity()
+        {
+            EnqueueSingleInstall(R3UnitySource, "Installing R3.Unity...");
+        }
+
         private void InstallRuntimePackage()
         {
             _installQueue.Enqueue($"{RuntimeGitUrl}#{RuntimeGitTag}");
@@ -413,6 +519,7 @@ namespace Evo.Infrastructure.Core.Editor
 
             EnsureNuGetPackage(root, R3NuGetId, R3NuGetVersion);
             EnsureNuGetPackage(root, ObservableCollectionsNuGetId, ObservableCollectionsNuGetVersion);
+            EnsureNuGetPackage(root, ObservableCollectionsR3NuGetId, ObservableCollectionsR3NuGetVersion);
             EnsureNuGetPackage(root, BclAsyncInterfacesNuGetId, BclAsyncInterfacesNuGetVersion);
             EnsureNuGetPackage(root, BclTimeProviderNuGetId, BclTimeProviderNuGetVersion);
             EnsureNuGetPackage(root, ComponentAnnotationsNuGetId, ComponentAnnotationsNuGetVersion);
@@ -421,7 +528,7 @@ namespace Evo.Infrastructure.Core.Editor
 
             AssetDatabase.Refresh();
             TryInvokeNuGetRestore();
-            _statusLine = "Added R3 and ObservableCollections to packages.config. Waiting for NuGet restore/import...";
+            _statusLine = "Added R3, ObservableCollections and ObservableCollections.R3 to packages.config. Waiting for NuGet restore/import...";
             RefreshState();
         }
 
@@ -451,6 +558,14 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void SetupStarterRuntimeScaffold()
         {
+            ValidateTemplatesAndScaffoldScriptsState();
+            if (!_templatesReady)
+            {
+                _statusLine = "Starter scaffold templates are invalid. Fix template issues before scaffold setup.";
+                AppendReport(_statusLine);
+                return;
+            }
+
             CreateProjectStructure();
             EnsureFolder("Assets/_Project/Prefabs/Runtime");
             EnsureScene(EntryScenePath, "EntryPointRoot");
@@ -473,7 +588,7 @@ namespace Evo.Infrastructure.Core.Editor
         private void EnsureDefaultAssets()
         {
             CreateScriptableAsset(
-                "_Project.Scripts.Application.Config.ProjectConfig, Evo.Infrastructure.Runtime",
+                "_Project.Scripts.Application.Config.ProjectConfig, Assembly-CSharp",
                 ProjectConfigPath);
             CreateScriptableAsset(
                 "_Project.Scripts.Application.UI.UiSystemConfig, Evo.Infrastructure.Runtime",
@@ -1191,10 +1306,12 @@ namespace Evo.Infrastructure.Core.Editor
                 if (_addRequest.Status == StatusCode.Success)
                 {
                     _statusLine = $"Installed: {_addRequest.Result.packageId}";
+                    AppendReport($"Installed package: {_addRequest.Result.packageId}");
                 }
                 else
                 {
                     _statusLine = $"Install failed: {_addRequest.Error?.message}";
+                    AppendReport($"Package install failed: {_addRequest.Error?.message}");
                 }
 
                 _addRequest = null;
@@ -1216,6 +1333,8 @@ namespace Evo.Infrastructure.Core.Editor
             {
                 _isInstalling = false;
             }
+
+            ContinueOneClickSetup();
         }
 
         private void RefreshState()
@@ -1287,6 +1406,8 @@ namespace Evo.Infrastructure.Core.Editor
                                  ManifestHasAnyDependency("com.unity.ugui");
                 _primeTweenInstalled = HasAnyPackage(packages, PrimeTweenPackageName, "primetween") ||
                                        ManifestHasAnyDependency(PrimeTweenPackageName);
+                _r3UnityInstalled = HasAnyPackage(packages, R3UnityPackageName, "r3.unity", "r3") ||
+                                    ManifestHasAnyDependency(R3UnityPackageName);
                 _dependenciesInstalled = _vContainerInstalled &&
                                          _uniTaskInstalled &&
                                          _nuGetForUnityInstalled &&
@@ -1296,12 +1417,17 @@ namespace Evo.Infrastructure.Core.Editor
                                          _uguiInstalled;
                 _runtimeInstalled = HasAnyPackage(packages, RuntimePackageName, "com.evo.infrastructure.runtime") ||
                                     ManifestHasAnyDependency(RuntimePackageName);
-                ReadReactivePackagesConfig(out _r3InPackagesConfig, out _observableCollectionsInPackagesConfig);
-                _r3Ready = _r3InPackagesConfig || IsAssemblyLoaded("R3");
+                ReadReactivePackagesConfig(
+                    out _r3InPackagesConfig,
+                    out _observableCollectionsInPackagesConfig,
+                    out _observableCollectionsR3InPackagesConfig);
+                _r3Ready = _r3InPackagesConfig || _r3UnityInstalled || IsAssemblyLoaded("R3");
                 _observableCollectionsReady = _observableCollectionsInPackagesConfig || IsAssemblyLoaded("ObservableCollections");
+                _observableCollectionsR3Ready = _observableCollectionsR3InPackagesConfig || IsAssemblyLoaded("ObservableCollections.R3");
             }
 
             _structureReady = HasProjectStructure();
+            ValidateTemplatesAndScaffoldScriptsState();
             _bootstrapScopesReady = AreBootstrapScopesValid();
             _isRefreshingState = false;
             Repaint();
@@ -1406,12 +1532,14 @@ namespace Evo.Infrastructure.Core.Editor
                    File.Exists(MenuScenePath) &&
                    File.Exists(StarterRuntimeProjectLifetimeScopePath) &&
                    File.Exists(StarterRuntimeEntryPointPath) &&
-                   File.Exists(StarterLoadingSceneLifetimeScopePath);
+                   File.Exists(StarterLoadingSceneLifetimeScopePath) &&
+                   File.Exists(StarterProjectConfigPath) &&
+                   File.Exists(StarterLoadingScreenModelPath);
         }
 
         private void DrawReactiveWarning()
         {
-            if (_r3Ready && _observableCollectionsReady)
+            if (_r3Ready && _observableCollectionsReady && _observableCollectionsR3Ready)
             {
                 return;
             }
@@ -1427,10 +1555,171 @@ namespace Evo.Infrastructure.Core.Editor
                 missing.Add("ObservableCollections");
             }
 
+            if (!_observableCollectionsR3Ready)
+            {
+                missing.Add("ObservableCollections.R3");
+            }
+
             var message =
                 $"Install missing reactive libraries: {string.Join(", ", missing)}.\n" +
-                "Use step 10 to add R3 and ObservableCollections to packages.config via NuGetForUnity.";
+                "Use step 10 to add R3, ObservableCollections and ObservableCollections.R3 to packages.config via NuGetForUnity.";
             EditorGUILayout.HelpBox(message, MessageType.Warning);
+        }
+
+        private void ValidateTemplatesAndScaffoldScriptsState()
+        {
+            _templateValidationIssues.Clear();
+            _templatesReady = true;
+
+            for (var i = 0; i < StarterScriptTemplates.Length; i++)
+            {
+                var templatePath = GetTemplatePath(StarterScriptTemplates[i].TemplateFileName);
+                if (!File.Exists(templatePath))
+                {
+                    _templatesReady = false;
+                    _templateValidationIssues.Add($"Missing template: {templatePath}");
+                }
+            }
+
+            _scaffoldScriptsUpToDate = _templatesReady && AreScaffoldScriptsUpToDate();
+        }
+
+        private static bool AreScaffoldScriptsUpToDate()
+        {
+            for (var i = 0; i < StarterScriptTemplates.Length; i++)
+            {
+                if (!IsScaffoldScriptUpToDate(StarterScriptTemplates[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsScaffoldScriptUpToDate(StarterScriptTemplate template)
+        {
+            if (!File.Exists(template.TargetPath))
+            {
+                return false;
+            }
+
+            var templatePath = GetTemplatePath(template.TemplateFileName);
+            if (!File.Exists(templatePath))
+            {
+                return false;
+            }
+
+            try
+            {
+                var templateText = NormalizeText(File.ReadAllText(templatePath));
+                var targetText = NormalizeText(File.ReadAllText(template.TargetPath));
+                return string.Equals(templateText, targetText, StringComparison.Ordinal);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string NormalizeText(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return string.Empty;
+            }
+
+            return text.Replace("\r\n", "\n").Trim();
+        }
+
+        private void UpdateScaffoldScriptsFromTemplates()
+        {
+            var updated = new List<string>();
+            var errors = new List<string>();
+
+            for (var i = 0; i < StarterScriptTemplates.Length; i++)
+            {
+                var template = StarterScriptTemplates[i];
+                var templatePath = GetTemplatePath(template.TemplateFileName);
+                if (!File.Exists(templatePath))
+                {
+                    errors.Add($"Template missing: {template.TemplateFileName}");
+                    continue;
+                }
+
+                string templateText;
+                try
+                {
+                    templateText = File.ReadAllText(templatePath);
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"Failed to read template '{template.TemplateFileName}': {ex.Message}");
+                    continue;
+                }
+
+                var targetDirectory = Path.GetDirectoryName(template.TargetPath);
+                if (!string.IsNullOrWhiteSpace(targetDirectory))
+                {
+                    Directory.CreateDirectory(targetDirectory);
+                }
+
+                if (File.Exists(template.TargetPath))
+                {
+                    string existingText;
+                    try
+                    {
+                        existingText = File.ReadAllText(template.TargetPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"Failed to read existing script '{template.TargetPath}': {ex.Message}");
+                        continue;
+                    }
+
+                    if (string.Equals(NormalizeText(templateText), NormalizeText(existingText), StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        File.Delete(template.TargetPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"Failed to delete old script '{template.TargetPath}': {ex.Message}");
+                        continue;
+                    }
+                }
+
+                try
+                {
+                    File.WriteAllText(template.TargetPath, templateText);
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"Failed to write script '{template.TargetPath}': {ex.Message}");
+                    continue;
+                }
+
+                updated.Add(Path.GetFileName(template.TargetPath));
+            }
+
+            AssetDatabase.Refresh();
+            ValidateTemplatesAndScaffoldScriptsState();
+
+            if (errors.Count > 0)
+            {
+                _statusLine = "Scaffold update completed with issues: " + string.Join(" | ", errors);
+                AppendReport(_statusLine);
+                return;
+            }
+
+            _statusLine = updated.Count == 0
+                ? "Scaffold scripts are already up to date."
+                : "Updated scaffold scripts: " + string.Join(", ", updated);
+            AppendReport(_statusLine);
         }
 
         private static bool IsAssemblyLoaded(string assemblyName)
@@ -1568,10 +1857,14 @@ namespace Evo.Infrastructure.Core.Editor
             existing.SetAttributeValue("manuallyInstalled", "true");
         }
 
-        private static void ReadReactivePackagesConfig(out bool hasR3, out bool hasObservableCollections)
+        private static void ReadReactivePackagesConfig(
+            out bool hasR3,
+            out bool hasObservableCollections,
+            out bool hasObservableCollectionsR3)
         {
             hasR3 = false;
             hasObservableCollections = false;
+            hasObservableCollectionsR3 = false;
 
             var path = GetNuGetPackagesConfigPath();
             if (!File.Exists(path))
@@ -1604,6 +1897,11 @@ namespace Evo.Infrastructure.Core.Editor
                     if (string.Equals(id, ObservableCollectionsNuGetId, StringComparison.OrdinalIgnoreCase))
                     {
                         hasObservableCollections = true;
+                    }
+
+                    if (string.Equals(id, ObservableCollectionsR3NuGetId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        hasObservableCollectionsR3 = true;
                     }
                 }
             }
@@ -1796,181 +2094,183 @@ namespace Evo.Infrastructure.Core.Editor
 
         private static void EnsureStarterScripts()
         {
-            EnsureStarterScript(StarterRuntimeProjectLifetimeScopePath, BuildRuntimeProjectLifetimeScopeStarterScript());
-            EnsureStarterScript(StarterRuntimeEntryPointPath, BuildRuntimeEntryPointStarterScript());
-            EnsureStarterScript(StarterLoadingSceneLifetimeScopePath, BuildLoadingSceneLifetimeScopeStarterScript());
+            for (var i = 0; i < StarterScriptTemplates.Length; i++)
+            {
+                EnsureStarterScriptFromTemplate(
+                    StarterScriptTemplates[i].TargetPath,
+                    StarterScriptTemplates[i].TemplateFileName);
+            }
         }
 
-        private static void EnsureStarterScript(string path, string content)
+        private static void EnsureStarterScriptFromTemplate(string targetPath, string templateFileName)
         {
-            if (File.Exists(path))
+            if (File.Exists(targetPath))
             {
                 return;
             }
 
-            File.WriteAllText(path, content);
+            var templatePath = GetTemplatePath(templateFileName);
+            if (!File.Exists(templatePath))
+            {
+                Debug.LogError($"[Evo Setup] Missing scaffold template: {templatePath}");
+                return;
+            }
+
+            var templateText = File.ReadAllText(templatePath);
+            File.WriteAllText(targetPath, templateText);
         }
 
-        private static string BuildRuntimeProjectLifetimeScopeStarterScript()
+        private static string GetTemplatePath(string templateFileName)
         {
-            return
-"using System;\n" +
-"using System.Collections.Generic;\n" +
-"using _Project.Scripts.Application.Loading;\n" +
-"using _Project.Scripts.Application.UI;\n" +
-"using _Project.Scripts.Infrastructure.Services.Audio;\n" +
-"using _Project.Scripts.Infrastructure.Services.Config;\n" +
-"using _Project.Scripts.Infrastructure.Services.Focus;\n" +
-"using _Project.Scripts.Infrastructure.Services.Localization;\n" +
-"using _Project.Scripts.Infrastructure.Services.PlatformInfo;\n" +
-"using _Project.Scripts.Infrastructure.Services.ResourceCatalog;\n" +
-"using _Project.Scripts.Infrastructure.Services.ResourceLoader;\n" +
-"using _Project.Scripts.Infrastructure.Services.ResourceProvider;\n" +
-"using _Project.Scripts.Infrastructure.Services.SceneLoader;\n" +
-"using _Project.Scripts.Infrastructure.Services.ScenePayload;\n" +
-"using _Project.Scripts.Infrastructure.Services.UI;\n" +
-"using UnityEngine;\n" +
-"using VContainer;\n" +
-"using VContainer.Unity;\n" +
-"\n" +
-"namespace _Project.Scripts.Runtime.EntryPoint\n" +
-"{\n" +
-"    public sealed class RuntimeProjectLifetimeScope : LifetimeScope\n" +
-"    {\n" +
-"        [SerializeField] private ResourceCatalog resourceCatalog;\n" +
-"        [SerializeField] private ScriptableConfigCatalog[] configCatalogs;\n" +
-"        [SerializeField] private UiSystemConfig uiSystemConfig;\n" +
-"\n" +
-"        protected override void Awake()\n" +
-"        {\n" +
-"            base.Awake();\n" +
-"            DontDestroyOnLoad(gameObject);\n" +
-"        }\n" +
-"\n" +
-"        protected override void Configure(IContainerBuilder builder)\n" +
-"        {\n" +
-"            if (resourceCatalog != null)\n" +
-"            {\n" +
-"                builder.RegisterInstance<IResourceCatalog>(resourceCatalog);\n" +
-"            }\n" +
-"\n" +
-"            builder.RegisterInstance<IReadOnlyList<ScriptableConfigCatalog>>(configCatalogs ?? Array.Empty<ScriptableConfigCatalog>());\n" +
-"            builder.Register<IConfigProvider, ScriptableObjectConfigProvider>(Lifetime.Singleton);\n" +
-"            builder.Register<IConfigService, ConfigService>(Lifetime.Singleton);\n" +
-"\n" +
-"            builder.Register<IPlatformInfoProvider, UnityPlatformInfoProvider>(Lifetime.Singleton);\n" +
-"            builder.Register<IPlatformInfoService, PlatformInfoService>(Lifetime.Singleton);\n" +
-"            builder.Register<IFocusService, FocusService>(Lifetime.Singleton);\n" +
-"\n" +
-"            builder.Register<IResourceLoaderService, AddressablesResourceLoaderService>(Lifetime.Singleton);\n" +
-"            builder.Register<ISceneLoaderService, SceneLoaderService>(Lifetime.Singleton);\n" +
-"            builder.Register<IResourceProviderService, ResourceProviderService>(Lifetime.Singleton);\n" +
-"            builder.Register<IScenePayloadService, ScenePayloadService>(Lifetime.Singleton);\n" +
-"            builder.Register<ILocalizationService, LocalizationService>(Lifetime.Singleton);\n" +
-"            builder.Register<IAudioService, AudioService>(Lifetime.Singleton);\n" +
-"\n" +
-"            if (uiSystemConfig != null)\n" +
-"            {\n" +
-"                builder.RegisterInstance(uiSystemConfig);\n" +
-"            }\n" +
-"\n" +
-"            builder.Register<IUiService, UiService>(Lifetime.Singleton);\n" +
-"            builder.Register<ILoadingProgress, LoadingProgressReporter>(Lifetime.Singleton);\n" +
-"            builder.Register<ISceneLoadingPipeline, SceneLoadingPipeline>(Lifetime.Singleton);\n" +
-"            builder.Register<ILoadingStep, TargetFrameRateStep>(Lifetime.Singleton);\n" +
-"            builder.RegisterEntryPoint<RuntimeEntryPoint>();\n" +
-"        }\n" +
-"    }\n" +
-"}\n";
-        }
-
-        private static string BuildRuntimeEntryPointStarterScript()
-        {
-            return
-"using System.Collections.Generic;\n" +
-"using System.Threading;\n" +
-"using _Project.Scripts.Application.Config;\n" +
-"using _Project.Scripts.Application.Loading;\n" +
-"using _Project.Scripts.Infrastructure.AddressablesExtension;\n" +
-"using _Project.Scripts.Infrastructure.Services.Config;\n" +
-"using Cysharp.Threading.Tasks;\n" +
-"using UnityEngine.SceneManagement;\n" +
-"using VContainer.Unity;\n" +
-"\n" +
-"namespace _Project.Scripts.Runtime.EntryPoint\n" +
-"{\n" +
-"    public sealed class RuntimeEntryPoint : IAsyncStartable\n" +
-"    {\n" +
-"        private readonly IReadOnlyList<ILoadingStep> _steps;\n" +
-"        private readonly ILoadingProgress _progress;\n" +
-"        private readonly LoadingRunner _runner;\n" +
-"        private readonly ISceneLoadingPipeline _sceneLoadingPipeline;\n" +
-"        private readonly IConfigService _configService;\n" +
-"\n" +
-"        public RuntimeEntryPoint(\n" +
-"            IReadOnlyList<ILoadingStep> steps,\n" +
-"            ISceneLoadingPipeline sceneLoadingPipeline,\n" +
-"            IConfigService configService,\n" +
-"            ILoadingProgress progress)\n" +
-"        {\n" +
-"            _steps = steps;\n" +
-"            _progress = progress;\n" +
-"            _runner = new LoadingRunner();\n" +
-"            _sceneLoadingPipeline = sceneLoadingPipeline;\n" +
-"            _configService = configService;\n" +
-"        }\n" +
-"\n" +
-"        public async Cysharp.Threading.Tasks.UniTask StartAsync(CancellationToken cancellationToken)\n" +
-"        {\n" +
-"            var allSteps = new List<ILoadingStep>();\n" +
-"            if (_steps != null)\n" +
-"            {\n" +
-"                allSteps.AddRange(_steps);\n" +
-"            }\n" +
-"\n" +
-"            var startupScene = GetStartupScene();\n" +
-"            if (startupScene != null && !string.IsNullOrEmpty(startupScene.AssetGUID) && _sceneLoadingPipeline != null)\n" +
-"            {\n" +
-"                allSteps.AddRange(_sceneLoadingPipeline.CreateSteps(startupScene, LoadSceneMode.Single));\n" +
-"            }\n" +
-"\n" +
-"            await _runner.RunAsync(allSteps, _progress, cancellationToken);\n" +
-"        }\n" +
-"\n" +
-"        private AssetReferenceScene GetStartupScene()\n" +
-"        {\n" +
-"            if (_configService != null && _configService.TryGet<ProjectConfig>(out var config))\n" +
-"            {\n" +
-"                return config?.StartupScene;\n" +
-"            }\n" +
-"\n" +
-"            return null;\n" +
-"        }\n" +
-"    }\n" +
-"}\n";
-        }
-
-        private static string BuildLoadingSceneLifetimeScopeStarterScript()
-        {
-            return
-"using VContainer;\n" +
-"using VContainer.Unity;\n" +
-"\n" +
-"namespace _Project.Scripts.Runtime.Loading\n" +
-"{\n" +
-"    public sealed class LoadingSceneLifetimeScope : LifetimeScope\n" +
-"    {\n" +
-"        protected override void Configure(IContainerBuilder builder)\n" +
-"        {\n" +
-"        }\n" +
-"    }\n" +
-"}\n";
+            return Path.Combine(TemplatesRootPath, templateFileName).Replace("\\", "/");
         }
 
         private void QueueRefreshBurst()
         {
             EditorApplication.delayCall += RefreshState;
             EditorApplication.delayCall += () => EditorApplication.delayCall += RefreshState;
+        }
+
+        private void StartOneClickSetup()
+        {
+            _oneClickSetupRequested = true;
+            SessionState.SetBool(GetOneClickStateKey(), true);
+            _setupReport.Clear();
+            AppendReport("One-click setup started.");
+            _statusLine = "One-click setup started.";
+            RefreshState();
+            ContinueOneClickSetup();
+        }
+
+        private void ResumeOneClickSetupIfNeeded()
+        {
+            _oneClickSetupRequested = SessionState.GetBool(GetOneClickStateKey(), false);
+            if (_oneClickSetupRequested)
+            {
+                _statusLine = "Resuming one-click setup after domain reload...";
+                AppendReport("Resumed one-click setup after domain reload.");
+            }
+        }
+
+        private void ContinueOneClickSetup()
+        {
+            if (!_oneClickSetupRequested)
+            {
+                return;
+            }
+
+            if (_isInstalling || _addRequest != null || _isRefreshingState)
+            {
+                return;
+            }
+
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                return;
+            }
+
+            if (!_dependenciesInstalled)
+            {
+                _statusLine = "One-click: installing base dependencies...";
+                AppendReport("Installing base dependencies...");
+                InstallDependencies();
+                return;
+            }
+
+            if (!_primeTweenInstalled)
+            {
+                _statusLine = "One-click: installing PrimeTween...";
+                AppendReport("Installing PrimeTween...");
+                InstallPrimeTween();
+                return;
+            }
+
+            if (!_r3UnityInstalled)
+            {
+                _statusLine = "One-click: installing R3.Unity...";
+                AppendReport("Installing R3.Unity...");
+                InstallR3Unity();
+                return;
+            }
+
+            if (!_r3Ready || !_observableCollectionsReady || !_observableCollectionsR3Ready)
+            {
+                _statusLine = "One-click: configuring reactive NuGet dependencies...";
+                AppendReport("Configuring reactive NuGet dependencies...");
+                InstallReactiveFromNuGet();
+                RefreshState();
+                return;
+            }
+
+            if (!_runtimeInstalled)
+            {
+                _statusLine = "One-click: installing runtime package...";
+                AppendReport("Installing runtime package...");
+                InstallRuntimePackage();
+                return;
+            }
+
+            if (!_templatesReady)
+            {
+                _oneClickSetupRequested = false;
+                SessionState.SetBool(GetOneClickStateKey(), false);
+                _statusLine = "One-click stopped: scaffold templates are invalid.";
+                AppendReport(_statusLine);
+                return;
+            }
+
+            if (!HasStarterScaffold())
+            {
+                _statusLine = "One-click: creating starter runtime scaffold...";
+                AppendReport("Creating starter runtime scaffold...");
+                SetupStarterRuntimeScaffold();
+                return;
+            }
+
+            if (!_bootstrapScopesReady)
+            {
+                _statusLine = "One-click: validating bootstrap scopes...";
+                AppendReport("Validating bootstrap scopes...");
+                ValidateAndFixBootstrapScopes();
+                return;
+            }
+
+            _oneClickSetupRequested = false;
+            SessionState.SetBool(GetOneClickStateKey(), false);
+            _statusLine = "One-click setup completed.";
+            AppendReport("One-click setup completed.");
+            Repaint();
+        }
+
+        private static string GetOneClickStateKey()
+        {
+            return OneClickStateKeyPrefix + Application.dataPath.GetHashCode();
+        }
+
+        private void AppendReport(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                return;
+            }
+
+            _setupReport.Add($"[{DateTime.Now:HH:mm:ss}] {line}");
+            if (_setupReport.Count > 100)
+            {
+                _setupReport.RemoveAt(0);
+            }
+        }
+
+        private readonly struct StarterScriptTemplate
+        {
+            public readonly string TargetPath;
+            public readonly string TemplateFileName;
+
+            public StarterScriptTemplate(string targetPath, string templateFileName)
+            {
+                TargetPath = targetPath;
+                TemplateFileName = templateFileName;
+            }
         }
     }
 }

@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading;
 using _Project.Scripts.Application.Gameplay.Loading;
 using Cysharp.Threading.Tasks;
 using _Project.Scripts.Infrastructure.Services.SceneLoader;
 using _Project.Scripts.Infrastructure.Services.Config;
-using _Project.Scripts.Application.Config;
 using _Project.Scripts.Infrastructure.Services.Debug;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -26,10 +26,7 @@ namespace _Project.Scripts.Application.Loading
         {
             _sceneLoader = sceneLoader;
             _progress = progress;
-            if (configService != null && configService.TryGet<ProjectConfig>(out var config))
-            {
-                _transitionSceneName = config?.TransitionSceneName;
-            }
+            _transitionSceneName = ResolveTransitionSceneName(configService);
         }
 
         public IReadOnlyList<ILoadingStep> CreateSteps(
@@ -346,6 +343,53 @@ namespace _Project.Scripts.Application.Loading
 
                 return value > 1f ? 1f : value;
             }
+        }
+
+        private static string ResolveTransitionSceneName(IConfigService configService)
+        {
+            if (configService == null)
+            {
+                return null;
+            }
+
+            var configType = FindTypeByName("_Project.Scripts.Application.Config.ProjectConfig");
+            if (configType == null)
+            {
+                return null;
+            }
+
+            if (!configService.TryGet(configType, out var config) || config == null)
+            {
+                return null;
+            }
+
+            var property = configType.GetProperty("TransitionSceneName", BindingFlags.Public | BindingFlags.Instance);
+            if (property == null || property.PropertyType != typeof(string))
+            {
+                return null;
+            }
+
+            return property.GetValue(config) as string;
+        }
+
+        private static Type FindTypeByName(string fullName)
+        {
+            if (string.IsNullOrWhiteSpace(fullName))
+            {
+                return null;
+            }
+
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            for (var i = 0; i < assemblies.Length; i++)
+            {
+                var type = assemblies[i].GetType(fullName, false);
+                if (type != null)
+                {
+                    return type;
+                }
+            }
+
+            return null;
         }
     }
 }

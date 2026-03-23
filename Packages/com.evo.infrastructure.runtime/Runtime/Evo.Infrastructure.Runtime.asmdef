@@ -5,6 +5,7 @@
     "VContainer",
     "R3",
     "PrimeTween.Runtime",
+    "Unity.TextMeshPro",
     "Unity.Addressables",
     "Unity.ResourceManager",
     "Unity.Localization",

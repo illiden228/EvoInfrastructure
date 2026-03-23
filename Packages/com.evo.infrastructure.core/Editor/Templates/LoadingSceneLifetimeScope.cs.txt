@@ -1,0 +1,29 @@
+using _Project.Scripts.Application.UI.Views;
+using _Project.Scripts.Infrastructure.Services.UI;
+using Cysharp.Threading.Tasks;
+using UnityEngine;
+using VContainer;
+using VContainer.Unity;
+
+namespace _Project.Scripts.Runtime.Loading
+{
+    public sealed class LoadingSceneLifetimeScope : LifetimeScope
+    {
+        [SerializeField] private UiViewBase view;
+
+        protected override void Configure(IContainerBuilder builder)
+        {
+            builder.RegisterBuildCallback(container =>
+            {
+                if (view == null)
+                {
+                    return;
+                }
+
+                var uiService = container.Resolve<IUiService>();
+                uiService.RegisterSceneView(view);
+                uiService.ShowAsync(view).Forget();
+            });
+        }
+    }
+}

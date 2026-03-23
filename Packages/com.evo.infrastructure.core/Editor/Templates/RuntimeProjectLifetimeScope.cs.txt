@@ -1,0 +1,91 @@
+using System;
+using System.Collections.Generic;
+using _Project.Scripts.Application.Loading;
+using _Project.Scripts.Application.UI;
+using _Project.Scripts.Infrastructure.Services.Audio;
+using _Project.Scripts.Infrastructure.Services.Config;
+using _Project.Scripts.Infrastructure.Services.Focus;
+using _Project.Scripts.Infrastructure.Services.Localization;
+using _Project.Scripts.Infrastructure.Services.PlatformInfo;
+using _Project.Scripts.Infrastructure.Services.ResourceCatalog;
+using _Project.Scripts.Infrastructure.Services.ResourceLoader;
+using _Project.Scripts.Infrastructure.Services.ResourceProvider;
+using _Project.Scripts.Infrastructure.Services.SceneLoader;
+using _Project.Scripts.Infrastructure.Services.ScenePayload;
+using _Project.Scripts.Infrastructure.Services.UI;
+using UnityEngine;
+using VContainer;
+using VContainer.Unity;
+
+namespace _Project.Scripts.Runtime.EntryPoint
+{
+    public sealed class RuntimeProjectLifetimeScope : LifetimeScope
+    {
+        [SerializeField] private ResourceCatalog resourceCatalog;
+        [SerializeField] private ScriptableConfigCatalog[] configCatalogs;
+        [SerializeField] private UiSystemConfig uiSystemConfig;
+
+        protected override void Awake()
+        {
+            base.Awake();
+            DontDestroyOnLoad(gameObject);
+        }
+
+        protected override void Configure(IContainerBuilder builder)
+        {
+            if (resourceCatalog != null)
+            {
+                builder.RegisterInstance<IResourceCatalog>(resourceCatalog);
+            }
+
+            builder.RegisterInstance<IReadOnlyList<ScriptableConfigCatalog>>(configCatalogs ?? Array.Empty<ScriptableConfigCatalog>());
+            builder.Register<IConfigProvider, ScriptableObjectConfigProvider>(Lifetime.Singleton);
+            builder.Register<IConfigService, ConfigService>(Lifetime.Singleton);
+
+            builder.Register<IPlatformInfoProvider, UnityPlatformInfoProvider>(Lifetime.Singleton);
+            builder.Register<IPlatformInfoService, PlatformInfoService>(Lifetime.Singleton);
+            builder.Register<IFocusService, FocusService>(Lifetime.Singleton);
+
+            builder.Register<IResourceLoaderService, AddressablesResourceLoaderService>(Lifetime.Singleton);
+            builder.Register<ISceneLoaderService, SceneLoaderService>(Lifetime.Singleton);
+            builder.Register<IResourceProviderService, ResourceProviderService>(Lifetime.Singleton);
+            builder.Register<IScenePayloadService, ScenePayloadService>(Lifetime.Singleton);
+            builder.Register<ILocalizationService, LocalizationService>(Lifetime.Singleton);
+            builder.Register<IAudioService, AudioService>(Lifetime.Singleton);
+
+            if (uiSystemConfig != null)
+            {
+                builder.RegisterInstance(uiSystemConfig);
+                RegisterUiViewModels(builder, uiSystemConfig);
+            }
+
+            builder.Register<IUiService, UiService>(Lifetime.Singleton);
+            builder.Register<ILoadingProgress, LoadingProgressReporter>(Lifetime.Singleton);
+            builder.Register<ISceneLoadingPipeline, SceneLoadingPipeline>(Lifetime.Singleton);
+            builder.Register<ILoadingStep, TargetFrameRateStep>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<RuntimeEntryPoint>();
+        }
+
+        private static void RegisterUiViewModels(IContainerBuilder builder, UiSystemConfig config)
+        {
+            if (builder == null || config == null || config.Views == null)
+            {
+                return;
+            }
+
+            var registered = new HashSet<Type>();
+            for (var i = 0; i < config.Views.Count; i++)
+            {
+                var entry = config.Views[i];
+                var viewModelType = entry?.GetViewModelType();
+                if (viewModelType == null || registered.Contains(viewModelType))
+                {
+                    continue;
+                }
+
+                builder.Register(viewModelType, Lifetime.Transient);
+                registered.Add(viewModelType);
+            }
+        }
+    }
+}
