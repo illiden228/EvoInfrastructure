@@ -633,7 +633,8 @@ namespace _Project.Scripts.Infrastructure.Services.UI
                 return;
             }
 
-            var sharedCanvas = CreateCanvas(_root.transform, "UiCanvas");
+            var sharedCanvasScaler = _config != null ? _config.SharedCanvasScaler : null;
+            var sharedCanvas = CreateCanvas(_root.transform, "UiCanvas", 0, sharedCanvasScaler);
             var layers = _config != null ? _config.Layers : null;
 
             if (layers != null && layers.Count > 0)
@@ -656,7 +657,11 @@ namespace _Project.Scripts.Infrastructure.Services.UI
                     var container = CreateLayerContainer(
                         definition?.Name ?? layer.ToString(),
                         useOwnCanvas
-                            ? CreateCanvas(_root.transform, $"{layer}Canvas", requestedOrder)
+                            ? CreateCanvas(
+                                _root.transform,
+                                $"{layer}Canvas",
+                                requestedOrder,
+                                ResolveCanvasScalerSettings(definition, sharedCanvasScaler))
                             : sharedCanvas,
                         requestedOrder != 0 ? requestedOrder : i);
                     _layers[layer] = new LayerState { Container = container };
@@ -785,6 +790,15 @@ namespace _Project.Scripts.Infrastructure.Services.UI
 
         private static Transform CreateCanvas(Transform parent, string name, int sortingOrder = 0)
         {
+            return CreateCanvas(parent, name, sortingOrder, null);
+        }
+
+        private static Transform CreateCanvas(
+            Transform parent,
+            string name,
+            int sortingOrder,
+            UiCanvasScalerSettings scalerSettings)
+        {
             var canvasObject = new GameObject(name);
             canvasObject.transform.SetParent(parent, false);
 
@@ -793,10 +807,43 @@ namespace _Project.Scripts.Infrastructure.Services.UI
             canvas.sortingOrder = sortingOrder;
             canvas.overrideSorting = true;
 
-            canvasObject.AddComponent<CanvasScaler>();
+            var scaler = canvasObject.AddComponent<CanvasScaler>();
+            ApplyCanvasScaler(scaler, scalerSettings);
             canvasObject.AddComponent<GraphicRaycaster>();
 
             return canvasObject.transform;
+        }
+
+        private static UiCanvasScalerSettings ResolveCanvasScalerSettings(
+            UiLayerDefinition definition,
+            UiCanvasScalerSettings fallback)
+        {
+            if (definition != null && definition.OverrideCanvasScaler && definition.CanvasScaler != null)
+            {
+                return definition.CanvasScaler;
+            }
+
+            return fallback;
+        }
+
+        private static void ApplyCanvasScaler(CanvasScaler scaler, UiCanvasScalerSettings settings)
+        {
+            if (scaler == null)
+            {
+                return;
+            }
+
+            if (settings == null)
+            {
+                return;
+            }
+
+            scaler.uiScaleMode = settings.UiScaleMode;
+            scaler.referenceResolution = settings.ReferenceResolution;
+            scaler.screenMatchMode = settings.ScreenMatchMode;
+            scaler.matchWidthOrHeight = Mathf.Clamp01(settings.MatchWidthOrHeight);
+            scaler.scaleFactor = settings.ScaleFactor <= 0f ? 1f : settings.ScaleFactor;
+            scaler.referencePixelsPerUnit = settings.ReferencePixelsPerUnit <= 0f ? 100f : settings.ReferencePixelsPerUnit;
         }
 
         private static Transform CreateLayerContainer(string name, Transform parent, int order)

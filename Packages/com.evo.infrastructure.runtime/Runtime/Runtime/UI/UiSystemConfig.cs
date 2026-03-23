@@ -6,6 +6,7 @@ using _Project.Scripts.Application.UI.Views;
 using Sirenix.OdinInspector;
 #endif
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.AddressableAssets;
 
 #if UNITY_EDITOR
@@ -23,11 +24,24 @@ namespace _Project.Scripts.Application.UI
     }
 
     [Serializable]
+    public sealed class UiCanvasScalerSettings
+    {
+        public CanvasScaler.ScaleMode UiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        public Vector2 ReferenceResolution = new(1920f, 1080f);
+        public CanvasScaler.ScreenMatchMode ScreenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        [Range(0f, 1f)] public float MatchWidthOrHeight = 0.5f;
+        public float ScaleFactor = 1f;
+        public float ReferencePixelsPerUnit = 100f;
+    }
+
+    [Serializable]
     public sealed class UiLayerDefinition
     {
         public string Name = "Hud";
         public UiLayerBuildMode BuildMode = UiLayerBuildMode.SharedCanvas;
         public int SortingOrder = 0;
+        public bool OverrideCanvasScaler;
+        public UiCanvasScalerSettings CanvasScaler = new();
     }
 
     [Serializable]
@@ -104,6 +118,7 @@ namespace _Project.Scripts.Application.UI
 #if ODIN_INSPECTOR
         [Title("Layers")]
 #endif
+        [SerializeField] private UiCanvasScalerSettings sharedCanvasScaler = new();
         [SerializeField] private List<UiLayerDefinition> layers = new();
 
 #if ODIN_INSPECTOR
@@ -114,6 +129,7 @@ namespace _Project.Scripts.Application.UI
 
         public string ViewsFolder => viewsFolder;
         public IReadOnlyList<string> IgnoredPostfixes => ignoredPostfixes;
+        public UiCanvasScalerSettings SharedCanvasScaler => sharedCanvasScaler;
         public IReadOnlyList<UiLayerDefinition> Layers => layers;
         public IReadOnlyList<UiViewEntry> Views => views;
 
