@@ -7,7 +7,6 @@ using Cysharp.Threading.Tasks;
 using _Project.Scripts.Infrastructure.Services.SceneLoader;
 using _Project.Scripts.Infrastructure.Services.Config;
 using _Project.Scripts.Infrastructure.Services.Debug;
-using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.SceneManagement;
 using UnityEngine.ResourceManagement.ResourceProviders;
@@ -62,25 +61,34 @@ namespace _Project.Scripts.Application.Loading
 
             var runner = new LoadingRunner();
             var steps = CreateSteps(sceneReference, mode, activateOnLoad, priority);
+            var useTransition = mode == LoadSceneMode.Single && !string.IsNullOrEmpty(_transitionSceneName);
             var loadingTask = runner.RunAsync(steps, _progress, cancellationToken);
-            var transitionTask = LoadTransitionSceneAsync(mode, cancellationToken);
-            await UniTask.WhenAll(loadingTask, transitionTask);
+            var transitionTask = useTransition
+                ? LoadTransitionSceneAdditiveAsync(cancellationToken)
+                : UniTask.CompletedTask;
+
+            try
+            {
+                await UniTask.WhenAll(loadingTask, transitionTask);
+            }
+            finally
+            {
+                if (useTransition)
+                {
+                    await UnloadTransitionSceneAsync();
+                }
+            }
         }
 
-        private async UniTask LoadTransitionSceneAsync(LoadSceneMode mode, CancellationToken cancellationToken)
+        private async UniTask LoadTransitionSceneAdditiveAsync(CancellationToken cancellationToken)
         {
-            if (mode != LoadSceneMode.Single)
+            var existingScene = SceneManager.GetSceneByName(_transitionSceneName);
+            if (existingScene.IsValid() && existingScene.isLoaded)
             {
                 return;
             }
 
-            if (string.IsNullOrEmpty(_transitionSceneName))
-            {
-                EvoDebug.LogWarning("TransitionSceneName is not set for single-load.", nameof(SceneLoadingPipeline));
-                return;
-            }
-
-            var transitionLoad = SceneManager.LoadSceneAsync(_transitionSceneName, LoadSceneMode.Single);
+            var transitionLoad = SceneManager.LoadSceneAsync(_transitionSceneName, LoadSceneMode.Additive);
             if (transitionLoad == null)
             {
                 EvoDebug.LogWarning(
@@ -89,7 +97,44 @@ namespace _Project.Scripts.Application.Loading
                 return;
             }
 
-            await transitionLoad.ToUniTask(cancellationToken: cancellationToken);
+            try
+            {
+                await transitionLoad.ToUniTask(cancellationToken: cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Cancellation is handled by the loading flow owner.
+            }
+            catch (Exception ex)
+            {
+                EvoDebug.LogWarning(
+                    $"Transition scene load failed. {ex.Message}",
+                    nameof(SceneLoadingPipeline));
+            }
+        }
+
+        private async UniTask UnloadTransitionSceneAsync()
+        {
+            var scene = SceneManager.GetSceneByName(_transitionSceneName);
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                return;
+            }
+
+            try
+            {
+                var unloadOperation = SceneManager.UnloadSceneAsync(scene);
+                if (unloadOperation != null)
+                {
+                    await unloadOperation.ToUniTask(cancellationToken: CancellationToken.None);
+                }
+            }
+            catch (Exception ex)
+            {
+                EvoDebug.LogWarning(
+                    $"Transition scene unload failed. {ex.Message}",
+                    nameof(SceneLoadingPipeline));
+            }
         }
 
         private sealed class SceneLoadingContext

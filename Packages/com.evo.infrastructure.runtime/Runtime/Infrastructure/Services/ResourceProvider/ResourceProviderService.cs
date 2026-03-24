@@ -122,6 +122,11 @@ namespace _Project.Scripts.Infrastructure.Services.ResourceProvider
                 var prefab = await _resourceLoader.LoadAsync<GameObject>(resolvedKey, cancellationToken);
                 return UnityEngine.Object.Instantiate(prefab);
             }
+            catch (OperationCanceledException)
+            {
+                EvoDebug.LogWarning($"InstantiateAsync canceled for '{key}'.", nameof(ResourceProviderService));
+                throw;
+            }
             catch (Exception ex)
             {
                 EvoDebug.LogError($"InstantiateAsync failed for '{key}'. {ex.Message}", nameof(ResourceProviderService));
@@ -135,6 +140,13 @@ namespace _Project.Scripts.Infrastructure.Services.ResourceProvider
             {
                 var prefab = await _resourceLoader.LoadAsync<GameObject>(reference, cancellationToken);
                 return UnityEngine.Object.Instantiate(prefab);
+            }
+            catch (OperationCanceledException)
+            {
+                EvoDebug.LogWarning(
+                    $"InstantiateAsync canceled for reference '{reference}'.",
+                    nameof(ResourceProviderService));
+                throw;
             }
             catch (Exception ex)
             {

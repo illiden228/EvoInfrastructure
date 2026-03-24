@@ -390,6 +390,23 @@ namespace _Project.Scripts.Infrastructure.Services.ResourceLoader
                 await typedHandle.ToUniTask(cancellationToken: cancellationToken);
                 return typedHandle.Result;
             }
+            catch (OperationCanceledException)
+            {
+                if (_handles.TryGetValue(cacheKey, out var existing) && existing.Equals(handle))
+                {
+                    _handles.Remove(cacheKey);
+                }
+
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
+
+                EvoDebug.LogWarning(
+                    $"Load canceled for '{cacheKey.Key}' ({cacheKey.Type?.Name}).",
+                    nameof(AddressablesResourceLoaderService));
+                throw;
+            }
             catch (Exception ex)
             {
                 EvoDebug.LogError(
@@ -443,9 +460,18 @@ namespace _Project.Scripts.Infrastructure.Services.ResourceLoader
                     return;
                 }
 
-                EvoDebug.LogError(
-                    $"Failed to load '{cacheKey.Key}' ({cacheKey.Type?.Name}). {op.OperationException?.Message}",
-                    nameof(AddressablesResourceLoaderService));
+                if (op.OperationException is OperationCanceledException)
+                {
+                    EvoDebug.LogWarning(
+                        $"Load canceled for '{cacheKey.Key}' ({cacheKey.Type?.Name}).",
+                        nameof(AddressablesResourceLoaderService));
+                }
+                else
+                {
+                    EvoDebug.LogError(
+                        $"Failed to load '{cacheKey.Key}' ({cacheKey.Type?.Name}). {op.OperationException?.Message}",
+                        nameof(AddressablesResourceLoaderService));
+                }
                 if (_handles.TryGetValue(cacheKey, out var existing) && existing.Equals(op))
                 {
                     _handles.Remove(cacheKey);
