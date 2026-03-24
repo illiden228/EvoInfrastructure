@@ -62,6 +62,7 @@ namespace _Project.Scripts.Runtime.EntryPoint
             builder.Register<IUiService, UiService>(Lifetime.Singleton);
             builder.Register<ILoadingProgress, LoadingProgressReporter>(Lifetime.Singleton);
             builder.Register<ISceneLoadingPipeline, SceneLoadingPipeline>(Lifetime.Singleton);
+            builder.RegisterEntryPoint<_Project.Scripts.Runtime.Loading.LoadingViewSystem>(Lifetime.Singleton);
             builder.Register<ILoadingStep, TargetFrameRateStep>(Lifetime.Singleton);
             builder.RegisterEntryPoint<RuntimeEntryPoint>();
         }

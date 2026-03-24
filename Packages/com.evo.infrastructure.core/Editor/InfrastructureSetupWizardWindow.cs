@@ -19,7 +19,7 @@ namespace Evo.Infrastructure.Core.Editor
     public sealed class InfrastructureSetupWizardWindow : EditorWindow
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
-        private const string RuntimeGitTag = "v0.3.27";
+        private const string RuntimeGitTag = "v0.3.28";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
         private const string R3NuGetId = "R3";
         private const string R3NuGetVersion = "1.3.0";
@@ -47,13 +47,15 @@ namespace Evo.Infrastructure.Core.Editor
         private const string StarterRuntimeEntryPointPath = "Assets/_Project/Scripts/Runtime/EntryPoint/RuntimeEntryPoint.cs";
         private const string StarterLoadingSceneLifetimeScopePath = "Assets/_Project/Scripts/Runtime/Loading/LoadingSceneLifetimeScope.cs";
         private const string StarterProjectConfigPath = "Assets/_Project/Scripts/Runtime/Config/ProjectConfig.cs";
-        private const string StarterLoadingScreenModelPath = "Assets/_Project/Scripts/Runtime/Loading/LoadingScreenModel.cs";
+        private const string StarterLoadingPresenterPath = "Assets/_Project/Scripts/Runtime/Loading/ILoadingPresenter.cs";
+        private const string StarterLoadingViewSystemPath = "Assets/_Project/Scripts/Runtime/Loading/LoadingViewSystem.cs";
         private const string TemplatesRootPath = "Packages/com.evo.infrastructure.core/Editor/Templates";
         private const string RuntimeProjectLifetimeScopeTemplateName = "RuntimeProjectLifetimeScope.cs.txt";
         private const string RuntimeEntryPointTemplateName = "RuntimeEntryPoint.cs.txt";
         private const string LoadingSceneLifetimeScopeTemplateName = "LoadingSceneLifetimeScope.cs.txt";
         private const string ProjectConfigTemplateName = "ProjectConfig.cs.txt";
-        private const string LoadingScreenModelTemplateName = "LoadingScreenModel.cs.txt";
+        private const string LoadingPresenterTemplateName = "ILoadingPresenter.cs.txt";
+        private const string LoadingViewSystemTemplateName = "LoadingViewSystem.cs.txt";
         private const string ProjectScopeTypeName = "RuntimeProjectLifetimeScope";
         private const string OneClickStateKeyPrefix = "Evo.Infrastructure.Core.OneClickSetup.";
         private static readonly StarterScriptTemplate[] StarterScriptTemplates =
@@ -62,7 +64,8 @@ namespace Evo.Infrastructure.Core.Editor
             new(StarterRuntimeEntryPointPath, RuntimeEntryPointTemplateName),
             new(StarterLoadingSceneLifetimeScopePath, LoadingSceneLifetimeScopeTemplateName),
             new(StarterProjectConfigPath, ProjectConfigTemplateName),
-            new(StarterLoadingScreenModelPath, LoadingScreenModelTemplateName)
+            new(StarterLoadingPresenterPath, LoadingPresenterTemplateName),
+            new(StarterLoadingViewSystemPath, LoadingViewSystemTemplateName)
         };
 
         private const string VContainerSource = "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer";
@@ -1534,7 +1537,8 @@ namespace Evo.Infrastructure.Core.Editor
                    File.Exists(StarterRuntimeEntryPointPath) &&
                    File.Exists(StarterLoadingSceneLifetimeScopePath) &&
                    File.Exists(StarterProjectConfigPath) &&
-                   File.Exists(StarterLoadingScreenModelPath);
+                   File.Exists(StarterLoadingPresenterPath) &&
+                   File.Exists(StarterLoadingViewSystemPath);
         }
 
         private void DrawReactiveWarning()

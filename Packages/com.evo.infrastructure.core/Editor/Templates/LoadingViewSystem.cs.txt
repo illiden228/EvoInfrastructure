@@ -1,0 +1,94 @@
+using System;
+using System.Collections.Generic;
+using _Project.Scripts.Application.Loading;
+using Cysharp.Threading.Tasks;
+using VContainer.Unity;
+
+namespace _Project.Scripts.Runtime.Loading
+{
+    public sealed class LoadingViewSystem : IInitializable, IDisposable
+    {
+        private readonly ILoadingProgress _loadingProgress;
+        private readonly ILoadingPresenter _loadingPresenter;
+
+        public LoadingViewSystem(
+            ILoadingProgress loadingProgress,
+            IReadOnlyList<ILoadingPresenter> loadingPresenters = null)
+        {
+            _loadingProgress = loadingProgress;
+            _loadingPresenter = ResolveFirstPresenter(loadingPresenters);
+        }
+
+        public void Initialize()
+        {
+            if (_loadingProgress == null)
+            {
+                return;
+            }
+
+            _loadingProgress.Ready += OnReady;
+            _loadingProgress.ProgressChanged += OnProgressChanged;
+            _loadingProgress.Finished += OnFinished;
+        }
+
+        public void Dispose()
+        {
+            if (_loadingProgress == null)
+            {
+                return;
+            }
+
+            _loadingProgress.Ready -= OnReady;
+            _loadingProgress.ProgressChanged -= OnProgressChanged;
+            _loadingProgress.Finished -= OnFinished;
+        }
+
+        private void OnReady()
+        {
+            _loadingPresenter?.ShowAsync().Forget();
+        }
+
+        private void OnProgressChanged(LoadingProgress progress)
+        {
+            _loadingPresenter?.SetProgress(progress);
+        }
+
+        private void OnFinished()
+        {
+            HideAndNotifyAsync().Forget();
+        }
+
+        private async UniTaskVoid HideAndNotifyAsync()
+        {
+            try
+            {
+                if (_loadingPresenter != null)
+                {
+                    await _loadingPresenter.HideAsync();
+                }
+            }
+            finally
+            {
+                _loadingProgress?.NotifyHidden();
+            }
+        }
+
+        private static ILoadingPresenter ResolveFirstPresenter(IReadOnlyList<ILoadingPresenter> loadingPresenters)
+        {
+            if (loadingPresenters == null)
+            {
+                return null;
+            }
+
+            for (var i = 0; i < loadingPresenters.Count; i++)
+            {
+                if (loadingPresenters[i] != null)
+                {
+                    return loadingPresenters[i];
+                }
+            }
+
+            return null;
+        }
+    }
+}

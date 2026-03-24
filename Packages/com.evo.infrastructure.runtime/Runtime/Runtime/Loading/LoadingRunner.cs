@@ -20,62 +20,64 @@ namespace _Project.Scripts.Application.Loading
 
             progress.NotifyReady();
             progress.NotifyStarted();
-
-            if (steps == null || steps.Count == 0)
+            try
             {
-                progress.Report(1f, "Ready", 0, 0);
-                progress.NotifyFinished();
-                return;
-            }
-
-            var ordered = OrderSteps(steps);
-            var totalWeight = GetTotalWeight(ordered);
-            if (totalWeight <= 0f)
-            {
-                progress.Report(1f, "Ready", 0, 0);
-                progress.NotifyFinished();
-                return;
-            }
-
-            var completedWeight = 0f;
-            for (var i = 0; i < ordered.Count; i++)
-            {
-                var step = ordered[i];
-                if (step == null)
+                if (steps == null || steps.Count == 0)
                 {
-                    continue;
+                    progress.Report(1f, "Ready", 0, 0);
+                    return;
                 }
 
-                var weight = GetWeight(step);
-                var message = step.Message;
-                EvoDebug.Log($"Step {i + 1}/{ordered.Count}. {message} start loading", "Loading");
-
-                var localValue = 0f;
-                var stepActive = true;
-                void ReportLocal(float value)
+                var ordered = OrderSteps(steps);
+                var totalWeight = GetTotalWeight(ordered);
+                if (totalWeight <= 0f)
                 {
-                    if (!stepActive)
+                    progress.Report(1f, "Ready", 0, 0);
+                    return;
+                }
+
+                var completedWeight = 0f;
+                for (var i = 0; i < ordered.Count; i++)
+                {
+                    var step = ordered[i];
+                    if (step == null)
                     {
-                        return;
+                        continue;
                     }
 
-                    localValue = Clamp01(value);
-                    var total = Clamp01((completedWeight + localValue * weight) / totalWeight);
-                    progress.Report(total, message, i, ordered.Count);
-                    EvoDebug.Log($"Loading progress: {total:0.00}", "Loading");
+                    var weight = GetWeight(step);
+                    var message = step.Message;
+                    EvoDebug.Log($"Step {i + 1}/{ordered.Count}. {message} start loading", "Loading");
+
+                    var localValue = 0f;
+                    var stepActive = true;
+                    void ReportLocal(float value)
+                    {
+                        if (!stepActive)
+                        {
+                            return;
+                        }
+
+                        localValue = Clamp01(value);
+                        var total = Clamp01((completedWeight + localValue * weight) / totalWeight);
+                        progress.Report(total, message, i, ordered.Count);
+                        EvoDebug.Log($"Loading progress: {total:0.00}", "Loading");
+                    }
+
+                    ReportLocal(0f);
+                    var localProgress = new ImmediateProgress(ReportLocal);
+                    await step.Execute(localProgress, cancellationToken);
+                    ReportLocal(1f);
+                    stepActive = false;
+
+                    completedWeight += weight;
+                    EvoDebug.Log($"Step {i + 1}/{ordered.Count}. {message} completed", "Loading");
                 }
-
-                ReportLocal(0f);
-                var localProgress = new ImmediateProgress(ReportLocal);
-                await step.Execute(localProgress, cancellationToken);
-                ReportLocal(1f);
-                stepActive = false;
-
-                completedWeight += weight;
-                EvoDebug.Log($"Step {i + 1}/{ordered.Count}. {message} completed", "Loading");
             }
-
-            progress.NotifyFinished();
+            finally
+            {
+                progress.NotifyFinished();
+            }
         }
 
         private static List<ILoadingStep> OrderSteps(IReadOnlyList<ILoadingStep> steps)

@@ -60,23 +60,36 @@ namespace _Project.Scripts.Application.Loading
                 return;
             }
 
-            if (mode == LoadSceneMode.Single && string.IsNullOrEmpty(_transitionSceneName))
-            {
-                EvoDebug.LogWarning("TransitionSceneName is not set for single-load.", nameof(SceneLoadingPipeline));
-            }
-            if (mode == LoadSceneMode.Single && !string.IsNullOrEmpty(_transitionSceneName))
-            {
-                var transitionLoad = SceneManager.LoadSceneAsync(_transitionSceneName, LoadSceneMode.Single);
-                if (transitionLoad != null)
-                {
-                    await transitionLoad.ToUniTask(cancellationToken: cancellationToken);
-                }
-            }
-
             var runner = new LoadingRunner();
             var steps = CreateSteps(sceneReference, mode, activateOnLoad, priority);
+            var loadingTask = runner.RunAsync(steps, _progress, cancellationToken);
+            var transitionTask = LoadTransitionSceneAsync(mode, cancellationToken);
+            await UniTask.WhenAll(loadingTask, transitionTask);
+        }
 
-            await runner.RunAsync(steps, _progress, cancellationToken);
+        private async UniTask LoadTransitionSceneAsync(LoadSceneMode mode, CancellationToken cancellationToken)
+        {
+            if (mode != LoadSceneMode.Single)
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(_transitionSceneName))
+            {
+                EvoDebug.LogWarning("TransitionSceneName is not set for single-load.", nameof(SceneLoadingPipeline));
+                return;
+            }
+
+            var transitionLoad = SceneManager.LoadSceneAsync(_transitionSceneName, LoadSceneMode.Single);
+            if (transitionLoad == null)
+            {
+                EvoDebug.LogWarning(
+                    $"Transition scene '{_transitionSceneName}' failed to start loading.",
+                    nameof(SceneLoadingPipeline));
+                return;
+            }
+
+            await transitionLoad.ToUniTask(cancellationToken: cancellationToken);
         }
 
         private sealed class SceneLoadingContext

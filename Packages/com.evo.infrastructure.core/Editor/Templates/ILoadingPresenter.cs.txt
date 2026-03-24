@@ -1,0 +1,15 @@
+using System;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using _Project.Scripts.Application.Loading;
+
+namespace _Project.Scripts.Runtime.Loading
+{
+    public interface ILoadingPresenter
+    {
+        UniTask ShowAsync(CancellationToken cancellationToken = default);
+        void SetProgress(in LoadingProgress progress);
+        UniTask HideAsync(CancellationToken cancellationToken = default);
+        UniTask ShowErrorAsync(Exception exception, CancellationToken cancellationToken = default);
+    }
+}
