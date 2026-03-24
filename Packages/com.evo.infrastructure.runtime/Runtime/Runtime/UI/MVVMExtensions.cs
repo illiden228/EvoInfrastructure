@@ -71,5 +71,6 @@ namespace _Project.Scripts.Application.UI
         {
             return string.IsNullOrEmpty(format) ? value.ToString() : string.Format(format, value);
         }
+
     }
 }

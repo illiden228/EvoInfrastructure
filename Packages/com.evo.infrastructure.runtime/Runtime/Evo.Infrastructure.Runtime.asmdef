@@ -4,6 +4,7 @@
     "UniTask",
     "VContainer",
     "R3",
+    "R3.Unity",
     "PrimeTween.Runtime",
     "Unity.TextMeshPro",
     "Unity.Addressables",
