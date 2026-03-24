@@ -27,6 +27,33 @@ namespace _Project.Scripts.Editor.EvoTools
         private ConfigSettingsView _settingsView;
         private bool _configsDirty = true;
         private bool _missingConfigTypesDirty = true;
+        private bool _refreshQueued;
+
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            AssemblyReloadEvents.afterAssemblyReload += OnAfterAssemblyReload;
+            EditorApplication.projectChanged += OnProjectChangedExternal;
+            MarkDirtyAndQueueRefresh();
+        }
+
+        protected override void OnDisable()
+        {
+            AssemblyReloadEvents.afterAssemblyReload -= OnAfterAssemblyReload;
+            EditorApplication.projectChanged -= OnProjectChangedExternal;
+            _refreshQueued = false;
+            base.OnDisable();
+        }
+
+        private void OnFocus()
+        {
+            MarkDirtyAndQueueRefresh();
+        }
+
+        private void OnProjectChange()
+        {
+            MarkDirtyAndQueueRefresh();
+        }
 
         [MenuItem("EvoTools/Configs", false, 1)]
         private static void Open()
@@ -427,6 +454,55 @@ namespace _Project.Scripts.Editor.EvoTools
                 _configsDirty = true;
                 ForceMenuTreeRebuild();
             }
+        }
+
+        private void OnAfterAssemblyReload()
+        {
+            MarkDirtyAndQueueRefresh();
+        }
+
+        private void OnProjectChangedExternal()
+        {
+            MarkDirtyAndQueueRefresh();
+        }
+
+        private void MarkDirtyAndQueueRefresh()
+        {
+            _configsDirty = true;
+            _missingConfigTypesDirty = true;
+            _categoryCache.Clear();
+            QueueRefresh();
+        }
+
+        private void QueueRefresh()
+        {
+            if (_refreshQueued)
+            {
+                return;
+            }
+
+            _refreshQueued = true;
+            EditorApplication.delayCall += RefreshWhenReady;
+        }
+
+        private void RefreshWhenReady()
+        {
+            _refreshQueued = false;
+
+            if (this == null)
+            {
+                return;
+            }
+
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                QueueRefresh();
+                return;
+            }
+
+            EnsureCatalog();
+            RefreshCatalogState(true);
+            Repaint();
         }
 
         private void CreateConfigAsset(Type type, bool select)
