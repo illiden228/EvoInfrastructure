@@ -5,9 +5,6 @@ using _Project.Scripts.Infrastructure.Services.PlatformInfo;
 #if YandexGamesPlatform_yg
 using YG;
 #endif
-#if YandexGamesPlatform_yg && Storage_yg
-using YG.Insides;
-#endif
 
 namespace _Project.Scripts.Infrastructure.Services.Save
 {
@@ -109,7 +106,7 @@ namespace _Project.Scripts.Infrastructure.Services.Save
             YG2.onGetSDKData += OnDataLoaded;
             try
             {
-                YGInsides.LoadProgress();
+                YG2.LoadProgress();
                 var completed = await UniTask.WhenAny(
                     tcs.Task,
                     UniTask.Delay(PLUGIN_READY_TIMEOUT_MS, cancellationToken: cancellationToken));
