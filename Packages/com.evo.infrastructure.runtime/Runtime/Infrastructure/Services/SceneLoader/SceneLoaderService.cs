@@ -211,7 +211,7 @@ namespace _Project.Scripts.Infrastructure.Services.SceneLoader
 
             try
             {
-                await handle.ToUniTask(cancellationToken: cancellationToken);
+                await AwaitHandleCompletionAsync(handle, cancellationToken);
                 SceneLoadProgress?.Invoke(new SceneLoadProgress(info, 1f));
                 SceneLoadFinished?.Invoke(info);
                 return handle.Result;
@@ -231,6 +231,22 @@ namespace _Project.Scripts.Infrastructure.Services.SceneLoader
                     nameof(SceneLoaderService));
                 SceneLoadFinished?.Invoke(info);
                 throw;
+            }
+        }
+
+        private static async UniTask AwaitHandleCompletionAsync(
+            AsyncOperationHandle<SceneInstance> handle,
+            CancellationToken cancellationToken)
+        {
+            while (!handle.IsDone)
+            {
+                await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+            }
+
+            if (handle.Status == AsyncOperationStatus.Failed)
+            {
+                throw handle.OperationException ?? new InvalidOperationException(
+                    "Scene load operation failed without explicit exception.");
             }
         }
 
