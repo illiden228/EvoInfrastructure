@@ -387,7 +387,7 @@ namespace _Project.Scripts.Infrastructure.Services.ResourceLoader
             try
             {
                 var typedHandle = handle.Convert<T>();
-                await typedHandle.ToUniTask(cancellationToken: cancellationToken);
+                await AwaitHandleCompletionAsync(typedHandle, cancellationToken);
                 return typedHandle.Result;
             }
             catch (OperationCanceledException)
@@ -423,6 +423,22 @@ namespace _Project.Scripts.Infrastructure.Services.ResourceLoader
                 }
 
                 throw;
+            }
+        }
+
+        private static async UniTask AwaitHandleCompletionAsync<T>(
+            AsyncOperationHandle<T> handle,
+            CancellationToken cancellationToken)
+        {
+            while (!handle.IsDone)
+            {
+                await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
+            }
+
+            if (handle.Status == AsyncOperationStatus.Failed)
+            {
+                throw handle.OperationException ?? new InvalidOperationException(
+                    $"Addressables operation failed for handle type '{typeof(T).Name}'.");
             }
         }
 
