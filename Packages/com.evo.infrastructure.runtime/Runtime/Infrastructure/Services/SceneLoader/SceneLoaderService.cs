@@ -217,7 +217,7 @@ namespace _Project.Scripts.Infrastructure.Services.SceneLoader
             EvoDebug.Log(
                 $"[SceneLoad:{operationId}] START ts={startedAtUtc:O} key='{info.SceneKey}' mode={info.Mode} " +
                 $"activateOnLoad={info.ActivateOnLoad} priority={info.Priority} source={info.Source} " +
-                $"forceReload={info.ForceReload} handleValid={handle.IsValid()} status={(handle.IsValid() ? handle.Status.ToString() : "Invalid")}",
+                $"isReload={info.IsReload} handleValid={handle.IsValid()} status={(handle.IsValid() ? handle.Status.ToString() : "Invalid")}",
                 nameof(SceneLoaderService));
 
             SceneLoadStarted?.Invoke(info);
