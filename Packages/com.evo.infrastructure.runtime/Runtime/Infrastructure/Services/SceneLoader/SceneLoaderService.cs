@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using _Project.Scripts.Infrastructure.Services.Debug;
 using Cysharp.Threading.Tasks;
@@ -12,6 +13,9 @@ namespace _Project.Scripts.Infrastructure.Services.SceneLoader
 {
     public sealed class SceneLoaderService : ISceneLoaderService
     {
+        private const float SCENE_LOAD_TIMEOUT_SECONDS = 45f;
+        private static long _loadOperationSequence;
+
         private readonly IResourceLoaderService _resourceLoader;
         private string _lastSceneKey;
         private AssetReference _lastSceneReference;
@@ -206,12 +210,37 @@ namespace _Project.Scripts.Infrastructure.Services.SceneLoader
             SceneLoadInfo info,
             CancellationToken cancellationToken)
         {
+            var operationId = Interlocked.Increment(ref _loadOperationSequence);
+            var startedAtUtc = DateTime.UtcNow;
+            var stopwatch = Stopwatch.StartNew();
+
+            EvoDebug.Log(
+                $"[SceneLoad:{operationId}] START ts={startedAtUtc:O} key='{info.SceneKey}' mode={info.Mode} " +
+                $"activateOnLoad={info.ActivateOnLoad} priority={info.Priority} source={info.Source} " +
+                $"forceReload={info.ForceReload} handleValid={handle.IsValid()} status={(handle.IsValid() ? handle.Status.ToString() : "Invalid")}",
+                nameof(SceneLoaderService));
+
             SceneLoadStarted?.Invoke(info);
             ReportProgress(handle, info, cancellationToken).Forget();
 
             try
             {
-                await AwaitHandleCompletionAsync(handle, cancellationToken);
+                await AwaitHandleCompletionAsync(handle, info, operationId, SCENE_LOAD_TIMEOUT_SECONDS, cancellationToken);
+
+                var loadDoneAtUtc = DateTime.UtcNow;
+                var loadedScene = handle.Result.Scene;
+                EvoDebug.Log(
+                    $"[SceneLoad:{operationId}] LOAD_HANDLE_DONE ts={loadDoneAtUtc:O} elapsedMs={stopwatch.ElapsedMilliseconds} " +
+                    $"key='{info.SceneKey}' status={handle.Status} percent={handle.PercentComplete:0.000} " +
+                    $"sceneValid={loadedScene.IsValid()} sceneLoaded={loadedScene.isLoaded} sceneName='{loadedScene.name}'",
+                    nameof(SceneLoaderService));
+
+                EvoDebug.Log(
+                    info.ActivateOnLoad
+                        ? $"[SceneLoad:{operationId}] ACTIVATION_MODE auto-by-addressables"
+                        : $"[SceneLoad:{operationId}] ACTIVATION_MODE deferred-manual",
+                    nameof(SceneLoaderService));
+
                 SceneLoadProgress?.Invoke(new SceneLoadProgress(info, 1f));
                 SceneLoadFinished?.Invoke(info);
                 return handle.Result;
@@ -219,7 +248,17 @@ namespace _Project.Scripts.Infrastructure.Services.SceneLoader
             catch (OperationCanceledException)
             {
                 EvoDebug.LogWarning(
-                    $"Scene load canceled for '{info.SceneKey}'.",
+                    $"[SceneLoad:{operationId}] CANCELED ts={DateTime.UtcNow:O} elapsedMs={stopwatch.ElapsedMilliseconds} " +
+                    $"key='{info.SceneKey}' percent={(handle.IsValid() ? handle.PercentComplete : 0f):0.000}",
+                    nameof(SceneLoaderService));
+                SceneLoadFinished?.Invoke(info);
+                throw;
+            }
+            catch (TimeoutException ex)
+            {
+                EvoDebug.LogError(
+                    $"[SceneLoad:{operationId}] TIMEOUT ts={DateTime.UtcNow:O} elapsedMs={stopwatch.ElapsedMilliseconds} " +
+                    $"key='{info.SceneKey}' percent={(handle.IsValid() ? handle.PercentComplete : 0f):0.000}. {ex.Message}",
                     nameof(SceneLoaderService));
                 SceneLoadFinished?.Invoke(info);
                 throw;
@@ -227,7 +266,9 @@ namespace _Project.Scripts.Infrastructure.Services.SceneLoader
             catch (Exception ex)
             {
                 EvoDebug.LogError(
-                    $"Scene load failed for '{info.SceneKey}'. {ex.Message}",
+                    $"[SceneLoad:{operationId}] FAILED ts={DateTime.UtcNow:O} elapsedMs={stopwatch.ElapsedMilliseconds} " +
+                    $"key='{info.SceneKey}' percent={(handle.IsValid() ? handle.PercentComplete : 0f):0.000}. " +
+                    $"{ex.GetType().Name}: {ex.Message}",
                     nameof(SceneLoaderService));
                 SceneLoadFinished?.Invoke(info);
                 throw;
@@ -236,10 +277,23 @@ namespace _Project.Scripts.Infrastructure.Services.SceneLoader
 
         private static async UniTask AwaitHandleCompletionAsync(
             AsyncOperationHandle<SceneInstance> handle,
+            SceneLoadInfo info,
+            long operationId,
+            float timeoutSeconds,
             CancellationToken cancellationToken)
         {
+            var startedAtUtc = DateTime.UtcNow;
+            var stopwatch = Stopwatch.StartNew();
             while (!handle.IsDone)
             {
+                if (stopwatch.Elapsed.TotalSeconds >= timeoutSeconds)
+                {
+                    throw new TimeoutException(
+                        $"Scene handle wait exceeded {timeoutSeconds:0.###}s for key '{info.SceneKey}' " +
+                        $"(mode={info.Mode}, activateOnLoad={info.ActivateOnLoad}, status={handle.Status}, " +
+                        $"percent={handle.PercentComplete:0.000}, startedAt={startedAtUtc:O}, operationId={operationId}).");
+                }
+
                 await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
             }
 
