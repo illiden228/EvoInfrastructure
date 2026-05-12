@@ -117,11 +117,11 @@ namespace Evo.Infrastructure.Core.Editor
             "Assets/_Project/Scripts/Runtime/Loading"
         };
 
-        private readonly Queue<string> _installQueue = new();
-        private AddRequest _addRequest;
-        private AddAndRemoveRequest _addAndRemoveRequest;
-        private RemoveRequest _removeRequest;
-        private ListRequest _listRequest;
+        [NonSerialized] private readonly Queue<string> _installQueue = new();
+        [NonSerialized] private AddRequest _addRequest;
+        [NonSerialized] private AddAndRemoveRequest _addAndRemoveRequest;
+        [NonSerialized] private RemoveRequest _removeRequest;
+        [NonSerialized] private ListRequest _listRequest;
         private bool _dependenciesInstalled;
         private bool _runtimeInstalled;
         private bool _yandexInstalled;
@@ -181,6 +181,7 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void OnEnable()
         {
+            ClearTransientPackageRequests();
             EditorApplication.update += UpdateInstallQueue;
             ResumeOneClickSetupIfNeeded();
             RefreshState();
@@ -197,8 +198,6 @@ namespace Evo.Infrastructure.Core.Editor
             _scroll = EditorGUILayout.BeginScrollView(_scroll);
             DrawHeader();
             DrawProgress();
-            DrawState();
-            GUILayout.Space(10f);
             DrawInstallPlan();
             GUILayout.Space(10f);
             EditorGUILayout.HelpBox(_statusLine, MessageType.Info);
@@ -209,50 +208,6 @@ namespace Evo.Infrastructure.Core.Editor
         {
             EditorGUILayout.LabelField("Evo Infrastructure Setup", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("Step-by-step project bootstrap.", EditorStyles.wordWrappedLabel);
-        }
-
-        private void DrawState()
-        {
-            EditorGUILayout.Space(8f);
-            DrawStatusRow("VContainer installed", _vContainerInstalled);
-            DrawStatusRow("UniTask installed", _uniTaskInstalled);
-            DrawStatusRow("NuGetForUnity installed", _nuGetForUnityInstalled);
-            DrawStatusRow("Addressables installed", _addressablesInstalled);
-            DrawStatusRow("Localization installed", _localizationInstalled);
-            DrawStatusRow("Input System installed", _inputSystemInstalled);
-            DrawStatusRow("UGUI installed", _uguiInstalled);
-            DrawStatusRow("PrimeTween installed", _primeTweenInstalled);
-            DrawStatusRow("R3.Unity installed", _r3UnityInstalled);
-            DrawStatusRow("R3 installed", _r3Ready);
-            DrawStatusRow("ObservableCollections installed", _observableCollectionsReady);
-            DrawStatusRow("ObservableCollections.R3 installed", _observableCollectionsR3Ready);
-            DrawStatusRow("Project structure created", _structureReady);
-            DrawStatusRow("Infrastructure runtime installed", _runtimeInstalled);
-            DrawStatusRow("Infrastructure Yandex installed", _yandexInstalled);
-            DrawStatusRow("Odin installed", _odinInstalled);
-            DrawStatusRow("Starter runtime scaffold files ready", HasStarterScaffoldFiles());
-            DrawStatusRow("Scaffold templates valid", _templatesReady);
-            DrawStatusRow("Scaffold scripts up to date", _scaffoldScriptsUpToDate);
-            DrawStatusRow("Starter runtime types compiled", AreStarterRuntimeTypesReady());
-            DrawStatusRow("Bootstrap scopes valid", _bootstrapScopesReady);
-
-            if (_templateValidationIssues.Count > 0)
-            {
-                EditorGUILayout.HelpBox(
-                    "Template issues:\n" + string.Join("\n", _templateValidationIssues),
-                    MessageType.Warning);
-            }
-        }
-
-        private static void DrawStatusRow(string label, bool ready)
-        {
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField(label, GUILayout.Width(320f));
-            var old = GUI.color;
-            GUI.color = ready ? new Color(0.25f, 0.7f, 0.25f) : new Color(0.8f, 0.3f, 0.3f);
-            EditorGUILayout.LabelField(ready ? "Ready" : "Missing", GUILayout.Width(80f));
-            GUI.color = old;
-            EditorGUILayout.EndHorizontal();
         }
 
         private void DrawInstallPlan()
@@ -268,6 +223,13 @@ namespace Evo.Infrastructure.Core.Editor
                     _isRefreshingState
                         ? "Analyzing packages and project state..."
                         : "Run Analyze Installed Packages before Setup.",
+                    MessageType.Warning);
+            }
+
+            if (_templateValidationIssues.Count > 0)
+            {
+                EditorGUILayout.HelpBox(
+                    "Template issues:\n" + string.Join("\n", _templateValidationIssues),
                     MessageType.Warning);
             }
 
@@ -1511,6 +1473,18 @@ namespace Evo.Infrastructure.Core.Editor
                 }
                 else
                 {
+                    if (IsInterruptedPackageRequest(_removeRequest.Error))
+                    {
+                        _statusLine = "Package remove was interrupted by Unity refresh. Re-analyzing...";
+                        Debug.LogWarning("[Evo Setup] Package remove was interrupted by Unity refresh. Re-analyzing setup state.");
+                        _removeRequest = null;
+                        _isInstalling = false;
+                        RefreshState();
+                        QueueRefreshBurst();
+                        Repaint();
+                        return;
+                    }
+
                     var message = GetRequestErrorMessage(_removeRequest.Error);
                     _statusLine = $"Package remove failed: {message}";
                     Debug.LogError($"[Evo Setup] Package remove failed: {message}");
@@ -1539,6 +1513,18 @@ namespace Evo.Infrastructure.Core.Editor
                 }
                 else
                 {
+                    if (IsInterruptedPackageRequest(_addAndRemoveRequest.Error))
+                    {
+                        _statusLine = "Package setup was interrupted by Unity refresh. Re-analyzing...";
+                        Debug.LogWarning("[Evo Setup] Package setup was interrupted by Unity refresh. Re-analyzing setup state.");
+                        _addAndRemoveRequest = null;
+                        _isInstalling = false;
+                        RefreshState();
+                        QueueRefreshBurst();
+                        Repaint();
+                        return;
+                    }
+
                     var message = GetRequestErrorMessage(_addAndRemoveRequest.Error);
                     _statusLine = $"Package setup failed: {message}";
                     Debug.LogError($"[Evo Setup] Package setup failed: {message}");
@@ -1575,6 +1561,18 @@ namespace Evo.Infrastructure.Core.Editor
                 }
                 else
                 {
+                    if (IsInterruptedPackageRequest(_addRequest.Error))
+                    {
+                        _statusLine = "Package install was interrupted by Unity refresh. Re-analyzing...";
+                        Debug.LogWarning("[Evo Setup] Package install was interrupted by Unity refresh. Re-analyzing setup state.");
+                        _addRequest = null;
+                        _isInstalling = false;
+                        RefreshState();
+                        QueueRefreshBurst();
+                        Repaint();
+                        return;
+                    }
+
                     var message = GetRequestErrorMessage(_addRequest.Error);
                     _statusLine = $"Install failed: {message}";
                     Debug.LogError($"[Evo Setup] Package install failed: {message}");
@@ -1616,6 +1614,22 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             ContinueOneClickSetup();
+        }
+
+        private void ClearTransientPackageRequests()
+        {
+            _addRequest = null;
+            _addAndRemoveRequest = null;
+            _removeRequest = null;
+            _listRequest = null;
+            _installQueue.Clear();
+            _isInstalling = false;
+            _isRefreshingState = false;
+        }
+
+        private bool IsInterruptedPackageRequest(Error error)
+        {
+            return error == null && _oneClickSetupRequested;
         }
 
         private static string GetRequestErrorMessage(Error error)
