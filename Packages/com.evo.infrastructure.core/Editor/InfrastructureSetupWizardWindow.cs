@@ -66,6 +66,7 @@ namespace Evo.Infrastructure.Core.Editor
         private const string ProjectScopeTypeName = "RuntimeProjectLifetimeScope";
         private const string OneClickStateKeyPrefix = "Evo.Infrastructure.Core.OneClickSetup.";
         private const string OdinImportStateKeyPrefix = "Evo.Infrastructure.Core.OdinImportRequested.";
+        private const string SelectionStateKeyPrefix = "Evo.Infrastructure.Core.SetupSelection.";
         private static readonly StarterScriptTemplate[] StarterScriptTemplates =
         {
             new(StarterRuntimeProjectLifetimeScopePath, RuntimeProjectLifetimeScopeTemplateName),
@@ -186,6 +187,7 @@ namespace Evo.Infrastructure.Core.Editor
         private void OnEnable()
         {
             ClearTransientPackageRequests();
+            LoadSelectionState();
             EditorApplication.update += UpdateInstallQueue;
             ResumeOneClickSetupIfNeeded();
             RefreshState();
@@ -204,22 +206,18 @@ namespace Evo.Infrastructure.Core.Editor
             DrawProgress();
             DrawInstallPlan();
             GUILayout.Space(10f);
-            EditorGUILayout.HelpBox(_statusLine, MessageType.Info);
             EditorGUILayout.EndScrollView();
         }
 
         private void DrawHeader()
         {
             EditorGUILayout.LabelField("Evo Infrastructure Setup", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField("Step-by-step project bootstrap.", EditorStyles.wordWrappedLabel);
+            EditorGUILayout.HelpBox(_statusLine, MessageType.Info);
         }
 
         private void DrawInstallPlan()
         {
             EditorGUILayout.LabelField("Install Plan", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox(
-                "Analyze installed packages, choose modules, then run Setup. Installed items are checked and locked. Recommended items are selected by default.",
-                MessageType.Info);
 
             if (!_stateAnalyzed)
             {
@@ -269,6 +267,7 @@ namespace Evo.Infrastructure.Core.Editor
             EditorGUILayout.Space(4f);
             EditorGUILayout.LabelField("Project Runtime", EditorStyles.boldLabel);
             _setupStarterScaffold = DrawInstallPlanRow("Starter scaffold", _setupStarterScaffold, HasStarterScaffold() && AreStarterRuntimeTypesReady() && _bootstrapScopesReady, "Creates EntryPoint, loading flow, configs, scenes and Addressables entries.");
+            SaveSelectionState();
 
             using (new EditorGUI.DisabledScope(_isInstalling || _oneClickSetupRequested || !_stateAnalyzed))
             {
@@ -486,9 +485,37 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             _isInstalling = true;
-            _statusLine = $"Adding selected packages in one batch: {packages.Count}";
+            _statusLine = "Adding packages: " + string.Join(", ", packages.Select(GetPackageDisplayName));
             Debug.Log($"[Evo Setup] Adding selected packages in one Package Manager batch:\n{string.Join("\n", packages)}");
             _addAndRemoveRequest = Client.AddAndRemove(packages.ToArray(), Array.Empty<string>());
+        }
+
+        private static string GetPackageDisplayName(string source)
+        {
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                return "Unknown";
+            }
+
+            if (ContainsIgnoreCase(source, "VContainer")) return "VContainer";
+            if (ContainsIgnoreCase(source, "UniTask")) return "UniTask";
+            if (ContainsIgnoreCase(source, "NuGetForUnity")) return "NuGetForUnity";
+            if (ContainsIgnoreCase(source, "R3.Unity")) return "R3.Unity";
+            if (ContainsIgnoreCase(source, RuntimePackageName)) return "Evo Runtime";
+            if (ContainsIgnoreCase(source, YandexPackageName)) return "Evo Yandex";
+            if (ContainsIgnoreCase(source, PrimeTweenPackageName)) return "PrimeTween";
+            if (ContainsIgnoreCase(source, AddressablesPackageName)) return "Addressables";
+            if (ContainsIgnoreCase(source, LocalizationPackageName)) return "Localization";
+            if (ContainsIgnoreCase(source, InputSystemPackageName)) return "Input System";
+            if (ContainsIgnoreCase(source, UguiPackageName)) return "Unity UI";
+            return source;
+        }
+
+        private static bool ContainsIgnoreCase(string source, string value)
+        {
+            return !string.IsNullOrWhiteSpace(source) &&
+                   !string.IsNullOrWhiteSpace(value) &&
+                   source.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private List<string> CollectSelectedUpmPackagesToInstall()
@@ -2652,6 +2679,7 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void StartOneClickSetup()
         {
+            SaveSelectionState();
             _oneClickSetupRequested = true;
             _bootstrapValidationAttempted = false;
             SessionState.SetBool(GetOneClickStateKey(), true);
@@ -2659,6 +2687,52 @@ namespace Evo.Infrastructure.Core.Editor
             _statusLine = "Setup started.";
             RefreshState();
             ContinueOneClickSetup();
+        }
+
+        private void LoadSelectionState()
+        {
+            _installVContainer = GetSelection(nameof(_installVContainer), _installVContainer);
+            _installUniTask = GetSelection(nameof(_installUniTask), _installUniTask);
+            _installNuGetForUnity = GetSelection(nameof(_installNuGetForUnity), _installNuGetForUnity);
+            _installAddressables = GetSelection(nameof(_installAddressables), _installAddressables);
+            _installLocalization = GetSelection(nameof(_installLocalization), _installLocalization);
+            _installInputSystem = GetSelection(nameof(_installInputSystem), _installInputSystem);
+            _installUgui = GetSelection(nameof(_installUgui), _installUgui);
+            _installPrimeTween = GetSelection(nameof(_installPrimeTween), _installPrimeTween);
+            _installR3Unity = GetSelection(nameof(_installR3Unity), _installR3Unity);
+            _installReactiveNuGets = GetSelection(nameof(_installReactiveNuGets), _installReactiveNuGets);
+            _installRuntimeModule = GetSelection(nameof(_installRuntimeModule), _installRuntimeModule);
+            _installYandexModule = GetSelection(nameof(_installYandexModule), _installYandexModule);
+            _installOdinPackage = GetSelection(nameof(_installOdinPackage), _installOdinPackage);
+            _setupStarterScaffold = GetSelection(nameof(_setupStarterScaffold), _setupStarterScaffold);
+        }
+
+        private void SaveSelectionState()
+        {
+            SetSelection(nameof(_installVContainer), _installVContainer);
+            SetSelection(nameof(_installUniTask), _installUniTask);
+            SetSelection(nameof(_installNuGetForUnity), _installNuGetForUnity);
+            SetSelection(nameof(_installAddressables), _installAddressables);
+            SetSelection(nameof(_installLocalization), _installLocalization);
+            SetSelection(nameof(_installInputSystem), _installInputSystem);
+            SetSelection(nameof(_installUgui), _installUgui);
+            SetSelection(nameof(_installPrimeTween), _installPrimeTween);
+            SetSelection(nameof(_installR3Unity), _installR3Unity);
+            SetSelection(nameof(_installReactiveNuGets), _installReactiveNuGets);
+            SetSelection(nameof(_installRuntimeModule), _installRuntimeModule);
+            SetSelection(nameof(_installYandexModule), _installYandexModule);
+            SetSelection(nameof(_installOdinPackage), _installOdinPackage);
+            SetSelection(nameof(_setupStarterScaffold), _setupStarterScaffold);
+        }
+
+        private static bool GetSelection(string key, bool defaultValue)
+        {
+            return SessionState.GetBool(GetSelectionStateKey(key), defaultValue);
+        }
+
+        private static void SetSelection(string key, bool value)
+        {
+            SessionState.SetBool(GetSelectionStateKey(key), value);
         }
 
         private void ResumeOneClickSetupIfNeeded()
@@ -2752,6 +2826,11 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
+            if (_setupStarterScaffold)
+            {
+                ValidateTemplatesAndScaffoldScriptsState();
+            }
+
             if (_setupStarterScaffold && !_templatesReady)
             {
                 _oneClickSetupRequested = false;
@@ -2759,6 +2838,15 @@ namespace Evo.Infrastructure.Core.Editor
                 EditorUtility.ClearProgressBar();
                 _statusLine = "Setup stopped: scaffold templates are invalid.";
                 Debug.LogError("[Evo Setup] Scaffold templates are invalid.");
+                return;
+            }
+
+            if (_setupStarterScaffold && HasStarterScaffoldFiles() && !_scaffoldScriptsUpToDate)
+            {
+                _statusLine = "Setup: replacing outdated starter scaffold scripts from templates...";
+                Debug.Log("[Evo Setup] Replacing outdated starter scaffold scripts from templates...");
+                UpdateScaffoldScriptsFromTemplates();
+                QueueFinalizeStarterRuntimeScaffold();
                 return;
             }
 
@@ -2921,6 +3009,11 @@ namespace Evo.Infrastructure.Core.Editor
         private static string GetOdinImportStateKey()
         {
             return OdinImportStateKeyPrefix + Application.dataPath.GetHashCode();
+        }
+
+        private static string GetSelectionStateKey(string key)
+        {
+            return SelectionStateKeyPrefix + Application.dataPath.GetHashCode() + "." + key;
         }
 
         private readonly struct StarterScriptTemplate
