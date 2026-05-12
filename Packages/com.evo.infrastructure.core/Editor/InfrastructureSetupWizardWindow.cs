@@ -85,6 +85,13 @@ namespace Evo.Infrastructure.Core.Editor
         private const string R3UnitySource = "https://github.com/Cysharp/R3.git?path=src/R3.Unity/Assets/R3.Unity";
         private const string PrimeTweenPackageName = "com.kyrylokuzyk.primetween";
         private const string R3UnityPackageName = "com.cysharp.r3";
+        private const string VContainerPackageName = "jp.hadashikick.vcontainer";
+        private const string UniTaskPackageName = "com.cysharp.unitask";
+        private const string NuGetForUnityPackageName = "com.github-glitchenzo.nugetforunity";
+        private const string AddressablesPackageName = "com.unity.addressables";
+        private const string LocalizationPackageName = "com.unity.localization";
+        private const string InputSystemPackageName = "com.unity.inputsystem";
+        private const string UguiPackageName = "com.unity.ugui";
         private const string PrimeTweenScope = "com.kyrylokuzyk";
         private const string NpmRegistryUrl = "https://registry.npmjs.org";
 
@@ -113,6 +120,7 @@ namespace Evo.Infrastructure.Core.Editor
         private readonly Queue<string> _installQueue = new();
         private AddRequest _addRequest;
         private AddAndRemoveRequest _addAndRemoveRequest;
+        private RemoveRequest _removeRequest;
         private ListRequest _listRequest;
         private bool _dependenciesInstalled;
         private bool _runtimeInstalled;
@@ -139,6 +147,7 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _isInstalling;
         private bool _oneClickSetupRequested;
         private bool _scaffoldFinalizeQueued;
+        private bool _reactiveRestoreRequested;
         private bool _installVContainer = true;
         private bool _installUniTask = true;
         private bool _installNuGetForUnity = true;
@@ -263,21 +272,21 @@ namespace Evo.Infrastructure.Core.Editor
 
             EditorGUILayout.Space(4f);
             EditorGUILayout.LabelField("Runtime Packages", EditorStyles.boldLabel);
-            _installVContainer = DrawInstallPlanRow("VContainer", _installVContainer, _vContainerInstalled, "DI container for project and scene scopes.");
-            _installUniTask = DrawInstallPlanRow("UniTask", _installUniTask, _uniTaskInstalled, "Async runtime used by loading and services.");
-            _installNuGetForUnity = DrawInstallPlanRow("NuGetForUnity", _installNuGetForUnity, _nuGetForUnityInstalled, "Installs reactive NuGet packages.");
-            _installAddressables = DrawInstallPlanRow("Addressables", _installAddressables, _addressablesInstalled, "Startup scene references are created as addressable assets.");
-            _installLocalization = DrawInstallPlanRow("Unity Localization", _installLocalization, _localizationInstalled, "Runtime localization package.");
-            _installInputSystem = DrawInstallPlanRow("Input System", _installInputSystem, _inputSystemInstalled, "Default input package for gameplay projects.");
-            _installUgui = DrawInstallPlanRow("Unity UI", _installUgui, _uguiInstalled, "Base UI package for loading and menus.");
-            _installPrimeTween = DrawInstallPlanRow("PrimeTween", _installPrimeTween, _primeTweenInstalled, "Tweening dependency.");
-            _installR3Unity = DrawInstallPlanRow("R3.Unity", _installR3Unity, _r3UnityInstalled, "Reactive Unity integration.");
-            _installReactiveNuGets = DrawInstallPlanRow("Reactive NuGets", _installReactiveNuGets, _r3Ready && _observableCollectionsReady && _observableCollectionsR3Ready, "R3, ObservableCollections and ObservableCollections.R3.");
-            _installRuntimeModule = DrawInstallPlanRow("Evo Infrastructure Runtime", _installRuntimeModule, _runtimeInstalled, "Runtime framework package.");
+            _installVContainer = DrawInstallPlanRow("VContainer", _installVContainer, _vContainerInstalled, "DI container for project and scene scopes.", () => RemovePackage(VContainerPackageName, "VContainer"));
+            _installUniTask = DrawInstallPlanRow("UniTask", _installUniTask, _uniTaskInstalled, "Async runtime used by loading and services.", () => RemovePackage(UniTaskPackageName, "UniTask"));
+            _installNuGetForUnity = DrawInstallPlanRow("NuGetForUnity", _installNuGetForUnity, _nuGetForUnityInstalled, "Installs reactive NuGet packages.", () => RemovePackage(NuGetForUnityPackageName, "NuGetForUnity"));
+            _installAddressables = DrawInstallPlanRow("Addressables", _installAddressables, _addressablesInstalled, "Startup scene references are created as addressable assets.", () => RemovePackage(AddressablesPackageName, "Addressables"));
+            _installLocalization = DrawInstallPlanRow("Unity Localization", _installLocalization, _localizationInstalled, "Runtime localization package.", () => RemovePackage(LocalizationPackageName, "Unity Localization"));
+            _installInputSystem = DrawInstallPlanRow("Input System", _installInputSystem, _inputSystemInstalled, "Default input package for gameplay projects.", () => RemovePackage(InputSystemPackageName, "Input System"));
+            _installUgui = DrawInstallPlanRow("Unity UI", _installUgui, _uguiInstalled, "Base UI package for loading and menus.", () => RemovePackage(UguiPackageName, "Unity UI"));
+            _installPrimeTween = DrawInstallPlanRow("PrimeTween", _installPrimeTween, _primeTweenInstalled, "Tweening dependency.", () => RemovePackage(PrimeTweenPackageName, "PrimeTween"));
+            _installR3Unity = DrawInstallPlanRow("R3.Unity", _installR3Unity, _r3UnityInstalled, "Reactive Unity integration.", () => RemovePackage(R3UnityPackageName, "R3.Unity"));
+            _installReactiveNuGets = DrawInstallPlanRow("Reactive NuGets", _installReactiveNuGets, AreReactiveAssembliesReady() || AreReactivePackagesConfigReady(), "R3, ObservableCollections and ObservableCollections.R3.", RemoveReactiveNuGetPackages);
+            _installRuntimeModule = DrawInstallPlanRow("Evo Infrastructure Runtime", _installRuntimeModule, _runtimeInstalled, "Runtime framework package.", () => RemovePackage(RuntimePackageName, "Evo Infrastructure Runtime"));
 
             EditorGUILayout.Space(4f);
             EditorGUILayout.LabelField("Optional Modules", EditorStyles.boldLabel);
-            _installYandexModule = DrawInstallPlanRow("Evo Infrastructure Yandex", _installYandexModule, _yandexInstalled, "YG2 integration package.");
+            _installYandexModule = DrawInstallPlanRow("Evo Infrastructure Yandex", _installYandexModule, _yandexInstalled, "YG2 integration package.", () => RemovePackage(YandexPackageName, "Evo Infrastructure Yandex"));
             _installOdinPackage = DrawInstallPlanRow("Odin Inspector", _installOdinPackage, _odinInstalled, "Import from a selected .unitypackage source.");
 
             EditorGUILayout.Space(4f);
@@ -303,13 +312,13 @@ namespace Evo.Infrastructure.Core.Editor
             }
         }
 
-        private bool DrawInstallPlanRow(string label, bool selected, bool installed, string details)
+        private bool DrawInstallPlanRow(string label, bool selected, bool installed, string details, Action removeAction = null)
         {
             EditorGUILayout.BeginHorizontal();
             var value = installed || selected;
             using (new EditorGUI.DisabledScope(installed || _isInstalling || _oneClickSetupRequested))
             {
-                value = EditorGUILayout.ToggleLeft(label, value, GUILayout.Width(260f));
+                value = EditorGUILayout.ToggleLeft(label, value, GUILayout.Width(220f));
             }
 
             var old = GUI.color;
@@ -320,6 +329,14 @@ namespace Evo.Infrastructure.Core.Editor
                     : new Color(0.65f, 0.65f, 0.65f);
             EditorGUILayout.LabelField(installed ? "Installed" : value ? "Selected" : "Skipped", GUILayout.Width(72f));
             GUI.color = old;
+            using (new EditorGUI.DisabledScope(!installed || _isInstalling || _oneClickSetupRequested || _removeRequest != null || removeAction == null))
+            {
+                if (GUILayout.Button("Remove", GUILayout.Width(68f)))
+                {
+                    removeAction?.Invoke();
+                }
+            }
+
             EditorGUILayout.LabelField(details, EditorStyles.wordWrappedMiniLabel);
             EditorGUILayout.EndHorizontal();
 
@@ -481,6 +498,22 @@ namespace Evo.Infrastructure.Core.Editor
 
         private List<string> CollectSelectedUpmPackagesToInstall()
         {
+            var foundation = CollectFoundationPackagesToInstall();
+            if (foundation.Count > 0)
+            {
+                return foundation;
+            }
+
+            if (_installReactiveNuGets && !AreReactiveAssembliesReady())
+            {
+                return new List<string>();
+            }
+
+            return CollectFrameworkPackagesToInstall();
+        }
+
+        private List<string> CollectFoundationPackagesToInstall()
+        {
             var packages = new List<string>();
             if (_installVContainer && !_vContainerInstalled) packages.Add(VContainerSource);
             if (_installUniTask && !_uniTaskInstalled) packages.Add(UniTaskSource);
@@ -490,9 +523,15 @@ namespace Evo.Infrastructure.Core.Editor
             if (_installInputSystem && !_inputSystemInstalled) packages.Add(InputSystemSource);
             if (_installUgui && !_uguiInstalled) packages.Add(UguiSource);
             if (_installPrimeTween && !_primeTweenInstalled) packages.Add(PrimeTweenSource);
+            return packages;
+        }
+
+        private List<string> CollectFrameworkPackagesToInstall()
+        {
+            var packages = new List<string>();
             if (_installR3Unity && !_r3UnityInstalled) packages.Add(R3UnitySource);
-            if (_installRuntimeModule && !_runtimeInstalled) packages.Add($"{RuntimeGitUrl}#{RuntimeGitTag}");
-            if (_installYandexModule && !_yandexInstalled) packages.Add($"{YandexGitUrl}#{YandexGitTag}");
+            if (_installRuntimeModule && !_runtimeInstalled && IsRuntimeInstallReady(packages)) packages.Add($"{RuntimeGitUrl}#{RuntimeGitTag}");
+            if (_installYandexModule && !_yandexInstalled && _runtimeInstalled) packages.Add($"{YandexGitUrl}#{YandexGitTag}");
             return packages;
         }
 
@@ -538,6 +577,80 @@ namespace Evo.Infrastructure.Core.Editor
             _installQueue.Enqueue(source);
             _isInstalling = true;
             _statusLine = status;
+        }
+
+        private void RemovePackage(string packageName, string displayName)
+        {
+            if (_isInstalling || _removeRequest != null || _addRequest != null || _addAndRemoveRequest != null)
+            {
+                return;
+            }
+
+            _isInstalling = true;
+            _statusLine = $"Removing {displayName}...";
+            Debug.Log($"[Evo Setup] Removing package: {packageName}");
+            _removeRequest = Client.Remove(packageName);
+        }
+
+        private void RemoveReactiveNuGetPackages()
+        {
+            if (_isInstalling)
+            {
+                return;
+            }
+
+            var packagesConfigPath = GetNuGetPackagesConfigPath();
+            if (!File.Exists(packagesConfigPath))
+            {
+                _statusLine = "Reactive NuGet packages.config not found.";
+                Debug.LogWarning("[Evo Setup] Reactive NuGet packages.config not found.");
+                RefreshState();
+                return;
+            }
+
+            var document = XDocument.Load(packagesConfigPath);
+            var root = document.Root;
+            if (root == null)
+            {
+                return;
+            }
+
+            var removed = RemoveNuGetPackage(root, R3NuGetId) |
+                          RemoveNuGetPackage(root, ObservableCollectionsNuGetId) |
+                          RemoveNuGetPackage(root, ObservableCollectionsR3NuGetId);
+            if (!removed)
+            {
+                _statusLine = "Reactive NuGet packages are not listed in packages.config.";
+                Debug.Log("[Evo Setup] Reactive NuGet packages are not listed in packages.config.");
+                RefreshState();
+                return;
+            }
+
+            document.Save(packagesConfigPath);
+            AssetDatabase.Refresh();
+            _r3InPackagesConfig = false;
+            _observableCollectionsInPackagesConfig = false;
+            _observableCollectionsR3InPackagesConfig = false;
+            _statusLine = "Removed reactive NuGet package entries. Run NuGet restore if physical assemblies remain.";
+            Debug.Log("[Evo Setup] Removed reactive NuGet package entries from packages.config.");
+            RefreshState();
+        }
+
+        private static bool RemoveNuGetPackage(XContainer root, string packageId)
+        {
+            var node = root.Elements("package")
+                .FirstOrDefault(element =>
+                {
+                    var id = element.Attribute("id")?.Value;
+                    return string.Equals(id, packageId, StringComparison.OrdinalIgnoreCase);
+                });
+            if (node == null)
+            {
+                return false;
+            }
+
+            node.Remove();
+            return true;
         }
 
         private void CreateProjectStructure()
@@ -1357,6 +1470,33 @@ namespace Evo.Infrastructure.Core.Editor
         {
             UpdateOneClickProgressBar();
 
+            if (_removeRequest != null)
+            {
+                if (!_removeRequest.IsCompleted)
+                {
+                    _isInstalling = true;
+                    return;
+                }
+
+                if (_removeRequest.Status == StatusCode.Success)
+                {
+                    _statusLine = "Package removed. Waiting for Unity refresh...";
+                    Debug.Log("[Evo Setup] Package removed.");
+                }
+                else
+                {
+                    _statusLine = $"Package remove failed: {_removeRequest.Error?.message}";
+                    Debug.LogError($"[Evo Setup] Package remove failed: {_removeRequest.Error?.message}");
+                }
+
+                _removeRequest = null;
+                _isInstalling = false;
+                RefreshState();
+                QueueRefreshBurst();
+                Repaint();
+                return;
+            }
+
             if (_addAndRemoveRequest != null)
             {
                 if (!_addAndRemoveRequest.IsCompleted)
@@ -1539,6 +1679,10 @@ namespace Evo.Infrastructure.Core.Editor
                 _r3Ready = _r3InPackagesConfig || _r3UnityInstalled || IsAssemblyLoaded("R3");
                 _observableCollectionsReady = _observableCollectionsInPackagesConfig || IsAssemblyLoaded("ObservableCollections");
                 _observableCollectionsR3Ready = _observableCollectionsR3InPackagesConfig || IsAssemblyLoaded("ObservableCollections.R3");
+                if (AreReactiveAssembliesReady())
+                {
+                    _reactiveRestoreRequested = false;
+                }
             }
 
             _structureReady = HasProjectStructure();
@@ -1613,7 +1757,7 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void DrawProgress()
         {
-            if (!_isInstalling && _addRequest == null && _addAndRemoveRequest == null && _installQueue.Count == 0)
+            if (!_isInstalling && _addRequest == null && _addAndRemoveRequest == null && _removeRequest == null && _installQueue.Count == 0)
             {
                 return;
             }
@@ -1622,6 +1766,8 @@ namespace Evo.Infrastructure.Core.Editor
             EditorGUILayout.LabelField("Processing...", EditorStyles.boldLabel);
             var label = _addAndRemoveRequest != null
                 ? "Adding selected packages..."
+                : _removeRequest != null
+                    ? "Removing package..."
                 : _addRequest != null
                 ? "Installing package..."
                 : _installQueue.Count > 0
@@ -2395,7 +2541,7 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            if (_isInstalling || _addRequest != null || _addAndRemoveRequest != null || _isRefreshingState)
+            if (_isInstalling || _addRequest != null || _addAndRemoveRequest != null || _removeRequest != null || _isRefreshingState)
             {
                 return;
             }
@@ -2416,9 +2562,9 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            if (_installReactiveNuGets && (!_r3Ready || !_observableCollectionsReady || !_observableCollectionsR3Ready))
+            if (_installReactiveNuGets && !AreReactiveAssembliesReady())
             {
-                if (!_nuGetForUnityInstalled)
+                if (!_nuGetForUnityInstalled && !AreReactivePackagesConfigReady())
                 {
                     _oneClickSetupRequested = false;
                     SessionState.SetBool(GetOneClickStateKey(), false);
@@ -2429,10 +2575,42 @@ namespace Evo.Infrastructure.Core.Editor
                     return;
                 }
 
+                if (AreReactivePackagesConfigReady())
+                {
+                    _statusLine = "Setup: waiting for NuGet restore/import of reactive assemblies...";
+                    if (!_reactiveRestoreRequested)
+                    {
+                        _reactiveRestoreRequested = true;
+                        Debug.Log("[Evo Setup] Waiting for NuGet restore/import of R3 reactive assemblies...");
+                        TryInvokeNuGetRestore();
+                        QueueRefreshBurst();
+                    }
+
+                    return;
+                }
+
                 _statusLine = "Setup: configuring reactive NuGet dependencies...";
                 Debug.Log("[Evo Setup] Configuring reactive NuGet dependencies...");
                 InstallReactiveFromNuGet();
                 RefreshState();
+                return;
+            }
+
+            if (_installR3Unity && !_r3UnityInstalled && !AreReactiveAssembliesReady())
+            {
+                StopSetupWithError("Setup stopped: R3.Unity requires imported R3 assemblies. Wait for NuGet restore/import or run NuGet restore manually.");
+                return;
+            }
+
+            if (_installRuntimeModule && !_runtimeInstalled && !IsRuntimeInstallReady(null))
+            {
+                StopSetupWithError("Setup stopped: Runtime package prerequisites are not ready. Install selected runtime dependencies first.");
+                return;
+            }
+
+            if (_installYandexModule && !_yandexInstalled && !_runtimeInstalled)
+            {
+                StopSetupWithError("Setup stopped: Yandex package requires Evo Infrastructure Runtime first.");
                 return;
             }
 
@@ -2489,6 +2667,16 @@ namespace Evo.Infrastructure.Core.Editor
             Repaint();
         }
 
+        private void StopSetupWithError(string message)
+        {
+            _oneClickSetupRequested = false;
+            SessionState.SetBool(GetOneClickStateKey(), false);
+            EditorUtility.ClearProgressBar();
+            _statusLine = message;
+            Debug.LogError("[Evo Setup] " + message);
+            Repaint();
+        }
+
         private void UpdateOneClickProgressBar()
         {
             if (!_oneClickSetupRequested)
@@ -2528,7 +2716,7 @@ namespace Evo.Infrastructure.Core.Editor
         {
             var completed = 0;
             if (IsSelectedUpmPackagesReady()) completed++;
-            if (_installReactiveNuGets && _r3Ready && _observableCollectionsReady && _observableCollectionsR3Ready) completed++;
+            if (_installReactiveNuGets && AreReactiveAssembliesReady()) completed++;
             if (_setupStarterScaffold && _templatesReady) completed++;
             if (_setupStarterScaffold && HasStarterScaffold()) completed++;
             if (_setupStarterScaffold && _bootstrapScopesReady) completed++;
@@ -2539,6 +2727,33 @@ namespace Evo.Infrastructure.Core.Editor
         private bool HasSelectedUpmPackagesToInstall()
         {
             return CollectSelectedUpmPackagesToInstall().Count > 0;
+        }
+
+        private bool AreReactivePackagesConfigReady()
+        {
+            return _r3InPackagesConfig && _observableCollectionsInPackagesConfig && _observableCollectionsR3InPackagesConfig;
+        }
+
+        private static bool AreReactiveAssembliesReady()
+        {
+            return IsAssemblyLoaded("R3") &&
+                   IsAssemblyLoaded("ObservableCollections") &&
+                   IsAssemblyLoaded("ObservableCollections.R3");
+        }
+
+        private bool IsRuntimeInstallReady(ICollection<string> packagesBeingAdded)
+        {
+            var r3UnityWillBeReady = _r3UnityInstalled ||
+                                     (packagesBeingAdded != null && packagesBeingAdded.Contains(R3UnitySource));
+            return (!_installVContainer || _vContainerInstalled) &&
+                   (!_installUniTask || _uniTaskInstalled) &&
+                   (!_installAddressables || _addressablesInstalled) &&
+                   (!_installLocalization || _localizationInstalled) &&
+                   (!_installInputSystem || _inputSystemInstalled) &&
+                   (!_installUgui || _uguiInstalled) &&
+                   (!_installPrimeTween || _primeTweenInstalled) &&
+                   AreReactiveAssembliesReady() &&
+                   (!_installR3Unity || r3UnityWillBeReady);
         }
 
         private bool IsSelectedUpmPackagesReady()
