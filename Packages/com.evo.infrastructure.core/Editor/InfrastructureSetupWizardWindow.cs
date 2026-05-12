@@ -2642,19 +2642,14 @@ namespace Evo.Infrastructure.Core.Editor
         {
             for (var i = 0; i < StarterScriptTemplates.Length; i++)
             {
-                EnsureStarterScriptFromTemplate(
+                SyncStarterScriptFromTemplate(
                     StarterScriptTemplates[i].TargetPath,
                     StarterScriptTemplates[i].TemplateFileName);
             }
         }
 
-        private static void EnsureStarterScriptFromTemplate(string targetPath, string templateFileName)
+        private static void SyncStarterScriptFromTemplate(string targetPath, string templateFileName)
         {
-            if (File.Exists(targetPath))
-            {
-                return;
-            }
-
             var templatePath = GetTemplatePath(templateFileName);
             if (!File.Exists(templatePath))
             {
@@ -2663,7 +2658,23 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             var templateText = File.ReadAllText(templatePath);
+            if (File.Exists(targetPath))
+            {
+                var targetText = File.ReadAllText(targetPath);
+                if (string.Equals(NormalizeText(templateText), NormalizeText(targetText), StringComparison.Ordinal))
+                {
+                    return;
+                }
+            }
+
+            var directory = Path.GetDirectoryName(targetPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
             File.WriteAllText(targetPath, templateText);
+            Debug.Log($"[Evo Setup] Synced scaffold script from template: {targetPath}");
         }
 
         private static string GetTemplatePath(string templateFileName)
