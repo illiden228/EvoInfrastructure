@@ -1,4 +1,3 @@
-using _Project.Scripts.Application.UI.Views;
 using _Project.Scripts.Infrastructure.Services.UI;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -9,7 +8,7 @@ namespace _Project.Scripts.Runtime.Loading
 {
     public sealed class LoadingSceneLifetimeScope : LifetimeScope
     {
-        [SerializeField] private UiViewBase view;
+        [SerializeField] private LoadingScreenView view;
 
         protected override void Configure(IContainerBuilder builder)
         {

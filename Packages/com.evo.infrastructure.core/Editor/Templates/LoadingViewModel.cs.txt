@@ -1,0 +1,107 @@
+using _Project.Scripts.Application.Loading;
+using _Project.Scripts.Application.UI;
+using R3;
+using UnityEngine;
+
+namespace _Project.Scripts.Runtime.Loading
+{
+    public sealed class LoadingViewModel : IUiViewModel
+    {
+        private const float TARGET_BLEND_SPEED = 10f;
+        private const float VISUAL_SMOOTH_TIME = 0.22f;
+        private const float VISUAL_MAX_SPEED = 3.5f;
+
+        private readonly ILoadingProgress _loadingProgress;
+        private readonly CompositeDisposable _disposables = new();
+        private float _targetProgress;
+        private float _blendedTargetProgress;
+        private float _visualVelocity;
+
+        public ReactiveProperty<float> Progress { get; } = new(0f);
+        public ReactiveProperty<float> VisualProgress { get; } = new(0f);
+        public ReactiveProperty<string> Message { get; } = new(string.Empty);
+
+        public LoadingViewModel(ILoadingProgress loadingProgress)
+        {
+            _loadingProgress = loadingProgress;
+            if (_loadingProgress != null)
+            {
+                _loadingProgress.Ready += OnReady;
+                _loadingProgress.ProgressChanged += OnProgressChanged;
+                _loadingProgress.Finished += OnFinished;
+            }
+
+            Observable.EveryUpdate()
+                .Subscribe(_ => TickVisualProgress())
+                .AddTo(_disposables);
+        }
+
+        public void OnShow()
+        {
+        }
+
+        public void OnHide()
+        {
+        }
+
+        public void Dispose()
+        {
+            _disposables.Dispose();
+            if (_loadingProgress != null)
+            {
+                _loadingProgress.Ready -= OnReady;
+                _loadingProgress.ProgressChanged -= OnProgressChanged;
+                _loadingProgress.Finished -= OnFinished;
+            }
+        }
+
+        private void OnReady()
+        {
+            _targetProgress = 0f;
+            _blendedTargetProgress = 0f;
+            _visualVelocity = 0f;
+            Progress.Value = 0f;
+            VisualProgress.Value = 0f;
+            Message.Value = string.Empty;
+        }
+
+        private void OnFinished()
+        {
+            _targetProgress = 1f;
+        }
+
+        private void OnProgressChanged(LoadingProgress progress)
+        {
+            Progress.Value = progress.Percent;
+            Message.Value = progress.Message ?? string.Empty;
+            _targetProgress = Mathf.Max(_targetProgress, Mathf.Clamp01(progress.Percent));
+        }
+
+        private void TickVisualProgress()
+        {
+            var dt = Time.unscaledDeltaTime;
+            if (dt <= 0f)
+            {
+                return;
+            }
+
+            var target = Mathf.Clamp01(_targetProgress);
+            _blendedTargetProgress = Mathf.MoveTowards(_blendedTargetProgress, target, TARGET_BLEND_SPEED * dt);
+            var current = VisualProgress.Value;
+            if (Mathf.Abs(_blendedTargetProgress - current) <= 0.0001f)
+            {
+                return;
+            }
+
+            var next = Mathf.SmoothDamp(
+                current,
+                _blendedTargetProgress,
+                ref _visualVelocity,
+                VISUAL_SMOOTH_TIME,
+                VISUAL_MAX_SPEED,
+                dt);
+
+            VisualProgress.Value = Mathf.Max(current, Mathf.Clamp01(next));
+        }
+    }
+}

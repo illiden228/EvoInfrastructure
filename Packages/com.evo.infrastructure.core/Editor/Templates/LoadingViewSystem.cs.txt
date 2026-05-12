@@ -1,22 +1,47 @@
 using System;
-using System.Collections.Generic;
+using System.Threading;
+using _Project.Scripts.Application.Config;
 using _Project.Scripts.Application.Loading;
+using _Project.Scripts.Infrastructure.Services.Config;
+using _Project.Scripts.Infrastructure.Services.ResourceLoader;
 using Cysharp.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.ResourceManagement.ResourceProviders;
+using UnityEngine.SceneManagement;
 using VContainer.Unity;
 
 namespace _Project.Scripts.Runtime.Loading
 {
     public sealed class LoadingViewSystem : IInitializable, IDisposable
     {
+        private const float MIN_VISIBLE_SECONDS = 0.35f;
+        private const float FINAL_PROGRESS_HOLD_SECONDS = 0.1f;
+
+        private readonly IResourceLoaderService _resourceLoader;
         private readonly ILoadingProgress _loadingProgress;
-        private readonly ILoadingPresenter _loadingPresenter;
+        private readonly AssetReference _loadingScene;
+        private bool _loadingSceneBusy;
+        private bool _pendingShow;
+        private bool _pendingHide;
+        private AsyncOperationHandle<SceneInstance> _loadingHandle;
+        private bool _hasLoadingHandle;
+        private double _showStartedAt;
+        private LoadingScreenView _loadingScreenView;
 
         public LoadingViewSystem(
-            ILoadingProgress loadingProgress,
-            IReadOnlyList<ILoadingPresenter> loadingPresenters = null)
+            IResourceLoaderService resourceLoader,
+            IConfigService configService,
+            ILoadingProgress loadingProgress)
         {
+            _resourceLoader = resourceLoader;
             _loadingProgress = loadingProgress;
-            _loadingPresenter = ResolveFirstPresenter(loadingPresenters);
+
+            if (configService != null && configService.TryGet<ProjectConfig>(out var config))
+            {
+                _loadingScene = config?.LoadingScene;
+            }
         }
 
         public void Initialize()
@@ -27,7 +52,6 @@ namespace _Project.Scripts.Runtime.Loading
             }
 
             _loadingProgress.Ready += OnReady;
-            _loadingProgress.ProgressChanged += OnProgressChanged;
             _loadingProgress.Finished += OnFinished;
         }
 
@@ -39,56 +63,148 @@ namespace _Project.Scripts.Runtime.Loading
             }
 
             _loadingProgress.Ready -= OnReady;
-            _loadingProgress.ProgressChanged -= OnProgressChanged;
             _loadingProgress.Finished -= OnFinished;
         }
 
         private void OnReady()
         {
-            _loadingPresenter?.ShowAsync().Forget();
-        }
+            _showStartedAt = Time.realtimeSinceStartupAsDouble;
+            if (_loadingSceneBusy)
+            {
+                _pendingShow = true;
+                return;
+            }
 
-        private void OnProgressChanged(LoadingProgress progress)
-        {
-            _loadingPresenter?.SetProgress(progress);
+            ShowLoadingSceneAsync().Forget();
         }
 
         private void OnFinished()
         {
-            HideAndNotifyAsync().Forget();
+            if (_loadingSceneBusy)
+            {
+                _pendingHide = true;
+                return;
+            }
+
+            HideLoadingSceneAsync(CancellationToken.None).Forget();
         }
 
-        private async UniTaskVoid HideAndNotifyAsync()
+        private async UniTaskVoid ShowLoadingSceneAsync(CancellationToken cancellationToken = default)
         {
+            if (_loadingScene == null || _resourceLoader == null || _loadingSceneBusy || (_hasLoadingHandle && _loadingHandle.IsValid()))
+            {
+                return;
+            }
+
+            _loadingSceneBusy = true;
             try
             {
-                if (_loadingPresenter != null)
+                _loadingHandle = _resourceLoader.LoadSceneHandle(_loadingScene, LoadSceneMode.Additive, true, 100);
+                _hasLoadingHandle = _loadingHandle.IsValid();
+                if (_hasLoadingHandle)
                 {
-                    await _loadingPresenter.HideAsync();
+                    await _loadingHandle.Task.AsUniTask().AttachExternalCancellation(cancellationToken);
+                    _loadingScreenView = FindLoadingView(_loadingHandle.Result.Scene);
+                    if (_loadingScreenView != null)
+                    {
+                        await _loadingScreenView.PlayShowAsync(cancellationToken);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"LoadingSceneSystem failed to load LoadingScene. {ex.Message}");
             }
             finally
             {
-                _loadingProgress?.NotifyHidden();
+                _loadingSceneBusy = false;
+                if (_pendingShow)
+                {
+                    _pendingShow = false;
+                    ShowLoadingSceneAsync(cancellationToken).Forget();
+                }
+                else if (_pendingHide)
+                {
+                    _pendingHide = false;
+                    HideLoadingSceneAsync(cancellationToken).Forget();
+                }
             }
         }
 
-        private static ILoadingPresenter ResolveFirstPresenter(IReadOnlyList<ILoadingPresenter> loadingPresenters)
+        private async UniTaskVoid HideLoadingSceneAsync(CancellationToken cancellationToken)
         {
-            if (loadingPresenters == null)
+            if (_loadingScene == null || _loadingSceneBusy)
+            {
+                _loadingProgress?.NotifyHidden();
+                return;
+            }
+
+            _loadingSceneBusy = true;
+            try
+            {
+                _loadingProgress?.Report(1f, "Finalizing", 0, 0);
+                await WaitMinimumVisibleDurationAsync(cancellationToken);
+                await UniTask.Delay(TimeSpan.FromSeconds(FINAL_PROGRESS_HOLD_SECONDS), cancellationToken: cancellationToken);
+
+                if (_loadingScreenView != null)
+                {
+                    await _loadingScreenView.PlayHideAsync(cancellationToken);
+                }
+
+                if (_hasLoadingHandle && _loadingHandle.IsValid())
+                {
+                    await Addressables.UnloadSceneAsync(_loadingHandle, true).Task.AsUniTask();
+                }
+                else if (_resourceLoader != null)
+                {
+                    await _resourceLoader.UnloadSceneAsync(_loadingScene, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"LoadingSceneSystem failed to unload LoadingScene. {ex.Message}");
+            }
+            finally
+            {
+                _loadingSceneBusy = false;
+                _hasLoadingHandle = false;
+                _loadingHandle = default;
+                _loadingScreenView = null;
+            }
+
+            _loadingProgress?.NotifyHidden();
+        }
+
+        private static LoadingScreenView FindLoadingView(Scene scene)
+        {
+            if (!scene.IsValid())
             {
                 return null;
             }
 
-            for (var i = 0; i < loadingPresenters.Count; i++)
+            var roots = scene.GetRootGameObjects();
+            for (var i = 0; i < roots.Length; i++)
             {
-                if (loadingPresenters[i] != null)
+                var view = roots[i].GetComponentInChildren<LoadingScreenView>(true);
+                if (view != null)
                 {
-                    return loadingPresenters[i];
+                    return view;
                 }
             }
 
             return null;
+        }
+
+        private async UniTask WaitMinimumVisibleDurationAsync(CancellationToken cancellationToken)
+        {
+            var elapsed = Time.realtimeSinceStartupAsDouble - _showStartedAt;
+            var delay = MIN_VISIBLE_SECONDS - elapsed;
+            if (delay <= 0d)
+            {
+                return;
+            }
+
+            await UniTask.Delay(TimeSpan.FromSeconds(delay), cancellationToken: cancellationToken);
         }
     }
 }

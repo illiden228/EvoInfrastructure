@@ -1,0 +1,157 @@
+using System;
+using System.Threading;
+using _Project.Scripts.Application.UI.Views;
+using Cysharp.Threading.Tasks;
+using PrimeTween;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace _Project.Scripts.Runtime.Loading
+{
+    public sealed class LoadingScreenView : UiView<LoadingViewModel>
+    {
+        [SerializeField] private Slider slider;
+        [SerializeField] private Text progressText;
+        [SerializeField] private Text messageText;
+        [SerializeField] private CanvasGroup canvasGroup;
+        [SerializeField] private RectTransform contentRoot;
+        [SerializeField, Min(0f)] private float showDuration = 0.2f;
+        [SerializeField, Min(0f)] private float hideDuration = 0.2f;
+        [SerializeField] private Ease showEase = Ease.OutQuad;
+        [SerializeField] private Ease hideEase = Ease.InQuad;
+
+        private Tween _alphaTween;
+        private Tween _scaleTween;
+
+        protected override void OnBind(LoadingViewModel viewModel)
+        {
+            EnsureUiRefs();
+            SetProgress(viewModel?.VisualProgress?.Value ?? 0f);
+            SetMessage(viewModel?.Message?.Value);
+
+            if (viewModel == null)
+            {
+                return;
+            }
+
+            viewModel.VisualProgress.Bind(SetProgress, Disposables);
+            viewModel.Message.Bind(SetMessage, Disposables);
+        }
+
+        public async UniTask PlayShowAsync(CancellationToken cancellationToken = default)
+        {
+            EnsureUiRefs();
+            StopTweens();
+            if (canvasGroup == null)
+            {
+                return;
+            }
+
+            canvasGroup.alpha = 0f;
+            if (contentRoot != null)
+            {
+                contentRoot.localScale = new Vector3(0.985f, 0.985f, 1f);
+            }
+
+            if (showDuration <= 0f)
+            {
+                canvasGroup.alpha = 1f;
+                if (contentRoot != null)
+                {
+                    contentRoot.localScale = Vector3.one;
+                }
+                return;
+            }
+
+            _alphaTween = Tween.Alpha(canvasGroup, 1f, showDuration, showEase);
+            if (contentRoot != null)
+            {
+                _scaleTween = Tween.Scale(contentRoot, Vector3.one, showDuration, showEase);
+            }
+
+            await UniTask.Delay(TimeSpan.FromSeconds(showDuration), cancellationToken: cancellationToken);
+        }
+
+        public async UniTask PlayHideAsync(CancellationToken cancellationToken = default)
+        {
+            EnsureUiRefs();
+            StopTweens();
+            if (canvasGroup == null)
+            {
+                return;
+            }
+
+            if (hideDuration <= 0f)
+            {
+                canvasGroup.alpha = 0f;
+                return;
+            }
+
+            _alphaTween = Tween.Alpha(canvasGroup, 0f, hideDuration, hideEase);
+            if (contentRoot != null)
+            {
+                _scaleTween = Tween.Scale(contentRoot, new Vector3(0.985f, 0.985f, 1f), hideDuration, hideEase);
+            }
+
+            await UniTask.Delay(TimeSpan.FromSeconds(hideDuration), cancellationToken: cancellationToken);
+        }
+
+        protected override void OnDestroy()
+        {
+            StopTweens();
+            base.OnDestroy();
+        }
+
+        private void SetProgress(float progress01)
+        {
+            var clamped = Mathf.Clamp01(progress01);
+            if (slider != null)
+            {
+                slider.value = clamped;
+            }
+
+            if (progressText != null)
+            {
+                progressText.text = $"{Mathf.RoundToInt(clamped * 100f)}%";
+            }
+        }
+
+        private void SetMessage(string message)
+        {
+            if (messageText != null)
+            {
+                messageText.text = message ?? string.Empty;
+            }
+        }
+
+        private void EnsureUiRefs()
+        {
+            if (contentRoot == null)
+            {
+                contentRoot = transform as RectTransform;
+            }
+
+            if (canvasGroup == null)
+            {
+                canvasGroup = GetComponent<CanvasGroup>();
+                if (canvasGroup == null)
+                {
+                    canvasGroup = gameObject.AddComponent<CanvasGroup>();
+                }
+            }
+        }
+
+        private void StopTweens()
+        {
+            if (_alphaTween.isAlive)
+            {
+                _alphaTween.Stop();
+            }
+
+            if (_scaleTween.isAlive)
+            {
+                _scaleTween.Stop();
+            }
+        }
+    }
+}

@@ -54,16 +54,20 @@ namespace Evo.Infrastructure.Core.Editor
         private const string StarterRuntimeEntryPointPath = "Assets/_Project/Scripts/Runtime/EntryPoint/RuntimeEntryPoint.cs";
         private const string StarterLoadingSceneLifetimeScopePath = "Assets/_Project/Scripts/Runtime/Loading/LoadingSceneLifetimeScope.cs";
         private const string StarterProjectConfigPath = "Assets/_Project/Scripts/Runtime/Config/ProjectConfig.cs";
-        private const string StarterLoadingPresenterPath = "Assets/_Project/Scripts/Runtime/Loading/ILoadingPresenter.cs";
         private const string StarterLoadingViewSystemPath = "Assets/_Project/Scripts/Runtime/Loading/LoadingViewSystem.cs";
+        private const string StarterLoadingViewModelPath = "Assets/_Project/Scripts/Runtime/Loading/LoadingViewModel.cs";
+        private const string StarterLoadingScreenViewPath = "Assets/_Project/Scripts/Runtime/Loading/LoadingScreenView.cs";
         private const string TemplatesRootPath = "Packages/com.evo.infrastructure.core/Editor/Templates";
         private const string RuntimeProjectLifetimeScopeTemplateName = "RuntimeProjectLifetimeScope.cs.txt";
         private const string RuntimeEntryPointTemplateName = "RuntimeEntryPoint.cs.txt";
         private const string LoadingSceneLifetimeScopeTemplateName = "LoadingSceneLifetimeScope.cs.txt";
         private const string ProjectConfigTemplateName = "ProjectConfig.cs.txt";
-        private const string LoadingPresenterTemplateName = "ILoadingPresenter.cs.txt";
         private const string LoadingViewSystemTemplateName = "LoadingViewSystem.cs.txt";
+        private const string LoadingViewModelTemplateName = "LoadingViewModel.cs.txt";
+        private const string LoadingScreenViewTemplateName = "LoadingScreenView.cs.txt";
         private const string ProjectScopeTypeName = "RuntimeProjectLifetimeScope";
+        private const string ProjectScopeFullTypeName = "_Project.Scripts.Runtime.EntryPoint.RuntimeProjectLifetimeScope";
+        private const string LegacyProjectScopeFullTypeName = "_Project.Scripts.Runtime.Bootstrap.RuntimeProjectLifetimeScope";
         private const string OneClickStateKeyPrefix = "Evo.Infrastructure.Core.OneClickSetup.";
         private const string ScaffoldStateKeyPrefix = "Evo.Infrastructure.Core.ScaffoldSetup.";
         private const string OdinImportStateKeyPrefix = "Evo.Infrastructure.Core.OdinImportRequested.";
@@ -74,8 +78,9 @@ namespace Evo.Infrastructure.Core.Editor
             new(StarterRuntimeEntryPointPath, RuntimeEntryPointTemplateName),
             new(StarterLoadingSceneLifetimeScopePath, LoadingSceneLifetimeScopeTemplateName),
             new(StarterProjectConfigPath, ProjectConfigTemplateName),
-            new(StarterLoadingPresenterPath, LoadingPresenterTemplateName),
-            new(StarterLoadingViewSystemPath, LoadingViewSystemTemplateName)
+            new(StarterLoadingViewSystemPath, LoadingViewSystemTemplateName),
+            new(StarterLoadingViewModelPath, LoadingViewModelTemplateName),
+            new(StarterLoadingScreenViewPath, LoadingScreenViewTemplateName)
         };
 
         private const string VContainerSource = "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer";
@@ -132,6 +137,8 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _odinInstalled;
         private bool _structureReady;
         private bool _bootstrapScopesReady;
+        private bool _starterAddressablesReady;
+        private bool _starterBuildScenesReady;
         private bool _r3Ready;
         private bool _observableCollectionsReady;
         private bool _observableCollectionsR3Ready;
@@ -156,6 +163,7 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _stateAnalyzed;
         private bool _odinImportRequested;
         private bool _bootstrapValidationAttempted;
+        private int _scaffoldFinalizationAttempts;
         private bool _installVContainer = true;
         private bool _installUniTask = true;
         private bool _installNuGetForUnity = true;
@@ -192,7 +200,6 @@ namespace Evo.Infrastructure.Core.Editor
             LoadSelectionState();
             EditorApplication.update += UpdateInstallQueue;
             ResumeOneClickSetupIfNeeded();
-            RefreshState();
         }
 
         private void OnDisable()
@@ -299,7 +306,18 @@ namespace Evo.Infrastructure.Core.Editor
             EditorGUILayout.LabelField("Project Runtime", EditorStyles.boldLabel);
 
             var packagesReadyForScaffold = ArePackagesReadyForStarterScaffold();
-            var scaffoldReady = HasStarterScaffold() && _scaffoldScriptsUpToDate && AreStarterRuntimeTypesReady() && _bootstrapScopesReady;
+            var scaffoldReady = IsStarterScaffoldReady();
+            DrawStatusOnlyRow(
+                "Project Structure",
+                _structureReady,
+                _structureReady ? "Ready" : "Missing",
+                "Base folders under Assets/_Project.");
+            DrawStatusOnlyRow(
+                "Starter Scaffold",
+                scaffoldReady,
+                _scaffoldSetupRequested ? "Running" : scaffoldReady ? "Ready" : HasStarterScaffoldFiles() ? "Needs Repair" : "Missing",
+                GetStarterScaffoldStatusDetails(packagesReadyForScaffold));
+
             DrawActionButton(
                 _structureReady ? "Create Project Structure (Ready)" : "Create Project Structure",
                 _structureReady
@@ -323,6 +341,41 @@ namespace Evo.Infrastructure.Core.Editor
                 _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_scaffoldSetupRequested && !_isRefreshingState && packagesReadyForScaffold && !scaffoldReady,
                 StartStarterRuntimeScaffold,
                 28f);
+        }
+
+        private void DrawStatusOnlyRow(string label, bool ready, string status, string details)
+        {
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Space(18f);
+            EditorGUILayout.LabelField(label, GUILayout.Width(202f));
+            var old = GUI.color;
+            GUI.color = ready
+                ? new Color(0.25f, 0.7f, 0.25f)
+                : new Color(0.85f, 0.65f, 0.2f);
+            EditorGUILayout.LabelField(status, GUILayout.Width(92f));
+            GUI.color = old;
+            EditorGUILayout.LabelField(details, EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private string GetStarterScaffoldStatusDetails(bool packagesReadyForScaffold)
+        {
+            if (!packagesReadyForScaffold)
+            {
+                return "Requires runtime scaffold packages.";
+            }
+
+            var missing = new List<string>(5);
+            if (!HasStarterScaffoldFiles()) missing.Add("files");
+            if (!_scaffoldScriptsUpToDate) missing.Add("scripts");
+            if (!AreStarterRuntimeTypesReady()) missing.Add("compiled types");
+            if (!_bootstrapScopesReady) missing.Add("bootstrap scopes");
+            if (!_starterAddressablesReady) missing.Add("Addressables");
+            if (!_starterBuildScenesReady) missing.Add("Build Settings");
+
+            return missing.Count == 0
+                ? "Starter scripts, scenes, configs, Addressables entries and build scenes."
+                : "Missing: " + string.Join(", ", missing) + ".";
         }
 
         private bool DrawInstallPlanRow(string label, bool selected, bool installed, string details, Action removeAction = null)
@@ -617,7 +670,6 @@ namespace Evo.Infrastructure.Core.Editor
             AssetDatabase.Refresh();
             TryInvokeNuGetRestore();
             _statusLine = "Added R3, ObservableCollections and ObservableCollections.R3 to packages.config. Waiting for NuGet restore/import...";
-            RefreshState();
         }
 
         private void EnqueueSingleInstall(string source, string status)
@@ -775,6 +827,7 @@ namespace Evo.Infrastructure.Core.Editor
             _scaffoldSetupRequested = true;
             SessionState.SetBool(GetScaffoldStateKey(), true);
             _bootstrapValidationAttempted = false;
+            _scaffoldFinalizationAttempts = 0;
             SetupStarterRuntimeScaffold();
         }
 
@@ -811,6 +864,7 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void FinalizeStarterRuntimeScaffold()
         {
+            _scaffoldFinalizationAttempts++;
             EnsureDefaultAssets();
             ConfigureStarterScenes();
             EnsureStarterSceneInAddressables(LoadingScenePath, "LoadingScene");
@@ -822,9 +876,6 @@ namespace Evo.Infrastructure.Core.Editor
             OpenEntryPointScene();
             _statusLine = "Starter runtime scaffold created.";
             Debug.Log("[Evo Setup] Starter runtime scaffold created.");
-            _scaffoldSetupRequested = false;
-            _bootstrapValidationAttempted = false;
-            SessionState.SetBool(GetScaffoldStateKey(), false);
             RefreshState();
         }
 
@@ -1014,7 +1065,93 @@ namespace Evo.Infrastructure.Core.Editor
                 null,
                 "_Project.Scripts.Runtime.Loading.LoadingSceneLifetimeScope",
                 "SceneLifetimeScope");
+            var loadingView = EnsureLoadingSceneView(scene);
+            ConfigureLoadingSceneScopeReference(scene, loadingView);
             EditorSceneManager.SaveScene(scene);
+        }
+
+        private static Component EnsureLoadingSceneView(Scene scene)
+        {
+            var viewType = FindTypeByName("_Project.Scripts.Runtime.Loading.LoadingScreenView");
+            if (viewType == null || !typeof(Component).IsAssignableFrom(viewType))
+            {
+                return null;
+            }
+
+            var existing = FindComponentInScene(scene, viewType);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var canvasRoot = GetOrCreateCanvasRoot(scene);
+            var viewRoot = CreateRectTransform("LoadingScreenView", canvasRoot.transform);
+            StretchToParent(viewRoot);
+            var canvasGroup = viewRoot.gameObject.AddComponent<CanvasGroup>();
+            var image = viewRoot.gameObject.AddComponent<Image>();
+            image.color = new Color(0.04f, 0.05f, 0.07f, 1f);
+
+            var content = CreateRectTransform("Content", viewRoot);
+            content.anchorMin = new Vector2(0.5f, 0.5f);
+            content.anchorMax = new Vector2(0.5f, 0.5f);
+            content.pivot = new Vector2(0.5f, 0.5f);
+            content.sizeDelta = new Vector2(520f, 140f);
+            content.anchoredPosition = Vector2.zero;
+
+            var title = CreateText("Title", content, "Loading", 32, TextAnchor.MiddleCenter);
+            title.rectTransform.anchorMin = new Vector2(0f, 0.68f);
+            title.rectTransform.anchorMax = new Vector2(1f, 1f);
+            title.rectTransform.offsetMin = Vector2.zero;
+            title.rectTransform.offsetMax = Vector2.zero;
+
+            var slider = CreateSlider("Progress", content);
+            var sliderTransform = (RectTransform)slider.transform;
+            sliderTransform.anchorMin = new Vector2(0f, 0.34f);
+            sliderTransform.anchorMax = new Vector2(1f, 0.54f);
+            sliderTransform.offsetMin = Vector2.zero;
+            sliderTransform.offsetMax = Vector2.zero;
+
+            var message = CreateText("Message", content, string.Empty, 18, TextAnchor.MiddleCenter);
+            message.rectTransform.anchorMin = new Vector2(0f, 0.08f);
+            message.rectTransform.anchorMax = new Vector2(0.72f, 0.28f);
+            message.rectTransform.offsetMin = Vector2.zero;
+            message.rectTransform.offsetMax = Vector2.zero;
+
+            var percent = CreateText("Percent", content, "0%", 18, TextAnchor.MiddleRight);
+            percent.rectTransform.anchorMin = new Vector2(0.76f, 0.08f);
+            percent.rectTransform.anchorMax = new Vector2(1f, 0.28f);
+            percent.rectTransform.offsetMin = Vector2.zero;
+            percent.rectTransform.offsetMax = Vector2.zero;
+
+            var view = viewRoot.gameObject.AddComponent(viewType);
+            var serialized = new SerializedObject(view);
+            SetObjectReference(serialized.FindProperty("slider"), slider);
+            SetObjectReference(serialized.FindProperty("progressText"), percent);
+            SetObjectReference(serialized.FindProperty("messageText"), message);
+            SetObjectReference(serialized.FindProperty("canvasGroup"), canvasGroup);
+            SetObjectReference(serialized.FindProperty("contentRoot"), content);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(view);
+            return view;
+        }
+
+        private static void ConfigureLoadingSceneScopeReference(Scene scene, Component loadingView)
+        {
+            if (loadingView == null)
+            {
+                return;
+            }
+
+            var scope = FindComponentInScene(scene, FindTypeByName("_Project.Scripts.Runtime.Loading.LoadingSceneLifetimeScope"));
+            if (scope == null)
+            {
+                return;
+            }
+
+            var serialized = new SerializedObject(scope);
+            SetObjectReference(serialized.FindProperty("view"), loadingView);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(scope);
         }
 
         private void ConfigureMainMenuScene()
@@ -1030,7 +1167,7 @@ namespace Evo.Infrastructure.Core.Editor
                 context,
                 "_Project.Scripts.Runtime.MainMenu.MainMenuSceneLifetimeScope",
                 "SceneLifetimeScope");
-            EnsureParentReferenceTypeName(scope, ProjectScopeTypeName);
+            EnsureParentReferenceTypeName(scope, ProjectScopeFullTypeName);
             EditorSceneManager.SaveScene(scene);
         }
 
@@ -1076,6 +1213,11 @@ namespace Evo.Infrastructure.Core.Editor
 
         private static void EnsureCanvasRoot(Scene scene)
         {
+            GetOrCreateCanvasRoot(scene);
+        }
+
+        private static GameObject GetOrCreateCanvasRoot(Scene scene)
+        {
             var roots = scene.GetRootGameObjects();
             for (var i = 0; i < roots.Length; i++)
             {
@@ -1097,13 +1239,14 @@ namespace Evo.Infrastructure.Core.Editor
                 }
 
                 EnsureCanvasSetup(root, canvas);
-                return;
+                return root;
             }
 
             var canvasRoot = new GameObject("Canvas");
             var createdCanvas = canvasRoot.AddComponent<Canvas>();
             EnsureCanvasSetup(canvasRoot, createdCanvas);
             SceneManager.MoveGameObjectToScene(canvasRoot, scene);
+            return canvasRoot;
         }
 
         private static void EnsureCanvasSetup(GameObject root, Canvas canvas)
@@ -1131,6 +1274,81 @@ namespace Evo.Infrastructure.Core.Editor
             {
                 DestroyImmediate(raycaster);
             }
+        }
+
+        private static RectTransform CreateRectTransform(string name, Transform parent)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            var rect = (RectTransform)go.transform;
+            rect.SetParent(parent, false);
+            return rect;
+        }
+
+        private static void StretchToParent(RectTransform rect)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+
+        private static Text CreateText(string name, Transform parent, string text, int fontSize, TextAnchor alignment)
+        {
+            var rect = CreateRectTransform(name, parent);
+            var label = rect.gameObject.AddComponent<Text>();
+            label.text = text;
+            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") ??
+                         Resources.GetBuiltinResource<Font>("Arial.ttf");
+            label.fontSize = fontSize;
+            label.alignment = alignment;
+            label.color = Color.white;
+            return label;
+        }
+
+        private static Slider CreateSlider(string name, Transform parent)
+        {
+            var root = CreateRectTransform(name, parent);
+            var background = root.gameObject.AddComponent<Image>();
+            background.color = new Color(0.18f, 0.2f, 0.24f, 1f);
+
+            var fillArea = CreateRectTransform("Fill Area", root);
+            StretchToParent(fillArea);
+            fillArea.offsetMin = new Vector2(4f, 4f);
+            fillArea.offsetMax = new Vector2(-4f, -4f);
+
+            var fill = CreateRectTransform("Fill", fillArea);
+            StretchToParent(fill);
+            var fillImage = fill.gameObject.AddComponent<Image>();
+            fillImage.color = new Color(0.22f, 0.72f, 1f, 1f);
+
+            var slider = root.gameObject.AddComponent<Slider>();
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.value = 0f;
+            slider.transition = Selectable.Transition.None;
+            slider.fillRect = fill;
+            slider.targetGraphic = background;
+            return slider;
+        }
+
+        private static Component FindComponentInScene(Scene scene, Type componentType)
+        {
+            if (!scene.IsValid() || componentType == null || !typeof(Component).IsAssignableFrom(componentType))
+            {
+                return null;
+            }
+
+            var roots = scene.GetRootGameObjects();
+            for (var i = 0; i < roots.Length; i++)
+            {
+                var component = roots[i].GetComponentInChildren(componentType, true);
+                if (component != null)
+                {
+                    return component;
+                }
+            }
+
+            return null;
         }
 
         private static void RemoveCanvasObjects(Scene scene)
@@ -1228,22 +1446,87 @@ namespace Evo.Infrastructure.Core.Editor
                 return false;
             }
 
-            var serialized = new SerializedObject(scope);
-            var parentReference = serialized.FindProperty("parentReference");
-            if (parentReference == null)
+            var parentType = FindTypeByName(parentTypeName);
+            if (parentType == null)
             {
                 return false;
             }
 
-            var typeName = parentReference.FindPropertyRelative("TypeName");
-            if (typeName == null || string.Equals(typeName.stringValue, parentTypeName, StringComparison.Ordinal))
+            if (HasParentReferenceType(scope, parentType))
             {
                 return false;
             }
 
-            typeName.stringValue = parentTypeName;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
+            if (!TrySetParentReferenceType(scope, parentType))
+            {
+                return false;
+            }
+
             EditorUtility.SetDirty(scope);
+            return true;
+        }
+
+        private static bool HasParentReferenceType(Component scope, Type parentType)
+        {
+            if (scope == null || parentType == null)
+            {
+                return false;
+            }
+
+            var field = scope.GetType().GetField("parentReference", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            if (field != null)
+            {
+                var value = field.GetValue(scope);
+                if (value != null)
+                {
+                    var typeProperty = field.FieldType.GetProperty("Type", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (typeProperty?.GetValue(value) is Type type && type == parentType)
+                    {
+                        return true;
+                    }
+
+                    var typeNameField = field.FieldType.GetField("TypeName", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (typeNameField?.GetValue(value) is string typeName &&
+                        string.Equals(typeName, parentType.FullName, StringComparison.Ordinal))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            var serialized = new SerializedObject(scope);
+            var serializedTypeName = serialized.FindProperty("parentReference")?.FindPropertyRelative("TypeName");
+            return serializedTypeName != null &&
+                   string.Equals(serializedTypeName.stringValue, parentType.FullName, StringComparison.Ordinal);
+        }
+
+        private static bool TrySetParentReferenceType(Component scope, Type parentType)
+        {
+            var field = scope.GetType().GetField("parentReference", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            if (field == null)
+            {
+                return false;
+            }
+
+            var parentReferenceType = field.FieldType;
+            var constructor = parentReferenceType.GetConstructor(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(Type) },
+                null);
+            object parentReference;
+            if (constructor != null)
+            {
+                parentReference = constructor.Invoke(new object[] { parentType });
+            }
+            else
+            {
+                parentReference = field.GetValue(scope) ?? Activator.CreateInstance(parentReferenceType);
+                var typeNameField = parentReferenceType.GetField("TypeName", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                typeNameField?.SetValue(parentReference, parentType.FullName);
+            }
+
+            field.SetValue(scope, parentReference);
             return true;
         }
 
@@ -1261,7 +1544,7 @@ namespace Evo.Infrastructure.Core.Editor
             var changed = false;
             var root = GetOrCreateRoot(scene, rootName, legacyRootName);
             var scope = GetOrAddScopeComponent(root, preferredScopeTypeNames);
-            if (scope != null && EnsureParentReferenceTypeName(scope, ProjectScopeTypeName))
+            if (scope != null && EnsureParentReferenceTypeName(scope, ProjectScopeFullTypeName))
             {
                 changed = true;
             }
@@ -1302,8 +1585,6 @@ namespace Evo.Infrastructure.Core.Editor
             {
                 _statusLine = "Bootstrap scope validation found issues: " + string.Join(" | ", issues);
             }
-
-            RefreshState();
         }
 
         private static void ValidateAndFixEntryPointScope(ICollection<string> fixedItems, ICollection<string> issues)
@@ -1364,11 +1645,10 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            var serialized = new SerializedObject(scope);
-            var typeName = serialized.FindProperty("parentReference")?.FindPropertyRelative("TypeName");
-            if (typeName == null || !string.Equals(typeName.stringValue, ProjectScopeTypeName, StringComparison.Ordinal))
+            var projectScopeType = FindTypeByName(ProjectScopeFullTypeName);
+            if (projectScopeType == null || !HasParentReferenceType(scope, projectScopeType))
             {
-                issues.Add($"{Path.GetFileNameWithoutExtension(scenePath)} scope parent is not '{ProjectScopeTypeName}'.");
+                issues.Add($"{Path.GetFileNameWithoutExtension(scenePath)} scope parent is not '{ProjectScopeFullTypeName}'.");
             }
         }
 
@@ -1384,12 +1664,12 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            if (TryAddComponentByTypeName(target, "_Project.Scripts.Runtime.EntryPoint.RuntimeProjectLifetimeScope"))
+            if (TryAddComponentByTypeName(target, ProjectScopeFullTypeName))
             {
                 return;
             }
 
-            TryAddComponentByTypeName(target, "_Project.Scripts.Runtime.Bootstrap.RuntimeProjectLifetimeScope");
+            TryAddComponentByTypeName(target, LegacyProjectScopeFullTypeName);
         }
 
         private static bool TryAddComponentByTypeName(GameObject target, string typeName)
@@ -1828,11 +2108,30 @@ namespace Evo.Infrastructure.Core.Editor
                 _bootstrapValidationAttempted = true;
                 _statusLine = "Scaffold: validating bootstrap scopes...";
                 ValidateAndFixBootstrapScopes();
+                RefreshState();
+                return;
+            }
+
+            if (!_starterAddressablesReady || !_starterBuildScenesReady)
+            {
+                if (_scaffoldFinalizationAttempts >= 2)
+                {
+                    _scaffoldSetupRequested = false;
+                    SessionState.SetBool(GetScaffoldStateKey(), false);
+                    _statusLine = "Scaffold stopped: Addressables or build settings are still invalid after finalization.";
+                    Debug.LogError("[Evo Setup] Addressables or build settings are still invalid after scaffold finalization.");
+                    Repaint();
+                    return;
+                }
+
+                _statusLine = "Scaffold: finalizing Addressables and build settings...";
+                FinalizeStarterRuntimeScaffold();
                 return;
             }
 
             _scaffoldSetupRequested = false;
             _bootstrapValidationAttempted = false;
+            _scaffoldFinalizationAttempts = 0;
             SessionState.SetBool(GetScaffoldStateKey(), false);
             OpenEntryPointScene();
             _statusLine = "Starter scaffold ready.";
@@ -1849,6 +2148,7 @@ namespace Evo.Infrastructure.Core.Editor
             _scaffoldFinalizeQueued = false;
             _reactiveRestoreRequested = false;
             _bootstrapValidationAttempted = false;
+            _scaffoldFinalizationAttempts = 0;
             _statusLine = "Setup canceled.";
             EditorUtility.ClearProgressBar();
             Repaint();
@@ -1990,6 +2290,8 @@ namespace Evo.Infrastructure.Core.Editor
             _odinInstalled = IsOdinInstalled();
             ValidateTemplatesAndScaffoldScriptsState();
             _bootstrapScopesReady = AreBootstrapScopesValid();
+            _starterAddressablesReady = AreStarterScenesAddressable();
+            _starterBuildScenesReady = AreStarterBuildScenesReady();
             _stateAnalyzed = _listRequest.Status == StatusCode.Success;
             _isRefreshingState = false;
             ContinueOneClickSetup();
@@ -2043,7 +2345,9 @@ namespace Evo.Infrastructure.Core.Editor
                 return false;
             }
 
-            return text.IndexOf("TypeName: RuntimeProjectLifetimeScope", StringComparison.Ordinal) >= 0;
+            return text.IndexOf($"TypeName: {ProjectScopeFullTypeName}", StringComparison.Ordinal) >= 0 ||
+                   text.IndexOf($"TypeName: {LegacyProjectScopeFullTypeName}", StringComparison.Ordinal) >= 0 ||
+                   text.IndexOf("TypeName: RuntimeProjectLifetimeScope", StringComparison.Ordinal) >= 0;
         }
 
         private static string SafeReadAllText(string path)
@@ -2105,6 +2409,16 @@ namespace Evo.Infrastructure.Core.Editor
             return HasStarterScaffoldFiles();
         }
 
+        private bool IsStarterScaffoldReady()
+        {
+            return HasStarterScaffold() &&
+                   _scaffoldScriptsUpToDate &&
+                   AreStarterRuntimeTypesReady() &&
+                   _bootstrapScopesReady &&
+                   _starterAddressablesReady &&
+                   _starterBuildScenesReady;
+        }
+
         private static bool HasStarterScaffoldFiles()
         {
             return File.Exists(EntryScenePath) &&
@@ -2115,8 +2429,47 @@ namespace Evo.Infrastructure.Core.Editor
                    File.Exists(StarterRuntimeEntryPointPath) &&
                    File.Exists(StarterLoadingSceneLifetimeScopePath) &&
                    File.Exists(StarterProjectConfigPath) &&
-                   File.Exists(StarterLoadingPresenterPath) &&
-                   File.Exists(StarterLoadingViewSystemPath);
+                   File.Exists(StarterLoadingViewSystemPath) &&
+                   File.Exists(StarterLoadingViewModelPath) &&
+                   File.Exists(StarterLoadingScreenViewPath);
+        }
+
+        private static bool AreStarterBuildScenesReady()
+        {
+            var scenes = EditorBuildSettings.scenes;
+            return scenes.Length >= 2 &&
+                   scenes[0].enabled &&
+                   scenes[1].enabled &&
+                   string.Equals(scenes[0].path, EntryScenePath, StringComparison.Ordinal) &&
+                   string.Equals(scenes[1].path, TransitionScenePath, StringComparison.Ordinal);
+        }
+
+        private static bool AreStarterScenesAddressable()
+        {
+            return HasAddressableEntry(LoadingScenePath, "LoadingScene") &&
+                   HasAddressableEntry(MenuScenePath, "MainMenuScene");
+        }
+
+        private static bool HasAddressableEntry(string scenePath, string address)
+        {
+            var guid = AssetDatabase.AssetPathToGUID(scenePath);
+            if (string.IsNullOrEmpty(guid) || !Directory.Exists("Assets/AddressableAssetsData"))
+            {
+                return false;
+            }
+
+            var files = Directory.GetFiles("Assets/AddressableAssetsData", "*.asset", SearchOption.AllDirectories);
+            for (var i = 0; i < files.Length; i++)
+            {
+                var text = SafeReadAllText(files[i]);
+                if (text.IndexOf(guid, StringComparison.Ordinal) >= 0 &&
+                    (string.IsNullOrWhiteSpace(address) || text.IndexOf(address, StringComparison.Ordinal) >= 0))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void DrawReactiveWarning()
