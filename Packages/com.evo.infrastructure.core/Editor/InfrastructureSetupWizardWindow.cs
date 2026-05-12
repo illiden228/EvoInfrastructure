@@ -48,6 +48,7 @@ namespace Evo.Infrastructure.Core.Editor
         private const string ProjectConfigPath = "Assets/_Project/Configs/ProjectConfig.asset";
         private const string UiSystemConfigPath = "Assets/_Project/Configs/UiSystemConfig.asset";
         private const string ConfigCatalogPath = "Assets/_Project/Configs/ScriptableConfigCatalog.asset";
+        private const string ResourceCatalogPath = "Assets/_Project/Configs/ResourceCatalog.asset";
         private const string LifetimeScopePrefabPath = "Assets/_Project/Prefabs/Runtime/InfrastructureProjectLifetimeScope.prefab";
         private const string StarterRuntimeProjectLifetimeScopePath = "Assets/_Project/Scripts/Runtime/EntryPoint/RuntimeProjectLifetimeScope.cs";
         private const string StarterRuntimeEntryPointPath = "Assets/_Project/Scripts/Runtime/EntryPoint/RuntimeEntryPoint.cs";
@@ -667,6 +668,19 @@ namespace Evo.Infrastructure.Core.Editor
             EnsureScene(TransitionScenePath, "TransitionRoot");
             EnsureScene(MenuScenePath, "MainMenuRoot");
             EnsureStarterScripts();
+            ValidateTemplatesAndScaffoldScriptsState();
+
+            if (!_scaffoldScriptsUpToDate)
+            {
+                UpdateScaffoldScriptsFromTemplates();
+                QueueFinalizeStarterRuntimeScaffold();
+                _oneClickSetupRequested = true;
+                SessionState.SetBool(GetOneClickStateKey(), true);
+                _statusLine = "Starter scaffold scripts updated. Waiting for Unity to compile before configuring scenes and assets...";
+                Debug.Log("[Evo Setup] Starter scaffold scripts updated. Waiting for Unity to compile before configuring scenes and assets...");
+                return;
+            }
+
             AssetDatabase.Refresh();
 
             if (!AreStarterRuntimeTypesReady())
@@ -755,6 +769,9 @@ namespace Evo.Infrastructure.Core.Editor
             CreateScriptableAsset(
                 "_Project.Scripts.Infrastructure.Services.Config.ScriptableConfigCatalog, Evo.Infrastructure.Runtime",
                 ConfigCatalogPath);
+            CreateScriptableAsset(
+                "_Project.Scripts.Infrastructure.Services.ResourceCatalog.ResourceCatalog, Evo.Infrastructure.Runtime",
+                ResourceCatalogPath);
             CreateLifetimeScopePrefab();
         }
 
@@ -854,7 +871,45 @@ namespace Evo.Infrastructure.Core.Editor
             var root = GetOrCreateRoot(scene, "EntryPointRoot", null);
             RemoveCanvasObjects(scene);
             AddAnyProjectLifetimeScope(root);
+            ConfigureProjectLifetimeScopeReferences(root);
             EditorSceneManager.SaveScene(scene);
+        }
+
+        private static void ConfigureProjectLifetimeScopeReferences(GameObject root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var scope = root.GetComponent("RuntimeProjectLifetimeScope");
+            if (scope == null)
+            {
+                return;
+            }
+
+            var serialized = new SerializedObject(scope);
+            SetObjectReference(serialized.FindProperty("resourceCatalog"), AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(ResourceCatalogPath));
+            SetObjectReference(serialized.FindProperty("uiSystemConfig"), AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(UiSystemConfigPath));
+
+            var configCatalogs = serialized.FindProperty("configCatalogs");
+            var configCatalog = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(ConfigCatalogPath);
+            if (configCatalogs != null && configCatalog != null && configCatalogs.isArray)
+            {
+                configCatalogs.arraySize = 1;
+                configCatalogs.GetArrayElementAtIndex(0).objectReferenceValue = configCatalog;
+            }
+
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(scope);
+        }
+
+        private static void SetObjectReference(SerializedProperty property, UnityEngine.Object value)
+        {
+            if (property != null && value != null)
+            {
+                property.objectReferenceValue = value;
+            }
         }
 
         private void ConfigureLoadingScene()
@@ -2700,6 +2755,15 @@ namespace Evo.Infrastructure.Core.Editor
                 _statusLine = "Setup: creating starter runtime scaffold...";
                 Debug.Log("[Evo Setup] Creating starter runtime scaffold...");
                 SetupStarterRuntimeScaffold();
+                return;
+            }
+
+            if (_setupStarterScaffold && !_scaffoldScriptsUpToDate)
+            {
+                _statusLine = "Setup: updating starter scaffold scripts...";
+                Debug.Log("[Evo Setup] Updating starter scaffold scripts from templates...");
+                UpdateScaffoldScriptsFromTemplates();
+                QueueFinalizeStarterRuntimeScaffold();
                 return;
             }
 
