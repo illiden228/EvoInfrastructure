@@ -19,8 +19,12 @@ namespace Evo.Infrastructure.Core.Editor
     public sealed class InfrastructureSetupWizardWindow : EditorWindow
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
-        private const string RuntimeGitTag = "v0.3.35";
+        private const string YandexPackageName = "com.evo.infrastructure.yandex";
+        private const string RuntimeGitTag = "v0.3.37";
+        private const string YandexGitTag = "v0.3.37";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
+        private const string YandexGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.yandex";
+        private const string OdinPackagePathPrefsKey = "Evo.Infrastructure.Core.OdinPackagePath";
         private const string R3NuGetId = "R3";
         private const string R3NuGetVersion = "1.3.0";
         private const string ObservableCollectionsNuGetId = "ObservableCollections";
@@ -109,6 +113,8 @@ namespace Evo.Infrastructure.Core.Editor
         private ListRequest _listRequest;
         private bool _dependenciesInstalled;
         private bool _runtimeInstalled;
+        private bool _yandexInstalled;
+        private bool _odinInstalled;
         private bool _structureReady;
         private bool _bootstrapScopesReady;
         private bool _r3Ready;
@@ -129,6 +135,9 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _isRefreshingState;
         private bool _isInstalling;
         private bool _oneClickSetupRequested;
+        private bool _scaffoldFinalizeQueued;
+        private bool _installYandexModule = true;
+        private bool _installOdinPackage;
         private bool _templatesReady;
         private bool _scaffoldScriptsUpToDate;
         private double _refreshStartedAt;
@@ -156,6 +165,7 @@ namespace Evo.Infrastructure.Core.Editor
         private void OnDisable()
         {
             EditorApplication.update -= UpdateInstallQueue;
+            EditorUtility.ClearProgressBar();
         }
 
         private void OnGUI()
@@ -164,6 +174,8 @@ namespace Evo.Infrastructure.Core.Editor
             DrawHeader();
             DrawProgress();
             DrawState();
+            GUILayout.Space(10f);
+            DrawInstallPlan();
             GUILayout.Space(10f);
             DrawActions();
             DrawSetupReport();
@@ -195,6 +207,8 @@ namespace Evo.Infrastructure.Core.Editor
             DrawStatusRow("ObservableCollections.R3 installed", _observableCollectionsR3Ready);
             DrawStatusRow("Project structure created", _structureReady);
             DrawStatusRow("Infrastructure runtime installed", _runtimeInstalled);
+            DrawStatusRow("Infrastructure Yandex installed", _yandexInstalled);
+            DrawStatusRow("Odin installed", _odinInstalled);
             DrawStatusRow("Starter runtime scaffold ready", HasStarterScaffold());
             DrawStatusRow("Scaffold templates valid", _templatesReady);
             DrawStatusRow("Scaffold scripts up to date", _scaffoldScriptsUpToDate);
@@ -219,8 +233,58 @@ namespace Evo.Infrastructure.Core.Editor
             EditorGUILayout.EndHorizontal();
         }
 
+        private void DrawInstallPlan()
+        {
+            EditorGUILayout.LabelField("Install Plan", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Choose optional modules, then run Install Selected. Runtime and required dependencies are always included.",
+                MessageType.Info);
+
+            using (new EditorGUI.DisabledScope(_isInstalling))
+            {
+                EditorGUILayout.ToggleLeft("Runtime foundation and required dependencies", true);
+                _installYandexModule = EditorGUILayout.ToggleLeft("Yandex integration package", _installYandexModule);
+                _installOdinPackage = EditorGUILayout.ToggleLeft("Odin Inspector from local .unitypackage", _installOdinPackage);
+
+                if (_installOdinPackage && !_odinInstalled)
+                {
+                    DrawOdinPackagePathField();
+                }
+
+                var canInstallSelected = !_isInstalling && !_oneClickSetupRequested;
+                DrawActionButton(
+                    "Install Selected",
+                    canInstallSelected
+                        ? "Install selected modules and generate starter scaffold."
+                        : "Wait until the current installation process completes.",
+                    canInstallSelected,
+                    StartOneClickSetup);
+            }
+        }
+
+        private void DrawOdinPackagePathField()
+        {
+            var path = EditorPrefs.GetString(OdinPackagePathPrefsKey, string.Empty);
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Odin package", GUILayout.Width(120f));
+            EditorGUILayout.SelectableLabel(string.IsNullOrWhiteSpace(path) ? "Not selected" : path, EditorStyles.textField, GUILayout.Height(18f));
+            if (GUILayout.Button("Browse", GUILayout.Width(80f)))
+            {
+                SelectOdinPackagePath();
+            }
+            EditorGUILayout.EndHorizontal();
+
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                EditorGUILayout.HelpBox(
+                    "Odin cannot be installed automatically until a .unitypackage source is selected. For fully automatic installs, publish Odin as an internal/private package source that your team is allowed to use.",
+                    MessageType.Warning);
+            }
+        }
+
         private void DrawActions()
         {
+            EditorGUILayout.LabelField("Manual Steps", EditorStyles.boldLabel);
             var canInstallDeps = !_isInstalling;
 
             DrawActionButton(
@@ -338,6 +402,18 @@ namespace Evo.Infrastructure.Core.Editor
                 canInstallRuntime,
                 InstallRuntimePackage);
 
+            var yandexDone = _yandexInstalled;
+            var canInstallYandex = _runtimeInstalled && !yandexDone && !_isInstalling;
+            DrawActionButton(
+                yandexDone ? "12.1) Install Infrastructure Yandex (Already done)" : "12.1) Install Infrastructure Yandex",
+                yandexDone
+                    ? "Infrastructure Yandex is already installed."
+                    : canInstallYandex
+                        ? "Install Yandex integration package from Git tag."
+                        : "Requires: Infrastructure Runtime installed.",
+                canInstallYandex,
+                InstallYandexPackage);
+
             var scaffoldDone = HasStarterScaffold();
             var canSetupScaffold = _dependenciesInstalled &&
                                    _primeTweenInstalled &&
@@ -367,14 +443,13 @@ namespace Evo.Infrastructure.Core.Editor
                 canUpdateScaffoldScripts,
                 UpdateScaffoldScriptsFromTemplates);
 
-            var canRunOneClickSetup = !_isInstalling;
             DrawActionButton(
-                "One-Click Setup",
-                canRunOneClickSetup
-                    ? "Install dependencies, reactive packages, runtime package and scaffold in one flow."
-                    : "Wait until current installation process completes.",
-                canRunOneClickSetup,
-                StartOneClickSetup);
+                _odinInstalled ? "Import Odin (Already installed)" : "Import Odin",
+                _odinInstalled
+                    ? "Odin Inspector is already installed."
+                    : "Import Odin Inspector from a local .unitypackage.",
+                !_odinInstalled && !_isInstalling,
+                ImportOdinPackage);
 
             DrawActionButton(
                 "Refresh State",
@@ -503,6 +578,13 @@ namespace Evo.Infrastructure.Core.Editor
             _statusLine = $"Installing runtime package from git tag {RuntimeGitTag}...";
         }
 
+        private void InstallYandexPackage()
+        {
+            _installQueue.Enqueue($"{YandexGitUrl}#{YandexGitTag}");
+            _isInstalling = true;
+            _statusLine = $"Installing Yandex package from git tag {YandexGitTag}...";
+        }
+
         private void InstallReactiveFromNuGet()
         {
             if (!_nuGetForUnityInstalled)
@@ -577,6 +659,49 @@ namespace Evo.Infrastructure.Core.Editor
             EnsureScene(MenuScenePath, "MainMenuRoot");
             EnsureStarterScripts();
             AssetDatabase.Refresh();
+
+            if (!AreStarterRuntimeTypesReady())
+            {
+                QueueFinalizeStarterRuntimeScaffold();
+                _statusLine = "Starter scripts created. Waiting for Unity to compile before configuring scenes and assets...";
+                AppendReport(_statusLine);
+                return;
+            }
+
+            FinalizeStarterRuntimeScaffold();
+        }
+
+        private void QueueFinalizeStarterRuntimeScaffold()
+        {
+            if (_scaffoldFinalizeQueued)
+            {
+                return;
+            }
+
+            _scaffoldFinalizeQueued = true;
+            EditorApplication.delayCall += FinalizeStarterRuntimeScaffoldWhenReady;
+        }
+
+        private void FinalizeStarterRuntimeScaffoldWhenReady()
+        {
+            _scaffoldFinalizeQueued = false;
+
+            if (this == null)
+            {
+                return;
+            }
+
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating || !AreStarterRuntimeTypesReady())
+            {
+                QueueFinalizeStarterRuntimeScaffold();
+                return;
+            }
+
+            FinalizeStarterRuntimeScaffold();
+        }
+
+        private void FinalizeStarterRuntimeScaffold()
+        {
             EnsureDefaultAssets();
             ConfigureStarterScenes();
             EnsureStarterSceneInAddressables(LoadingScenePath, "LoadingScene");
@@ -586,7 +711,14 @@ namespace Evo.Infrastructure.Core.Editor
             ValidateAndFixBootstrapScopes();
             AssetDatabase.Refresh();
             _statusLine = "Starter runtime scaffold created.";
+            AppendReport(_statusLine);
             RefreshState();
+        }
+
+        private static bool AreStarterRuntimeTypesReady()
+        {
+            return FindTypeByName("_Project.Scripts.Runtime.EntryPoint.RuntimeProjectLifetimeScope") != null &&
+                   FindTypeByName("_Project.Scripts.Application.Config.ProjectConfig") != null;
         }
 
         private void EnsureDefaultAssets()
@@ -1301,6 +1433,8 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void UpdateInstallQueue()
         {
+            UpdateOneClickProgressBar();
+
             if (_addRequest != null)
             {
                 if (!_addRequest.IsCompleted)
@@ -1318,15 +1452,30 @@ namespace Evo.Infrastructure.Core.Editor
                 {
                     _statusLine = $"Install failed: {_addRequest.Error?.message}";
                     AppendReport($"Package install failed: {_addRequest.Error?.message}");
+                    _installQueue.Clear();
+                    _isInstalling = false;
+                    _oneClickSetupRequested = false;
+                    SessionState.SetBool(GetOneClickStateKey(), false);
+                    EditorUtility.ClearProgressBar();
+                    _addRequest = null;
+                    Repaint();
+                    return;
                 }
 
                 _addRequest = null;
                 RefreshState();
                 QueueRefreshBurst();
+                Repaint();
+                return;
             }
 
             if (_addRequest == null && _installQueue.Count > 0)
             {
+                if (_isRefreshingState || EditorApplication.isCompiling || EditorApplication.isUpdating)
+                {
+                    return;
+                }
+
                 var source = _installQueue.Dequeue();
                 _statusLine = $"Installing package: {source}";
                 _isInstalling = true;
@@ -1423,6 +1572,9 @@ namespace Evo.Infrastructure.Core.Editor
                                          _uguiInstalled;
                 _runtimeInstalled = HasAnyPackage(packages, RuntimePackageName, "com.evo.infrastructure.runtime") ||
                                     ManifestHasAnyDependency(RuntimePackageName);
+                _yandexInstalled = HasAnyPackage(packages, YandexPackageName, "com.evo.infrastructure.yandex") ||
+                                   ManifestHasAnyDependency(YandexPackageName);
+                _odinInstalled = IsOdinInstalled();
                 ReadReactivePackagesConfig(
                     out _r3InPackagesConfig,
                     out _observableCollectionsInPackagesConfig,
@@ -1433,9 +1585,11 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             _structureReady = HasProjectStructure();
+            _odinInstalled = IsOdinInstalled();
             ValidateTemplatesAndScaffoldScriptsState();
             _bootstrapScopesReady = AreBootstrapScopesValid();
             _isRefreshingState = false;
+            ContinueOneClickSetup();
             Repaint();
         }
 
@@ -1742,6 +1896,83 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             return false;
+        }
+
+        private static bool IsOdinInstalled()
+        {
+            return IsAssemblyLoaded("Sirenix.OdinInspector.Attributes") ||
+                   IsAssemblyLoaded("Sirenix.OdinInspector.Editor") ||
+                   FindTypeByName("Sirenix.OdinInspector.ShowInInspectorAttribute") != null;
+        }
+
+        private void ImportOdinPackage()
+        {
+            TryImportOdinPackage(true);
+        }
+
+        private bool SelectOdinPackagePath()
+        {
+            var current = EditorPrefs.GetString(OdinPackagePathPrefsKey, string.Empty);
+            var folder = !string.IsNullOrWhiteSpace(current) && File.Exists(current)
+                ? Path.GetDirectoryName(current)
+                : string.Empty;
+            var path = EditorUtility.OpenFilePanel(
+                "Select Odin Inspector unitypackage",
+                folder ?? string.Empty,
+                "unitypackage");
+
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                return false;
+            }
+
+            EditorPrefs.SetString(OdinPackagePathPrefsKey, path);
+            _statusLine = $"Selected Odin package: {Path.GetFileName(path)}";
+            Repaint();
+            return true;
+        }
+
+        private bool TryImportOdinPackage(bool interactive)
+        {
+            if (IsOdinInstalled())
+            {
+                _odinInstalled = true;
+                _statusLine = "Odin Inspector is already installed.";
+                return true;
+            }
+
+            var path = EditorPrefs.GetString(OdinPackagePathPrefsKey, string.Empty);
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                if (!interactive)
+                {
+                    _statusLine = "Odin package file not found. Use Import Odin and select the .unitypackage.";
+                    AppendReport(_statusLine);
+                    return false;
+                }
+
+                if (!SelectOdinPackagePath())
+                {
+                    _statusLine = "Odin import canceled.";
+                    return false;
+                }
+
+                path = EditorPrefs.GetString(OdinPackagePathPrefsKey, string.Empty);
+            }
+
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                _statusLine = "Odin import canceled.";
+                return false;
+            }
+
+            EditorPrefs.SetString(OdinPackagePathPrefsKey, path);
+            _statusLine = $"Importing Odin package: {Path.GetFileName(path)}";
+            AppendReport(_statusLine);
+            AssetDatabase.ImportPackage(path, false);
+            AssetDatabase.Refresh();
+            _odinInstalled = IsOdinInstalled();
+            return true;
         }
 
         private static bool ManifestHasAnyDependency(params string[] packageNames)
@@ -2140,11 +2371,25 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void StartOneClickSetup()
         {
+            if (_installOdinPackage && !_odinInstalled)
+            {
+                var odinPath = EditorPrefs.GetString(OdinPackagePathPrefsKey, string.Empty);
+                if (string.IsNullOrWhiteSpace(odinPath) || !File.Exists(odinPath))
+                {
+                    if (!SelectOdinPackagePath())
+                    {
+                        _statusLine = "Install selected canceled: Odin package source is required for Odin installation.";
+                        AppendReport(_statusLine);
+                        return;
+                    }
+                }
+            }
+
             _oneClickSetupRequested = true;
             SessionState.SetBool(GetOneClickStateKey(), true);
             _setupReport.Clear();
-            AppendReport("One-click setup started.");
-            _statusLine = "One-click setup started.";
+            AppendReport("Install selected started.");
+            _statusLine = "Install selected started.";
             RefreshState();
             ContinueOneClickSetup();
         }
@@ -2172,6 +2417,11 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                return;
+            }
+
+            if (_scaffoldFinalizeQueued)
             {
                 return;
             }
@@ -2217,10 +2467,19 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
+            if (_installYandexModule && !_yandexInstalled)
+            {
+                _statusLine = "One-click: installing Yandex package...";
+                AppendReport("Installing Yandex package...");
+                InstallYandexPackage();
+                return;
+            }
+
             if (!_templatesReady)
             {
                 _oneClickSetupRequested = false;
                 SessionState.SetBool(GetOneClickStateKey(), false);
+                EditorUtility.ClearProgressBar();
                 _statusLine = "One-click stopped: scaffold templates are invalid.";
                 AppendReport(_statusLine);
                 return;
@@ -2242,11 +2501,75 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
+            if (_installOdinPackage && !_odinInstalled)
+            {
+                _statusLine = "One-click: importing Odin package...";
+                AppendReport("Importing Odin package...");
+                if (!TryImportOdinPackage(false))
+                {
+                    _oneClickSetupRequested = false;
+                    SessionState.SetBool(GetOneClickStateKey(), false);
+                    EditorUtility.ClearProgressBar();
+                    Repaint();
+                    return;
+                }
+            }
+
             _oneClickSetupRequested = false;
             SessionState.SetBool(GetOneClickStateKey(), false);
-            _statusLine = "One-click setup completed.";
-            AppendReport("One-click setup completed.");
+                _statusLine = "Install selected completed.";
+                AppendReport("Install selected completed.");
+            EditorUtility.ClearProgressBar();
             Repaint();
+        }
+
+        private void UpdateOneClickProgressBar()
+        {
+            if (!_oneClickSetupRequested)
+            {
+                EditorUtility.ClearProgressBar();
+                return;
+            }
+
+            var stepIndex = GetOneClickCompletedStepCount();
+            var stepCount = GetOneClickStepCount();
+            var progress = Mathf.Clamp01(stepIndex / (float)stepCount);
+            EditorUtility.DisplayProgressBar(
+                "Evo Install Selected",
+                _statusLine,
+                progress);
+        }
+
+        private int GetOneClickStepCount()
+        {
+            var count = 8;
+            if (_installYandexModule)
+            {
+                count++;
+            }
+
+            if (_installOdinPackage)
+            {
+                count++;
+            }
+
+            return count;
+        }
+
+        private int GetOneClickCompletedStepCount()
+        {
+            var completed = 0;
+            if (_dependenciesInstalled) completed++;
+            if (_primeTweenInstalled) completed++;
+            if (_r3UnityInstalled) completed++;
+            if (_r3Ready && _observableCollectionsReady && _observableCollectionsR3Ready) completed++;
+            if (_runtimeInstalled) completed++;
+            if (_installYandexModule && _yandexInstalled) completed++;
+            if (_templatesReady) completed++;
+            if (HasStarterScaffold()) completed++;
+            if (_bootstrapScopesReady) completed++;
+            if (_installOdinPackage && _odinInstalled) completed++;
+            return completed;
         }
 
         private static string GetOneClickStateKey()

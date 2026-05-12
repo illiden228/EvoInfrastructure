@@ -8,6 +8,7 @@ namespace _Project.Scripts.Editor.EvoTools
     public sealed class ConfigCatalogAutoRebuild : AssetPostprocessor
     {
         private static bool _isUpdating;
+        private static bool _rebuildQueued;
 
         private static void OnPostprocessAllAssets(
             string[] importedAssets,
@@ -23,6 +24,32 @@ namespace _Project.Scripts.Editor.EvoTools
             var changed = CollectChanged(importedAssets, deletedAssets, movedAssets, movedFromAssetPaths);
             if (changed.Count == 0)
             {
+                return;
+            }
+
+            QueueRebuild(changed);
+        }
+
+        private static void QueueRebuild(HashSet<string> changed)
+        {
+            if (_rebuildQueued)
+            {
+                return;
+            }
+
+            _rebuildQueued = true;
+            EditorApplication.delayCall += () =>
+            {
+                _rebuildQueued = false;
+                RebuildChangedCatalogs(changed);
+            };
+        }
+
+        private static void RebuildChangedCatalogs(HashSet<string> changed)
+        {
+            if (_isUpdating || EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                QueueRebuild(changed);
                 return;
             }
 
@@ -52,8 +79,10 @@ namespace _Project.Scripts.Editor.EvoTools
                         continue;
                     }
 
-                    catalog.RebuildFromFolders();
-                    EditorUtility.SetDirty(catalog);
+                    if (catalog.RebuildFromFolders())
+                    {
+                        EditorUtility.SetDirty(catalog);
+                    }
                 }
 
                 AssetDatabase.SaveAssets();

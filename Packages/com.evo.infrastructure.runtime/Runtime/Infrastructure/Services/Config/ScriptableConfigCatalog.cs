@@ -40,14 +40,14 @@ namespace _Project.Scripts.Infrastructure.Services.Config
             entries.Add(new ScriptableConfigEntry(typeName, asset));
         }
 
-        public void RebuildFromFolders()
+        public bool RebuildFromFolders()
         {
             var found = ScriptableConfigCatalogEditorUtil.FindConfigsInFolders(autoFolders, includeSubfolders);
             var duplicates = ScriptableConfigCatalogEditorUtil.FindDuplicateTypes(found);
-            entries.Clear();
+            var nextEntries = new List<ScriptableConfigEntry>(found.Count);
             for (var i = 0; i < found.Count; i++)
             {
-                Upsert(found[i]);
+                Upsert(nextEntries, found[i]);
             }
 
             if (duplicates.Count > 0)
@@ -58,6 +58,14 @@ namespace _Project.Scripts.Infrastructure.Services.Config
                                                 $"Using the last found asset. Count: {entry.Value.Count}");
                 }
             }
+
+            if (EntriesEqual(entries, nextEntries))
+            {
+                return false;
+            }
+
+            entries = nextEntries;
+            return true;
         }
 
         public Dictionary<Type, List<UnityEngine.Object>> FindDuplicatesInFolders()
@@ -69,6 +77,50 @@ namespace _Project.Scripts.Infrastructure.Services.Config
         public void Clear()
         {
             entries.Clear();
+        }
+
+        private static void Upsert(List<ScriptableConfigEntry> target, UnityEngine.Object asset)
+        {
+            if (target == null || asset == null)
+            {
+                return;
+            }
+
+            var typeName = asset.GetType().AssemblyQualifiedName;
+            for (var i = 0; i < target.Count; i++)
+            {
+                if (target[i].TypeName == typeName)
+                {
+                    target[i] = new ScriptableConfigEntry(typeName, asset);
+                    return;
+                }
+            }
+
+            target.Add(new ScriptableConfigEntry(typeName, asset));
+        }
+
+        private static bool EntriesEqual(IReadOnlyList<ScriptableConfigEntry> left, IReadOnlyList<ScriptableConfigEntry> right)
+        {
+            if (left == null || right == null)
+            {
+                return left == right;
+            }
+
+            if (left.Count != right.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < left.Count; i++)
+            {
+                if (!string.Equals(left[i].TypeName, right[i].TypeName, StringComparison.Ordinal) ||
+                    left[i].Asset != right[i].Asset)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 #endif
     }
