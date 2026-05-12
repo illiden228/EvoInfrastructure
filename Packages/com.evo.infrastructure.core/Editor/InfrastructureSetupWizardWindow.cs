@@ -264,7 +264,7 @@ namespace Evo.Infrastructure.Core.Editor
             EditorGUILayout.Space(4f);
             EditorGUILayout.LabelField("Optional Modules", EditorStyles.boldLabel);
             _installYandexModule = DrawInstallPlanRow("Evo Infrastructure Yandex", _installYandexModule, _yandexInstalled, "YG2 integration package.", () => RemovePackage(YandexPackageName, "Evo Infrastructure Yandex"));
-            _installOdinPackage = DrawInstallPlanRow("Odin Inspector", _installOdinPackage, _odinInstalled, "Import from a selected .unitypackage source.");
+            _installOdinPackage = DrawInstallPlanRow("Odin Inspector", _installOdinPackage, _odinInstalled, "Import separately after Setup. Odin is not required for starter runtime.");
 
             EditorGUILayout.Space(4f);
             EditorGUILayout.LabelField("Project Runtime", EditorStyles.boldLabel);
@@ -276,6 +276,12 @@ namespace Evo.Infrastructure.Core.Editor
                 if (_installOdinPackage && !_odinInstalled)
                 {
                     DrawOdinPackagePathField();
+                    DrawActionButton(
+                        "Import Odin",
+                        "Import Odin after the main setup has completed.",
+                        _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_isRefreshingState,
+                        () => TryImportOdinPackage(true),
+                        26f);
                 }
 
                 var canInstallSelected = _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_isRefreshingState;
@@ -2646,20 +2652,6 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void StartOneClickSetup()
         {
-            if (_installOdinPackage && !_odinInstalled)
-            {
-                var odinPath = ResolveOdinPackagePath();
-                if (string.IsNullOrWhiteSpace(odinPath) || !File.Exists(odinPath))
-                {
-                    if (!SelectOdinPackagePath())
-                    {
-                        _statusLine = "Setup canceled: Odin package source is required for Odin installation.";
-                        Debug.LogError("[Evo Setup] Setup canceled: Odin package source is required for Odin installation.");
-                        return;
-                    }
-                }
-            }
-
             _oneClickSetupRequested = true;
             _bootstrapValidationAttempted = false;
             SessionState.SetBool(GetOneClickStateKey(), true);
@@ -2809,27 +2801,6 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            if (_installOdinPackage && !_odinInstalled)
-            {
-                if (_odinImportRequested)
-                {
-                    _statusLine = "Setup: waiting for Odin import/domain reload...";
-                    QueueRefreshBurst();
-                    return;
-                }
-
-                _statusLine = "Setup: importing Odin package...";
-                Debug.Log("[Evo Setup] Importing Odin package...");
-                if (!TryImportOdinPackage(false))
-                {
-                    _oneClickSetupRequested = false;
-                    SessionState.SetBool(GetOneClickStateKey(), false);
-                    EditorUtility.ClearProgressBar();
-                    Repaint();
-                    return;
-                }
-            }
-
             _oneClickSetupRequested = false;
             _bootstrapValidationAttempted = false;
             SessionState.SetBool(GetOneClickStateKey(), false);
@@ -2881,11 +2852,6 @@ namespace Evo.Infrastructure.Core.Editor
                 count += 3;
             }
 
-            if (_installOdinPackage)
-            {
-                count++;
-            }
-
             return Mathf.Max(1, count);
         }
 
@@ -2897,7 +2863,6 @@ namespace Evo.Infrastructure.Core.Editor
             if (_setupStarterScaffold && _templatesReady) completed++;
             if (_setupStarterScaffold && HasStarterScaffold()) completed++;
             if (_setupStarterScaffold && _bootstrapScopesReady) completed++;
-            if (_installOdinPackage && _odinInstalled) completed++;
             return completed;
         }
 
