@@ -65,6 +65,7 @@ namespace Evo.Infrastructure.Core.Editor
         private const string LoadingViewSystemTemplateName = "LoadingViewSystem.cs.txt";
         private const string ProjectScopeTypeName = "RuntimeProjectLifetimeScope";
         private const string OneClickStateKeyPrefix = "Evo.Infrastructure.Core.OneClickSetup.";
+        private const string ScaffoldStateKeyPrefix = "Evo.Infrastructure.Core.ScaffoldSetup.";
         private const string OdinImportStateKeyPrefix = "Evo.Infrastructure.Core.OdinImportRequested.";
         private const string SelectionStateKeyPrefix = "Evo.Infrastructure.Core.SetupSelection.";
         private static readonly StarterScriptTemplate[] StarterScriptTemplates =
@@ -149,6 +150,7 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _isRefreshingState;
         private bool _isInstalling;
         private bool _oneClickSetupRequested;
+        private bool _scaffoldSetupRequested;
         private bool _scaffoldFinalizeQueued;
         private bool _reactiveRestoreRequested;
         private bool _stateAnalyzed;
@@ -235,20 +237,20 @@ namespace Evo.Infrastructure.Core.Editor
                     MessageType.Warning);
             }
 
-            using (new EditorGUI.DisabledScope(_isRefreshingState || _isInstalling || _oneClickSetupRequested))
+            using (new EditorGUI.DisabledScope(_isRefreshingState || _isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested))
             {
                 DrawActionButton(
                     _isRefreshingState ? "Analyzing..." : "Analyze Installed Packages",
                     "Refresh package and scaffold state before setup.",
-                    !_isRefreshingState && !_isInstalling && !_oneClickSetupRequested,
+                    !_isRefreshingState && !_isInstalling && !_oneClickSetupRequested && !_scaffoldSetupRequested,
                     RefreshState,
                     26f);
             }
 
-            if (_oneClickSetupRequested)
+            if (_oneClickSetupRequested || _scaffoldSetupRequested)
             {
                 DrawActionButton(
-                    "Cancel Setup",
+                    _scaffoldSetupRequested ? "Cancel Scaffold" : "Cancel Setup",
                     "Stop the current setup session and keep current project files as they are.",
                     true,
                     CancelSetup,
@@ -272,25 +274,13 @@ namespace Evo.Infrastructure.Core.Editor
             EditorGUILayout.Space(4f);
             EditorGUILayout.LabelField("Optional Modules", EditorStyles.boldLabel);
             _installYandexModule = DrawInstallPlanRow("Evo Infrastructure Yandex", _installYandexModule, _yandexInstalled, "YG2 integration package.", () => RemovePackage(YandexPackageName, "Evo Infrastructure Yandex"));
-            _installOdinPackage = DrawInstallPlanRow("Odin Inspector", _installOdinPackage, _odinInstalled, "Import separately after Setup. Odin is not required for starter runtime.");
+            _installOdinPackage = DrawInstallPlanRow("Odin Inspector", _installOdinPackage, _odinInstalled, "Imported automatically at the end of Setup. Odin is not required for starter runtime.");
 
             SaveSelectionState();
 
-            using (new EditorGUI.DisabledScope(_isInstalling || _oneClickSetupRequested || !_stateAnalyzed))
+            using (new EditorGUI.DisabledScope(_isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested || !_stateAnalyzed))
             {
-
-                if (_installOdinPackage && !_odinInstalled)
-                {
-                    DrawOdinPackagePathField();
-                    DrawActionButton(
-                        "Import Odin",
-                        "Import Odin after the main setup has completed.",
-                        _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_isRefreshingState,
-                        () => TryImportOdinPackage(true),
-                        26f);
-                }
-
-                var canInstallSelected = _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_isRefreshingState;
+                var canInstallSelected = _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_scaffoldSetupRequested && !_isRefreshingState;
                 DrawActionButton(
                     "Setup",
                     canInstallSelected
@@ -309,24 +299,29 @@ namespace Evo.Infrastructure.Core.Editor
             EditorGUILayout.LabelField("Project Runtime", EditorStyles.boldLabel);
 
             var packagesReadyForScaffold = ArePackagesReadyForStarterScaffold();
+            var scaffoldReady = HasStarterScaffold() && _scaffoldScriptsUpToDate && AreStarterRuntimeTypesReady() && _bootstrapScopesReady;
             DrawActionButton(
                 _structureReady ? "Create Project Structure (Ready)" : "Create Project Structure",
                 _structureReady
                     ? "Project folder structure is already ready."
                     : "Create base folders under Assets/_Project.",
-                _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_isRefreshingState && !_structureReady,
+                _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_scaffoldSetupRequested && !_isRefreshingState && !_structureReady,
                 CreateProjectStructure,
                 28f);
 
             DrawActionButton(
-                HasStarterScaffold() && AreStarterRuntimeTypesReady() && _bootstrapScopesReady
+                scaffoldReady
                     ? "Create Starter Scaffold (Ready)"
+                    : _scaffoldSetupRequested
+                        ? "Create Starter Scaffold (Running)"
                     : "Create Starter Scaffold",
-                packagesReadyForScaffold
+                scaffoldReady
+                    ? "Starter scaffold is already configured."
+                    : packagesReadyForScaffold
                     ? "Create starter scripts, scenes, configs, Addressables entries and build scenes."
-                    : "Requires selected runtime packages to be installed first.",
-                _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_isRefreshingState && packagesReadyForScaffold,
-                SetupStarterRuntimeScaffold,
+                    : "Requires runtime scaffold packages to be installed first.",
+                _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_scaffoldSetupRequested && !_isRefreshingState && packagesReadyForScaffold && !scaffoldReady,
+                StartStarterRuntimeScaffold,
                 28f);
         }
 
@@ -334,7 +329,7 @@ namespace Evo.Infrastructure.Core.Editor
         {
             EditorGUILayout.BeginHorizontal();
             var value = installed || selected;
-            using (new EditorGUI.DisabledScope(installed || _isInstalling || _oneClickSetupRequested))
+            using (new EditorGUI.DisabledScope(installed || _isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested))
             {
                 value = EditorGUILayout.ToggleLeft(label, value, GUILayout.Width(220f));
             }
@@ -347,7 +342,7 @@ namespace Evo.Infrastructure.Core.Editor
                     : new Color(0.65f, 0.65f, 0.65f);
             EditorGUILayout.LabelField(installed ? "Installed" : value ? "Selected" : "Skipped", GUILayout.Width(72f));
             GUI.color = old;
-            using (new EditorGUI.DisabledScope(!installed || _isInstalling || _oneClickSetupRequested || _removeRequest != null || removeAction == null))
+            using (new EditorGUI.DisabledScope(!installed || _isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested || _removeRequest != null || removeAction == null))
             {
                 if (GUILayout.Button("Remove", GUILayout.Width(68f)))
                 {
@@ -735,6 +730,8 @@ namespace Evo.Infrastructure.Core.Editor
             {
                 _statusLine = "Starter scaffold templates are invalid. Fix template issues before scaffold setup.";
                 Debug.LogError("[Evo Setup] Starter scaffold templates are invalid. Fix template issues before scaffold setup.");
+                _scaffoldSetupRequested = false;
+                SessionState.SetBool(GetScaffoldStateKey(), false);
                 return;
             }
 
@@ -754,8 +751,8 @@ namespace Evo.Infrastructure.Core.Editor
             {
                 UpdateScaffoldScriptsFromTemplates();
                 QueueFinalizeStarterRuntimeScaffold();
-                _oneClickSetupRequested = true;
-                SessionState.SetBool(GetOneClickStateKey(), true);
+                _scaffoldSetupRequested = true;
+                SessionState.SetBool(GetScaffoldStateKey(), true);
                 _statusLine = "Starter scaffold scripts updated. Waiting for Unity to compile before configuring scenes and assets...";
                 Debug.Log("[Evo Setup] Starter scaffold scripts updated. Waiting for Unity to compile before configuring scenes and assets...");
                 return;
@@ -765,13 +762,20 @@ namespace Evo.Infrastructure.Core.Editor
 
             if (!AreStarterRuntimeTypesReady())
             {
-                QueueFinalizeStarterRuntimeScaffold();
                 _statusLine = "Starter scripts created. Waiting for Unity to compile before configuring scenes and assets...";
                 Debug.Log("[Evo Setup] Starter scripts created. Waiting for Unity to compile before configuring scenes and assets...");
                 return;
             }
 
             FinalizeStarterRuntimeScaffold();
+        }
+
+        private void StartStarterRuntimeScaffold()
+        {
+            _scaffoldSetupRequested = true;
+            SessionState.SetBool(GetScaffoldStateKey(), true);
+            _bootstrapValidationAttempted = false;
+            SetupStarterRuntimeScaffold();
         }
 
         private void QueueFinalizeStarterRuntimeScaffold()
@@ -796,10 +800,9 @@ namespace Evo.Infrastructure.Core.Editor
 
             if (EditorApplication.isCompiling || EditorApplication.isUpdating || !AreStarterRuntimeTypesReady())
             {
-                _oneClickSetupRequested = true;
-                SessionState.SetBool(GetOneClickStateKey(), true);
+                _scaffoldSetupRequested = true;
+                SessionState.SetBool(GetScaffoldStateKey(), true);
                 _statusLine = "Waiting for starter runtime scripts to compile before configuring scaffold...";
-                QueueFinalizeStarterRuntimeScaffold();
                 return;
             }
 
@@ -819,6 +822,9 @@ namespace Evo.Infrastructure.Core.Editor
             OpenEntryPointScene();
             _statusLine = "Starter runtime scaffold created.";
             Debug.Log("[Evo Setup] Starter runtime scaffold created.");
+            _scaffoldSetupRequested = false;
+            _bootstrapValidationAttempted = false;
+            SessionState.SetBool(GetScaffoldStateKey(), false);
             RefreshState();
         }
 
@@ -1749,6 +1755,7 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             ContinueOneClickSetup();
+            ContinueScaffoldSetup();
         }
 
         private void ClearTransientPackageRequests()
@@ -1762,11 +1769,82 @@ namespace Evo.Infrastructure.Core.Editor
             _isRefreshingState = false;
         }
 
+        private void ContinueScaffoldSetup()
+        {
+            if (!_scaffoldSetupRequested)
+            {
+                return;
+            }
+
+            if (_isRefreshingState || EditorApplication.isCompiling || EditorApplication.isUpdating || _scaffoldFinalizeQueued)
+            {
+                return;
+            }
+
+            ValidateTemplatesAndScaffoldScriptsState();
+            if (!_templatesReady)
+            {
+                _scaffoldSetupRequested = false;
+                SessionState.SetBool(GetScaffoldStateKey(), false);
+                _statusLine = "Scaffold stopped: templates are invalid.";
+                Debug.LogError("[Evo Setup] Scaffold templates are invalid.");
+                Repaint();
+                return;
+            }
+
+            if (HasStarterScaffoldFiles() && !_scaffoldScriptsUpToDate)
+            {
+                _statusLine = "Scaffold: replacing outdated starter scripts from templates...";
+                UpdateScaffoldScriptsFromTemplates();
+                QueueFinalizeStarterRuntimeScaffold();
+                return;
+            }
+
+            if (!HasStarterScaffold())
+            {
+                _statusLine = "Scaffold: creating starter files and scenes...";
+                SetupStarterRuntimeScaffold();
+                return;
+            }
+
+            if (!AreStarterRuntimeTypesReady())
+            {
+                _statusLine = "Scaffold: waiting for starter runtime scripts to compile...";
+                return;
+            }
+
+            if (!_bootstrapScopesReady)
+            {
+                if (_bootstrapValidationAttempted)
+                {
+                    _scaffoldSetupRequested = false;
+                    SessionState.SetBool(GetScaffoldStateKey(), false);
+                    _statusLine = "Scaffold stopped: bootstrap scopes are still invalid after auto-fix.";
+                    Debug.LogError("[Evo Setup] Bootstrap scopes are still invalid after auto-fix.");
+                    Repaint();
+                    return;
+                }
+
+                _bootstrapValidationAttempted = true;
+                _statusLine = "Scaffold: validating bootstrap scopes...";
+                ValidateAndFixBootstrapScopes();
+                return;
+            }
+
+            _scaffoldSetupRequested = false;
+            _bootstrapValidationAttempted = false;
+            SessionState.SetBool(GetScaffoldStateKey(), false);
+            OpenEntryPointScene();
+            _statusLine = "Starter scaffold ready.";
+            Repaint();
+        }
+
         private void CancelSetup()
         {
             ClearTransientPackageRequests();
             ClearSetupSessionState();
             _oneClickSetupRequested = false;
+            _scaffoldSetupRequested = false;
             _odinImportRequested = false;
             _scaffoldFinalizeQueued = false;
             _reactiveRestoreRequested = false;
@@ -1779,6 +1857,7 @@ namespace Evo.Infrastructure.Core.Editor
         private static void ClearSetupSessionState()
         {
             SessionState.SetBool(GetOneClickStateKey(), false);
+            SessionState.SetBool(GetScaffoldStateKey(), false);
             SessionState.SetBool(GetOdinImportStateKey(), false);
         }
 
@@ -1914,6 +1993,7 @@ namespace Evo.Infrastructure.Core.Editor
             _stateAnalyzed = _listRequest.Status == StatusCode.Success;
             _isRefreshingState = false;
             ContinueOneClickSetup();
+            ContinueScaffoldSetup();
             Repaint();
         }
 
@@ -1980,14 +2060,22 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void DrawProgress()
         {
-            if (!_isInstalling && _addRequest == null && _addAndRemoveRequest == null && _removeRequest == null && _installQueue.Count == 0)
+            if (!_isInstalling &&
+                !_scaffoldSetupRequested &&
+                !_scaffoldFinalizeQueued &&
+                _addRequest == null &&
+                _addAndRemoveRequest == null &&
+                _removeRequest == null &&
+                _installQueue.Count == 0)
             {
                 return;
             }
 
             EditorGUILayout.Space(6f);
             EditorGUILayout.LabelField("Processing...", EditorStyles.boldLabel);
-            var label = _addAndRemoveRequest != null
+            var label = _scaffoldSetupRequested || _scaffoldFinalizeQueued
+                ? "Configuring starter scaffold..."
+                : _addAndRemoveRequest != null
                 ? "Adding selected packages..."
                 : _removeRequest != null
                     ? "Removing package..."
@@ -2316,7 +2404,7 @@ namespace Evo.Infrastructure.Core.Editor
                 return true;
             }
 
-            var path = ResolveOdinPackagePath();
+            var path = interactive ? ResolveOdinPackagePath() : FindEmbeddedOdinPackagePath();
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             {
                 if (!interactive)
@@ -2337,7 +2425,12 @@ namespace Evo.Infrastructure.Core.Editor
 
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             {
-                _statusLine = "Odin import canceled.";
+                _statusLine = interactive ? "Odin import canceled." : $"Odin package file not found. Put Odin .unitypackage into {EmbeddedOdinPackageFolder}.";
+                if (!interactive)
+                {
+                    Debug.LogError("[Evo Setup] " + _statusLine);
+                }
+
                 return false;
             }
 
@@ -2350,8 +2443,12 @@ namespace Evo.Infrastructure.Core.Editor
             Debug.Log("[Evo Setup] " + _statusLine);
             _odinImportRequested = true;
             SessionState.SetBool(GetOdinImportStateKey(), true);
-            AssetDatabase.ImportPackage(path, false);
-            AssetDatabase.Refresh();
+            AssetDatabase.ImportPackage(path, interactive);
+            if (!interactive)
+            {
+                AssetDatabase.Refresh();
+            }
+
             _odinInstalled = IsOdinInstalled();
             if (_odinInstalled)
             {
@@ -2867,11 +2964,18 @@ namespace Evo.Infrastructure.Core.Editor
         private void ResumeOneClickSetupIfNeeded()
         {
             _oneClickSetupRequested = SessionState.GetBool(GetOneClickStateKey(), false);
+            _scaffoldSetupRequested = SessionState.GetBool(GetScaffoldStateKey(), false);
             _odinImportRequested = SessionState.GetBool(GetOdinImportStateKey(), false);
             if (_oneClickSetupRequested)
             {
                 _statusLine = "Resuming setup after domain reload...";
                 Debug.Log("[Evo Setup] Resumed setup after domain reload.");
+            }
+
+            if (_scaffoldSetupRequested)
+            {
+                _statusLine = "Resuming scaffold setup after domain reload...";
+                Debug.Log("[Evo Setup] Resumed scaffold setup after domain reload.");
             }
         }
 
@@ -2955,6 +3059,25 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
+            if (_installOdinPackage && !_odinInstalled)
+            {
+                if (_odinImportRequested)
+                {
+                    _statusLine = "Setup: waiting for Odin import to finish...";
+                    return;
+                }
+
+                if (!TryImportOdinPackage(false))
+                {
+                    StopSetupWithError($"Setup stopped: Odin package file not found. Put Odin .unitypackage into {EmbeddedOdinPackageFolder}.");
+                    return;
+                }
+
+                _statusLine = "Setup: importing Odin package...";
+                QueueRefreshBurst();
+                return;
+            }
+
             _oneClickSetupRequested = false;
             _bootstrapValidationAttempted = false;
             SessionState.SetBool(GetOneClickStateKey(), false);
@@ -2996,6 +3119,7 @@ namespace Evo.Infrastructure.Core.Editor
             var count = 0;
             if (CollectSelectedUpmPackagesToInstall().Count > 0 || !IsSelectedUpmPackagesReady()) count++;
             if (_installReactiveNuGets) count++;
+            if (_installOdinPackage) count++;
 
             return Mathf.Max(1, count);
         }
@@ -3005,6 +3129,7 @@ namespace Evo.Infrastructure.Core.Editor
             var completed = 0;
             if (IsSelectedUpmPackagesReady()) completed++;
             if (_installReactiveNuGets && AreReactiveAssembliesReady()) completed++;
+            if (_installOdinPackage && _odinInstalled) completed++;
             return completed;
         }
 
@@ -3057,16 +3182,16 @@ namespace Evo.Infrastructure.Core.Editor
 
         private bool ArePackagesReadyForStarterScaffold()
         {
-            return (!_installRuntimeModule || _runtimeInstalled) &&
-                   (!_installVContainer || _vContainerInstalled) &&
-                   (!_installUniTask || _uniTaskInstalled) &&
-                   (!_installAddressables || _addressablesInstalled) &&
-                   (!_installLocalization || _localizationInstalled) &&
-                   (!_installInputSystem || _inputSystemInstalled) &&
-                   (!_installUgui || _uguiInstalled) &&
-                   (!_installPrimeTween || _primeTweenInstalled) &&
-                   (!_installR3Unity || _r3UnityInstalled) &&
-                   (!_installReactiveNuGets || AreReactiveAssembliesReady());
+            return _runtimeInstalled &&
+                   _vContainerInstalled &&
+                   _uniTaskInstalled &&
+                   _addressablesInstalled &&
+                   _localizationInstalled &&
+                   _inputSystemInstalled &&
+                   _uguiInstalled &&
+                   _primeTweenInstalled &&
+                   _r3UnityInstalled &&
+                   AreReactiveAssembliesReady();
         }
 
         private static string GetOneClickStateKey()
@@ -3077,6 +3202,11 @@ namespace Evo.Infrastructure.Core.Editor
         private static string GetOdinImportStateKey()
         {
             return OdinImportStateKeyPrefix + Application.dataPath.GetHashCode();
+        }
+
+        private static string GetScaffoldStateKey()
+        {
+            return ScaffoldStateKeyPrefix + Application.dataPath.GetHashCode();
         }
 
         private static string GetSelectionStateKey(string key)
