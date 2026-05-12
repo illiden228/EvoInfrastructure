@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -16,8 +17,8 @@ namespace Evo.Infrastructure.Core.Editor
 
         private static void TryShowPrompt()
         {
-            var promptKey = PromptKeyPrefix + Application.dataPath.GetHashCode();
-            if (EditorPrefs.GetBool(promptKey, false))
+            var promptKey = PromptKeyPrefix + Application.dataPath.GetHashCode() + "." + GetPackageStamp();
+            if (SessionState.GetBool(promptKey, false))
             {
                 return;
             }
@@ -28,11 +29,19 @@ namespace Evo.Infrastructure.Core.Editor
                 "Open Wizard",
                 "Later");
 
-            EditorPrefs.SetBool(promptKey, true);
+            SessionState.SetBool(promptKey, true);
             if (open)
             {
                 InfrastructureSetupWizardWindow.OpenWindow();
             }
+        }
+
+        private static long GetPackageStamp()
+        {
+            var packageJsonPath = Path.GetFullPath("Packages/com.evo.infrastructure.core/package.json");
+            return File.Exists(packageJsonPath)
+                ? File.GetLastWriteTimeUtc(packageJsonPath).Ticks
+                : 0L;
         }
     }
 }

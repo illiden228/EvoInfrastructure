@@ -20,11 +20,13 @@ namespace Evo.Infrastructure.Core.Editor
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
         private const string YandexPackageName = "com.evo.infrastructure.yandex";
-        private const string RuntimeGitTag = "v0.3.37";
-        private const string YandexGitTag = "v0.3.37";
+        private const string RuntimeGitTag = "v0.3.38";
+        private const string YandexGitTag = "v0.3.38";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
         private const string YandexGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.yandex";
         private const string OdinPackagePathPrefsKey = "Evo.Infrastructure.Core.OdinPackagePath";
+        private const string EmbeddedOdinPackageFolder = "Packages/com.evo.infrastructure.core/Editor/ThirdParty/Odin";
+        private const string OdinPackageSearchPattern = "Odin*.unitypackage";
         private const string R3NuGetId = "R3";
         private const string R3NuGetVersion = "1.3.0";
         private const string ObservableCollectionsNuGetId = "ObservableCollections";
@@ -110,6 +112,7 @@ namespace Evo.Infrastructure.Core.Editor
 
         private readonly Queue<string> _installQueue = new();
         private AddRequest _addRequest;
+        private AddAndRemoveRequest _addAndRemoveRequest;
         private ListRequest _listRequest;
         private bool _dependenciesInstalled;
         private bool _runtimeInstalled;
@@ -136,14 +139,25 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _isInstalling;
         private bool _oneClickSetupRequested;
         private bool _scaffoldFinalizeQueued;
+        private bool _installVContainer = true;
+        private bool _installUniTask = true;
+        private bool _installNuGetForUnity = true;
+        private bool _installAddressables = true;
+        private bool _installLocalization = true;
+        private bool _installInputSystem = true;
+        private bool _installUgui = true;
+        private bool _installPrimeTween = true;
+        private bool _installR3Unity = true;
+        private bool _installReactiveNuGets = true;
+        private bool _installRuntimeModule = true;
         private bool _installYandexModule = true;
         private bool _installOdinPackage;
+        private bool _setupStarterScaffold = true;
         private bool _templatesReady;
         private bool _scaffoldScriptsUpToDate;
         private double _refreshStartedAt;
         private string _statusLine = "Ready";
         private Vector2 _scroll;
-        private readonly List<string> _setupReport = new();
         private readonly List<string> _templateValidationIssues = new();
 
         [MenuItem("EvoTools/Setup")]
@@ -177,9 +191,6 @@ namespace Evo.Infrastructure.Core.Editor
             GUILayout.Space(10f);
             DrawInstallPlan();
             GUILayout.Space(10f);
-            DrawActions();
-            DrawSetupReport();
-            GUILayout.Space(8f);
             EditorGUILayout.HelpBox(_statusLine, MessageType.Info);
             EditorGUILayout.EndScrollView();
         }
@@ -237,237 +248,116 @@ namespace Evo.Infrastructure.Core.Editor
         {
             EditorGUILayout.LabelField("Install Plan", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Choose optional modules, then run Install Selected. Runtime and required dependencies are always included.",
+                "Analyze installed packages, choose modules, then run Setup. Installed items are checked and locked. Recommended items are selected by default.",
                 MessageType.Info);
 
-            using (new EditorGUI.DisabledScope(_isInstalling))
+            using (new EditorGUI.DisabledScope(_isRefreshingState || _isInstalling || _oneClickSetupRequested))
             {
-                EditorGUILayout.ToggleLeft("Runtime foundation and required dependencies", true);
-                _installYandexModule = EditorGUILayout.ToggleLeft("Yandex integration package", _installYandexModule);
-                _installOdinPackage = EditorGUILayout.ToggleLeft("Odin Inspector from local .unitypackage", _installOdinPackage);
+                DrawActionButton(
+                    _isRefreshingState ? "Analyzing..." : "Analyze Installed Packages",
+                    "Refresh package and scaffold state before setup.",
+                    !_isRefreshingState && !_isInstalling && !_oneClickSetupRequested,
+                    RefreshState,
+                    26f);
+            }
+
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.LabelField("Runtime Packages", EditorStyles.boldLabel);
+            _installVContainer = DrawInstallPlanRow("VContainer", _installVContainer, _vContainerInstalled, "DI container for project and scene scopes.");
+            _installUniTask = DrawInstallPlanRow("UniTask", _installUniTask, _uniTaskInstalled, "Async runtime used by loading and services.");
+            _installNuGetForUnity = DrawInstallPlanRow("NuGetForUnity", _installNuGetForUnity, _nuGetForUnityInstalled, "Installs reactive NuGet packages.");
+            _installAddressables = DrawInstallPlanRow("Addressables", _installAddressables, _addressablesInstalled, "Startup scene references are created as addressable assets.");
+            _installLocalization = DrawInstallPlanRow("Unity Localization", _installLocalization, _localizationInstalled, "Runtime localization package.");
+            _installInputSystem = DrawInstallPlanRow("Input System", _installInputSystem, _inputSystemInstalled, "Default input package for gameplay projects.");
+            _installUgui = DrawInstallPlanRow("Unity UI", _installUgui, _uguiInstalled, "Base UI package for loading and menus.");
+            _installPrimeTween = DrawInstallPlanRow("PrimeTween", _installPrimeTween, _primeTweenInstalled, "Tweening dependency.");
+            _installR3Unity = DrawInstallPlanRow("R3.Unity", _installR3Unity, _r3UnityInstalled, "Reactive Unity integration.");
+            _installReactiveNuGets = DrawInstallPlanRow("Reactive NuGets", _installReactiveNuGets, _r3Ready && _observableCollectionsReady && _observableCollectionsR3Ready, "R3, ObservableCollections and ObservableCollections.R3.");
+            _installRuntimeModule = DrawInstallPlanRow("Evo Infrastructure Runtime", _installRuntimeModule, _runtimeInstalled, "Runtime framework package.");
+
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.LabelField("Optional Modules", EditorStyles.boldLabel);
+            _installYandexModule = DrawInstallPlanRow("Evo Infrastructure Yandex", _installYandexModule, _yandexInstalled, "YG2 integration package.");
+            _installOdinPackage = DrawInstallPlanRow("Odin Inspector", _installOdinPackage, _odinInstalled, "Import from a selected .unitypackage source.");
+
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.LabelField("Project Runtime", EditorStyles.boldLabel);
+            _setupStarterScaffold = DrawInstallPlanRow("Starter scaffold", _setupStarterScaffold, HasStarterScaffold() && _bootstrapScopesReady, "Creates EntryPoint, loading flow, configs, scenes and Addressables entries.");
+
+            using (new EditorGUI.DisabledScope(_isInstalling || _oneClickSetupRequested))
+            {
 
                 if (_installOdinPackage && !_odinInstalled)
                 {
                     DrawOdinPackagePathField();
                 }
 
-                var canInstallSelected = !_isInstalling && !_oneClickSetupRequested;
+                var canInstallSelected = !_isInstalling && !_oneClickSetupRequested && !_isRefreshingState;
                 DrawActionButton(
-                    "Install Selected",
+                    "Setup",
                     canInstallSelected
-                        ? "Install selected modules and generate starter scaffold."
+                        ? "Run selected package installs and starter runtime scaffold actions."
                         : "Wait until the current installation process completes.",
                     canInstallSelected,
                     StartOneClickSetup);
             }
         }
 
+        private bool DrawInstallPlanRow(string label, bool selected, bool installed, string details)
+        {
+            EditorGUILayout.BeginHorizontal();
+            var value = installed || selected;
+            using (new EditorGUI.DisabledScope(installed || _isInstalling || _oneClickSetupRequested))
+            {
+                value = EditorGUILayout.ToggleLeft(label, value, GUILayout.Width(260f));
+            }
+
+            var old = GUI.color;
+            GUI.color = installed
+                ? new Color(0.25f, 0.7f, 0.25f)
+                : value
+                    ? new Color(0.85f, 0.65f, 0.2f)
+                    : new Color(0.65f, 0.65f, 0.65f);
+            EditorGUILayout.LabelField(installed ? "Installed" : value ? "Selected" : "Skipped", GUILayout.Width(72f));
+            GUI.color = old;
+            EditorGUILayout.LabelField(details, EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.EndHorizontal();
+
+            if (installed)
+            {
+                return true;
+            }
+
+            return value;
+        }
+
         private void DrawOdinPackagePathField()
         {
-            var path = EditorPrefs.GetString(OdinPackagePathPrefsKey, string.Empty);
+            var path = ResolveOdinPackagePath();
+            var embeddedPath = FindEmbeddedOdinPackagePath();
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("Odin package", GUILayout.Width(120f));
-            EditorGUILayout.SelectableLabel(string.IsNullOrWhiteSpace(path) ? "Not selected" : path, EditorStyles.textField, GUILayout.Height(18f));
+            EditorGUILayout.SelectableLabel(string.IsNullOrWhiteSpace(path) ? "Not found" : path, EditorStyles.textField, GUILayout.Height(18f));
             if (GUILayout.Button("Browse", GUILayout.Width(80f)))
             {
                 SelectOdinPackagePath();
             }
             EditorGUILayout.EndHorizontal();
 
+            if (!string.IsNullOrWhiteSpace(embeddedPath) && File.Exists(embeddedPath))
+            {
+                EditorGUILayout.HelpBox(
+                    "Odin will be imported from the unitypackage embedded in the Evo package.",
+                    MessageType.Info);
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             {
                 EditorGUILayout.HelpBox(
-                    "Odin cannot be installed automatically until a .unitypackage source is selected. For fully automatic installs, publish Odin as an internal/private package source that your team is allowed to use.",
+                    $"Put an Odin .unitypackage into {EmbeddedOdinPackageFolder}, or select it manually. Keep license restrictions in mind if this package is shared outside your team.",
                     MessageType.Warning);
             }
-        }
-
-        private void DrawActions()
-        {
-            EditorGUILayout.LabelField("Manual Steps", EditorStyles.boldLabel);
-            var canInstallDeps = !_isInstalling;
-
-            DrawActionButton(
-                _vContainerInstalled ? "1) Install VContainer (Already done)" : "1) Install VContainer",
-                _vContainerInstalled
-                    ? "VContainer is already installed."
-                    : "Install VContainer from Git URL.",
-                !_vContainerInstalled && canInstallDeps,
-                InstallVContainer);
-
-            DrawActionButton(
-                _uniTaskInstalled ? "2) Install UniTask (Already done)" : "2) Install UniTask",
-                _uniTaskInstalled
-                    ? "UniTask is already installed."
-                    : "Install UniTask from Git URL.",
-                !_uniTaskInstalled && canInstallDeps,
-                InstallUniTask);
-
-            DrawActionButton(
-                _nuGetForUnityInstalled ? "3) Install NuGetForUnity (Already done)" : "3) Install NuGetForUnity",
-                _nuGetForUnityInstalled
-                    ? "NuGetForUnity is already installed."
-                    : "Install NuGetForUnity from Git URL.",
-                !_nuGetForUnityInstalled && canInstallDeps,
-                InstallNuGetForUnity);
-
-            DrawActionButton(
-                _addressablesInstalled ? "4) Install Addressables (Already done)" : "4) Install Addressables",
-                _addressablesInstalled
-                    ? "Addressables is already installed."
-                    : "Install Unity Addressables package.",
-                !_addressablesInstalled && canInstallDeps,
-                InstallAddressables);
-
-            DrawActionButton(
-                _localizationInstalled ? "5) Install Localization (Already done)" : "5) Install Localization",
-                _localizationInstalled
-                    ? "Localization is already installed."
-                    : "Install Unity Localization package.",
-                !_localizationInstalled && canInstallDeps,
-                InstallLocalization);
-
-            DrawActionButton(
-                _inputSystemInstalled ? "6) Install Input System (Already done)" : "6) Install Input System",
-                _inputSystemInstalled
-                    ? "Input System is already installed."
-                    : "Install Unity Input System package.",
-                !_inputSystemInstalled && canInstallDeps,
-                InstallInputSystem);
-
-            DrawActionButton(
-                _uguiInstalled ? "7) Install UGUI (Already done)" : "7) Install UGUI",
-                _uguiInstalled
-                    ? "UGUI is already installed."
-                    : "Install Unity UGUI package.",
-                !_uguiInstalled && canInstallDeps,
-                InstallUgui);
-
-            DrawActionButton(
-                _primeTweenInstalled ? "8) Install PrimeTween (Already done)" : "8) Install PrimeTween",
-                _primeTweenInstalled
-                    ? "PrimeTween is already installed."
-                    : "Install PrimeTween and ensure scoped registry.",
-                !_primeTweenInstalled && canInstallDeps,
-                InstallPrimeTween);
-
-            DrawActionButton(
-                _r3UnityInstalled ? "9) Install R3.Unity (Already done)" : "9) Install R3.Unity",
-                _r3UnityInstalled
-                    ? "R3.Unity is already installed."
-                    : "Install R3.Unity package from Git URL.",
-                !_r3UnityInstalled && canInstallDeps,
-                InstallR3Unity);
-
-            var structureDone = _structureReady;
-            DrawActionButton(
-                structureDone ? "10) Create Project Structure (Already done)" : "10) Create Project Structure",
-                structureDone
-                    ? "Project folder structure is already ready."
-                    : "Create base folders under Assets/_Project.",
-                !structureDone,
-                CreateProjectStructure);
-
-            var reactiveRequested = _r3InPackagesConfig && _observableCollectionsInPackagesConfig && _observableCollectionsR3InPackagesConfig;
-            var r3Done = _r3Ready && _observableCollectionsReady && _observableCollectionsR3Ready;
-            var canInstallR3 = _nuGetForUnityInstalled && !reactiveRequested && !r3Done && !_isInstalling;
-            DrawActionButton(
-                r3Done || reactiveRequested ? "11) Install R3 + ObservableCollections + ObservableCollections.R3 (NuGet) (Already done)" : "11) Install R3 + ObservableCollections + ObservableCollections.R3 (NuGet)",
-                r3Done
-                    ? "R3, ObservableCollections and ObservableCollections.R3 are installed."
-                    : reactiveRequested
-                        ? "Reactive dependencies are already requested in packages.config."
-                    : canInstallR3
-                        ? "Add R3, ObservableCollections and ObservableCollections.R3 to packages.config for NuGetForUnity restore."
-                        : "Requires: NuGetForUnity installed.",
-                canInstallR3,
-                InstallReactiveFromNuGet);
-
-            var runtimeDone = _runtimeInstalled;
-            var canInstallRuntime = _dependenciesInstalled &&
-                                    _primeTweenInstalled &&
-                                    _r3UnityInstalled &&
-                                    _r3Ready &&
-                                    _observableCollectionsReady &&
-                                    _observableCollectionsR3Ready &&
-                                    !runtimeDone &&
-                                    !_isInstalling;
-            DrawActionButton(
-                runtimeDone ? "12) Install Infrastructure Runtime (Already done)" : "12) Install Infrastructure Runtime",
-                runtimeDone
-                    ? "Infrastructure runtime is already installed."
-                    : canInstallRuntime
-                        ? "Install runtime package from Git tag."
-                        : "Requires: base dependencies + PrimeTween + R3.Unity + R3 + ObservableCollections + ObservableCollections.R3.",
-                canInstallRuntime,
-                InstallRuntimePackage);
-
-            var yandexDone = _yandexInstalled;
-            var canInstallYandex = _runtimeInstalled && !yandexDone && !_isInstalling;
-            DrawActionButton(
-                yandexDone ? "12.1) Install Infrastructure Yandex (Already done)" : "12.1) Install Infrastructure Yandex",
-                yandexDone
-                    ? "Infrastructure Yandex is already installed."
-                    : canInstallYandex
-                        ? "Install Yandex integration package from Git tag."
-                        : "Requires: Infrastructure Runtime installed.",
-                canInstallYandex,
-                InstallYandexPackage);
-
-            var scaffoldDone = HasStarterScaffold();
-            var canSetupScaffold = _dependenciesInstalled &&
-                                   _primeTweenInstalled &&
-                                   _r3UnityInstalled &&
-                                   _r3Ready &&
-                                   _observableCollectionsReady &&
-                                   _observableCollectionsR3Ready &&
-                                   _runtimeInstalled &&
-                                   !scaffoldDone &&
-                                   !_isInstalling;
-            DrawActionButton(
-                scaffoldDone ? "13) Setup Starter Runtime Scaffold (Already done)" : "13) Setup Starter Runtime Scaffold",
-                scaffoldDone
-                    ? "Starter runtime scaffold is already created."
-                    : canSetupScaffold
-                        ? "Create starter scenes, configs and build settings."
-                        : "Requires: Step 12 (Infrastructure Runtime installed).",
-                canSetupScaffold,
-                SetupStarterRuntimeScaffold);
-
-            var canUpdateScaffoldScripts = !_isInstalling && scaffoldDone && _templatesReady && !_scaffoldScriptsUpToDate;
-            DrawActionButton(
-                "Update Scaffold Scripts",
-                canUpdateScaffoldScripts
-                    ? "Replace scaffold scripts with current package templates."
-                    : "No scaffold updates required or templates are not valid.",
-                canUpdateScaffoldScripts,
-                UpdateScaffoldScriptsFromTemplates);
-
-            DrawActionButton(
-                _odinInstalled ? "Import Odin (Already installed)" : "Import Odin",
-                _odinInstalled
-                    ? "Odin Inspector is already installed."
-                    : "Import Odin Inspector from a local .unitypackage.",
-                !_odinInstalled && !_isInstalling,
-                ImportOdinPackage);
-
-            DrawActionButton(
-                "Refresh State",
-                "Re-check installed packages and setup status.",
-                true,
-                RefreshState,
-                26f);
-
-            var canValidateBootstrapScopes = !_isInstalling && HasStarterScaffold();
-            DrawActionButton(
-                "Validate/Fix Bootstrap Scopes",
-                canValidateBootstrapScopes
-                    ? "Validate EntryPoint/MainMenu/Loading scopes and auto-fix missing parent scope links."
-                    : "Requires starter scaffold scenes/scripts.",
-                canValidateBootstrapScopes,
-                ValidateAndFixBootstrapScopes);
-
-            DrawReactiveWarning();
         }
 
         private void DrawActionButton(string label, string tooltip, bool enabled, Action onClick, float height = 34f)
@@ -488,36 +378,19 @@ namespace Evo.Infrastructure.Core.Editor
             }
         }
 
-        private void DrawSetupReport()
-        {
-            if (_setupReport == null || _setupReport.Count == 0)
-            {
-                return;
-            }
-
-            EditorGUILayout.Space(8f);
-            EditorGUILayout.LabelField("Setup Report", EditorStyles.boldLabel);
-
-            var startIndex = Mathf.Max(0, _setupReport.Count - 10);
-            for (var i = startIndex; i < _setupReport.Count; i++)
-            {
-                EditorGUILayout.LabelField(_setupReport[i], EditorStyles.wordWrappedMiniLabel);
-            }
-        }
-
         private void InstallDependencies()
         {
             _installQueue.Clear();
-            if (!_vContainerInstalled) _installQueue.Enqueue(VContainerSource);
-            if (!_uniTaskInstalled) _installQueue.Enqueue(UniTaskSource);
-            if (!_nuGetForUnityInstalled) _installQueue.Enqueue(NuGetForUnitySource);
-            if (!_addressablesInstalled) _installQueue.Enqueue(AddressablesSource);
-            if (!_localizationInstalled) _installQueue.Enqueue(LocalizationSource);
-            if (!_inputSystemInstalled) _installQueue.Enqueue(InputSystemSource);
-            if (!_uguiInstalled) _installQueue.Enqueue(UguiSource);
+            if (_installVContainer && !_vContainerInstalled) _installQueue.Enqueue(VContainerSource);
+            if (_installUniTask && !_uniTaskInstalled) _installQueue.Enqueue(UniTaskSource);
+            if (_installNuGetForUnity && !_nuGetForUnityInstalled) _installQueue.Enqueue(NuGetForUnitySource);
+            if (_installAddressables && !_addressablesInstalled) _installQueue.Enqueue(AddressablesSource);
+            if (_installLocalization && !_localizationInstalled) _installQueue.Enqueue(LocalizationSource);
+            if (_installInputSystem && !_inputSystemInstalled) _installQueue.Enqueue(InputSystemSource);
+            if (_installUgui && !_uguiInstalled) _installQueue.Enqueue(UguiSource);
 
             _isInstalling = _installQueue.Count > 0;
-            _statusLine = "Installing dependencies (VContainer, UniTask, NuGetForUnity, Addressables, Localization, InputSystem, UGUI)...";
+            _statusLine = "Installing selected dependencies...";
         }
 
         private void InstallVContainer()
@@ -585,6 +458,44 @@ namespace Evo.Infrastructure.Core.Editor
             _statusLine = $"Installing Yandex package from git tag {YandexGitTag}...";
         }
 
+        private void InstallSelectedUpmPackagesBatch()
+        {
+            var packages = CollectSelectedUpmPackagesToInstall();
+            if (packages.Count == 0)
+            {
+                return;
+            }
+
+            if (_installPrimeTween && !_primeTweenInstalled && !EnsurePrimeTweenScopedRegistry())
+            {
+                _statusLine = "Failed to add scoped registry for PrimeTween in Packages/manifest.json.";
+                Debug.LogError("[Evo Setup] Failed to add scoped registry for PrimeTween in Packages/manifest.json.");
+                return;
+            }
+
+            _isInstalling = true;
+            _statusLine = $"Adding selected packages in one batch: {packages.Count}";
+            Debug.Log($"[Evo Setup] Adding selected packages in one Package Manager batch:\n{string.Join("\n", packages)}");
+            _addAndRemoveRequest = Client.AddAndRemove(packages.ToArray(), Array.Empty<string>());
+        }
+
+        private List<string> CollectSelectedUpmPackagesToInstall()
+        {
+            var packages = new List<string>();
+            if (_installVContainer && !_vContainerInstalled) packages.Add(VContainerSource);
+            if (_installUniTask && !_uniTaskInstalled) packages.Add(UniTaskSource);
+            if (_installNuGetForUnity && !_nuGetForUnityInstalled) packages.Add(NuGetForUnitySource);
+            if (_installAddressables && !_addressablesInstalled) packages.Add(AddressablesSource);
+            if (_installLocalization && !_localizationInstalled) packages.Add(LocalizationSource);
+            if (_installInputSystem && !_inputSystemInstalled) packages.Add(InputSystemSource);
+            if (_installUgui && !_uguiInstalled) packages.Add(UguiSource);
+            if (_installPrimeTween && !_primeTweenInstalled) packages.Add(PrimeTweenSource);
+            if (_installR3Unity && !_r3UnityInstalled) packages.Add(R3UnitySource);
+            if (_installRuntimeModule && !_runtimeInstalled) packages.Add($"{RuntimeGitUrl}#{RuntimeGitTag}");
+            if (_installYandexModule && !_yandexInstalled) packages.Add($"{YandexGitUrl}#{YandexGitTag}");
+            return packages;
+        }
+
         private void InstallReactiveFromNuGet()
         {
             if (!_nuGetForUnityInstalled)
@@ -647,7 +558,7 @@ namespace Evo.Infrastructure.Core.Editor
             if (!_templatesReady)
             {
                 _statusLine = "Starter scaffold templates are invalid. Fix template issues before scaffold setup.";
-                AppendReport(_statusLine);
+                Debug.LogError("[Evo Setup] Starter scaffold templates are invalid. Fix template issues before scaffold setup.");
                 return;
             }
 
@@ -664,7 +575,7 @@ namespace Evo.Infrastructure.Core.Editor
             {
                 QueueFinalizeStarterRuntimeScaffold();
                 _statusLine = "Starter scripts created. Waiting for Unity to compile before configuring scenes and assets...";
-                AppendReport(_statusLine);
+                Debug.Log("[Evo Setup] Starter scripts created. Waiting for Unity to compile before configuring scenes and assets...");
                 return;
             }
 
@@ -710,9 +621,20 @@ namespace Evo.Infrastructure.Core.Editor
             EnsureBuildScenes();
             ValidateAndFixBootstrapScopes();
             AssetDatabase.Refresh();
+            OpenEntryPointScene();
             _statusLine = "Starter runtime scaffold created.";
-            AppendReport(_statusLine);
+            Debug.Log("[Evo Setup] Starter runtime scaffold created.");
             RefreshState();
+        }
+
+        private static void OpenEntryPointScene()
+        {
+            if (!File.Exists(EntryScenePath))
+            {
+                return;
+            }
+
+            EditorSceneManager.OpenScene(EntryScenePath, OpenSceneMode.Single);
         }
 
         private static bool AreStarterRuntimeTypesReady()
@@ -1435,6 +1357,41 @@ namespace Evo.Infrastructure.Core.Editor
         {
             UpdateOneClickProgressBar();
 
+            if (_addAndRemoveRequest != null)
+            {
+                if (!_addAndRemoveRequest.IsCompleted)
+                {
+                    _isInstalling = true;
+                    return;
+                }
+
+                if (_addAndRemoveRequest.Status == StatusCode.Success)
+                {
+                    _statusLine = "Selected packages were added. Waiting for Unity refresh...";
+                    Debug.Log("[Evo Setup] Selected packages were added through Package Manager batch request.");
+                }
+                else
+                {
+                    _statusLine = $"Package setup failed: {_addAndRemoveRequest.Error?.message}";
+                    Debug.LogError($"[Evo Setup] Package setup failed: {_addAndRemoveRequest.Error?.message}");
+                    _installQueue.Clear();
+                    _isInstalling = false;
+                    _oneClickSetupRequested = false;
+                    SessionState.SetBool(GetOneClickStateKey(), false);
+                    EditorUtility.ClearProgressBar();
+                    _addAndRemoveRequest = null;
+                    Repaint();
+                    return;
+                }
+
+                _addAndRemoveRequest = null;
+                _isInstalling = false;
+                RefreshState();
+                QueueRefreshBurst();
+                Repaint();
+                return;
+            }
+
             if (_addRequest != null)
             {
                 if (!_addRequest.IsCompleted)
@@ -1446,12 +1403,12 @@ namespace Evo.Infrastructure.Core.Editor
                 if (_addRequest.Status == StatusCode.Success)
                 {
                     _statusLine = $"Installed: {_addRequest.Result.packageId}";
-                    AppendReport($"Installed package: {_addRequest.Result.packageId}");
+                    Debug.Log($"[Evo Setup] Installed package: {_addRequest.Result.packageId}");
                 }
                 else
                 {
                     _statusLine = $"Install failed: {_addRequest.Error?.message}";
-                    AppendReport($"Package install failed: {_addRequest.Error?.message}");
+                    Debug.LogError($"[Evo Setup] Package install failed: {_addRequest.Error?.message}");
                     _installQueue.Clear();
                     _isInstalling = false;
                     _oneClickSetupRequested = false;
@@ -1656,14 +1613,16 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void DrawProgress()
         {
-            if (!_isInstalling && _addRequest == null && _installQueue.Count == 0)
+            if (!_isInstalling && _addRequest == null && _addAndRemoveRequest == null && _installQueue.Count == 0)
             {
                 return;
             }
 
             EditorGUILayout.Space(6f);
             EditorGUILayout.LabelField("Processing...", EditorStyles.boldLabel);
-            var label = _addRequest != null
+            var label = _addAndRemoveRequest != null
+                ? "Adding selected packages..."
+                : _addRequest != null
                 ? "Installing package..."
                 : _installQueue.Count > 0
                     ? $"Queued packages: {_installQueue.Count}"
@@ -1873,14 +1832,14 @@ namespace Evo.Infrastructure.Core.Editor
             if (errors.Count > 0)
             {
                 _statusLine = "Scaffold update completed with issues: " + string.Join(" | ", errors);
-                AppendReport(_statusLine);
+                Debug.LogError("[Evo Setup] " + _statusLine);
                 return;
             }
 
             _statusLine = updated.Count == 0
                 ? "Scaffold scripts are already up to date."
                 : "Updated scaffold scripts: " + string.Join(", ", updated);
-            AppendReport(_statusLine);
+            Debug.Log("[Evo Setup] " + _statusLine);
         }
 
         private static bool IsAssemblyLoaded(string assemblyName)
@@ -1905,17 +1864,12 @@ namespace Evo.Infrastructure.Core.Editor
                    FindTypeByName("Sirenix.OdinInspector.ShowInInspectorAttribute") != null;
         }
 
-        private void ImportOdinPackage()
-        {
-            TryImportOdinPackage(true);
-        }
-
         private bool SelectOdinPackagePath()
         {
             var current = EditorPrefs.GetString(OdinPackagePathPrefsKey, string.Empty);
             var folder = !string.IsNullOrWhiteSpace(current) && File.Exists(current)
                 ? Path.GetDirectoryName(current)
-                : string.Empty;
+                : EmbeddedOdinPackageFolder;
             var path = EditorUtility.OpenFilePanel(
                 "Select Odin Inspector unitypackage",
                 folder ?? string.Empty,
@@ -1932,6 +1886,33 @@ namespace Evo.Infrastructure.Core.Editor
             return true;
         }
 
+        private static string ResolveOdinPackagePath()
+        {
+            var embeddedPath = FindEmbeddedOdinPackagePath();
+            if (!string.IsNullOrWhiteSpace(embeddedPath) && File.Exists(embeddedPath))
+            {
+                return embeddedPath;
+            }
+
+            var storedPath = EditorPrefs.GetString(OdinPackagePathPrefsKey, string.Empty);
+            return !string.IsNullOrWhiteSpace(storedPath) && File.Exists(storedPath)
+                ? storedPath
+                : string.Empty;
+        }
+
+        private static string FindEmbeddedOdinPackagePath()
+        {
+            if (!Directory.Exists(EmbeddedOdinPackageFolder))
+            {
+                return string.Empty;
+            }
+
+            var files = Directory.GetFiles(EmbeddedOdinPackageFolder, OdinPackageSearchPattern, SearchOption.AllDirectories);
+            return files.Length > 0
+                ? files.OrderBy(file => file, StringComparer.OrdinalIgnoreCase).First().Replace("\\", "/")
+                : string.Empty;
+        }
+
         private bool TryImportOdinPackage(bool interactive)
         {
             if (IsOdinInstalled())
@@ -1941,13 +1922,13 @@ namespace Evo.Infrastructure.Core.Editor
                 return true;
             }
 
-            var path = EditorPrefs.GetString(OdinPackagePathPrefsKey, string.Empty);
+            var path = ResolveOdinPackagePath();
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             {
                 if (!interactive)
                 {
-                    _statusLine = "Odin package file not found. Use Import Odin and select the .unitypackage.";
-                    AppendReport(_statusLine);
+                    _statusLine = $"Odin package file not found. Put Odin .unitypackage into {EmbeddedOdinPackageFolder}.";
+                    Debug.LogError("[Evo Setup] " + _statusLine);
                     return false;
                 }
 
@@ -1966,9 +1947,13 @@ namespace Evo.Infrastructure.Core.Editor
                 return false;
             }
 
-            EditorPrefs.SetString(OdinPackagePathPrefsKey, path);
+            if (string.IsNullOrWhiteSpace(FindEmbeddedOdinPackagePath()))
+            {
+                EditorPrefs.SetString(OdinPackagePathPrefsKey, path);
+            }
+
             _statusLine = $"Importing Odin package: {Path.GetFileName(path)}";
-            AppendReport(_statusLine);
+            Debug.Log("[Evo Setup] " + _statusLine);
             AssetDatabase.ImportPackage(path, false);
             AssetDatabase.Refresh();
             _odinInstalled = IsOdinInstalled();
@@ -2373,13 +2358,13 @@ namespace Evo.Infrastructure.Core.Editor
         {
             if (_installOdinPackage && !_odinInstalled)
             {
-                var odinPath = EditorPrefs.GetString(OdinPackagePathPrefsKey, string.Empty);
+                var odinPath = ResolveOdinPackagePath();
                 if (string.IsNullOrWhiteSpace(odinPath) || !File.Exists(odinPath))
                 {
                     if (!SelectOdinPackagePath())
                     {
-                        _statusLine = "Install selected canceled: Odin package source is required for Odin installation.";
-                        AppendReport(_statusLine);
+                        _statusLine = "Setup canceled: Odin package source is required for Odin installation.";
+                        Debug.LogError("[Evo Setup] Setup canceled: Odin package source is required for Odin installation.");
                         return;
                     }
                 }
@@ -2387,9 +2372,8 @@ namespace Evo.Infrastructure.Core.Editor
 
             _oneClickSetupRequested = true;
             SessionState.SetBool(GetOneClickStateKey(), true);
-            _setupReport.Clear();
-            AppendReport("Install selected started.");
-            _statusLine = "Install selected started.";
+            Debug.Log("[Evo Setup] Setup started.");
+            _statusLine = "Setup started.";
             RefreshState();
             ContinueOneClickSetup();
         }
@@ -2399,8 +2383,8 @@ namespace Evo.Infrastructure.Core.Editor
             _oneClickSetupRequested = SessionState.GetBool(GetOneClickStateKey(), false);
             if (_oneClickSetupRequested)
             {
-                _statusLine = "Resuming one-click setup after domain reload...";
-                AppendReport("Resumed one-click setup after domain reload.");
+                _statusLine = "Resuming setup after domain reload...";
+                Debug.Log("[Evo Setup] Resumed setup after domain reload.");
             }
         }
 
@@ -2411,7 +2395,7 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            if (_isInstalling || _addRequest != null || _isRefreshingState)
+            if (_isInstalling || _addRequest != null || _addAndRemoveRequest != null || _isRefreshingState)
             {
                 return;
             }
@@ -2426,85 +2410,62 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            if (!_dependenciesInstalled)
+            if (HasSelectedUpmPackagesToInstall())
             {
-                _statusLine = "One-click: installing base dependencies...";
-                AppendReport("Installing base dependencies...");
-                InstallDependencies();
+                InstallSelectedUpmPackagesBatch();
                 return;
             }
 
-            if (!_primeTweenInstalled)
+            if (_installReactiveNuGets && (!_r3Ready || !_observableCollectionsReady || !_observableCollectionsR3Ready))
             {
-                _statusLine = "One-click: installing PrimeTween...";
-                AppendReport("Installing PrimeTween...");
-                InstallPrimeTween();
-                return;
-            }
+                if (!_nuGetForUnityInstalled)
+                {
+                    _oneClickSetupRequested = false;
+                    SessionState.SetBool(GetOneClickStateKey(), false);
+                    EditorUtility.ClearProgressBar();
+                    _statusLine = "Setup stopped: Reactive NuGets require NuGetForUnity. Enable NuGetForUnity or disable Reactive NuGets.";
+                    Debug.LogError("[Evo Setup] Reactive NuGets require NuGetForUnity. Enable NuGetForUnity or disable Reactive NuGets.");
+                    Repaint();
+                    return;
+                }
 
-            if (!_r3UnityInstalled)
-            {
-                _statusLine = "One-click: installing R3.Unity...";
-                AppendReport("Installing R3.Unity...");
-                InstallR3Unity();
-                return;
-            }
-
-            if (!_r3Ready || !_observableCollectionsReady || !_observableCollectionsR3Ready)
-            {
-                _statusLine = "One-click: configuring reactive NuGet dependencies...";
-                AppendReport("Configuring reactive NuGet dependencies...");
+                _statusLine = "Setup: configuring reactive NuGet dependencies...";
+                Debug.Log("[Evo Setup] Configuring reactive NuGet dependencies...");
                 InstallReactiveFromNuGet();
                 RefreshState();
                 return;
             }
 
-            if (!_runtimeInstalled)
-            {
-                _statusLine = "One-click: installing runtime package...";
-                AppendReport("Installing runtime package...");
-                InstallRuntimePackage();
-                return;
-            }
-
-            if (_installYandexModule && !_yandexInstalled)
-            {
-                _statusLine = "One-click: installing Yandex package...";
-                AppendReport("Installing Yandex package...");
-                InstallYandexPackage();
-                return;
-            }
-
-            if (!_templatesReady)
+            if (_setupStarterScaffold && !_templatesReady)
             {
                 _oneClickSetupRequested = false;
                 SessionState.SetBool(GetOneClickStateKey(), false);
                 EditorUtility.ClearProgressBar();
-                _statusLine = "One-click stopped: scaffold templates are invalid.";
-                AppendReport(_statusLine);
+                _statusLine = "Setup stopped: scaffold templates are invalid.";
+                Debug.LogError("[Evo Setup] Scaffold templates are invalid.");
                 return;
             }
 
-            if (!HasStarterScaffold())
+            if (_setupStarterScaffold && !HasStarterScaffold())
             {
-                _statusLine = "One-click: creating starter runtime scaffold...";
-                AppendReport("Creating starter runtime scaffold...");
+                _statusLine = "Setup: creating starter runtime scaffold...";
+                Debug.Log("[Evo Setup] Creating starter runtime scaffold...");
                 SetupStarterRuntimeScaffold();
                 return;
             }
 
-            if (!_bootstrapScopesReady)
+            if (_setupStarterScaffold && !_bootstrapScopesReady)
             {
-                _statusLine = "One-click: validating bootstrap scopes...";
-                AppendReport("Validating bootstrap scopes...");
+                _statusLine = "Setup: validating bootstrap scopes...";
+                Debug.Log("[Evo Setup] Validating bootstrap scopes...");
                 ValidateAndFixBootstrapScopes();
                 return;
             }
 
             if (_installOdinPackage && !_odinInstalled)
             {
-                _statusLine = "One-click: importing Odin package...";
-                AppendReport("Importing Odin package...");
+                _statusLine = "Setup: importing Odin package...";
+                Debug.Log("[Evo Setup] Importing Odin package...");
                 if (!TryImportOdinPackage(false))
                 {
                     _oneClickSetupRequested = false;
@@ -2517,8 +2478,13 @@ namespace Evo.Infrastructure.Core.Editor
 
             _oneClickSetupRequested = false;
             SessionState.SetBool(GetOneClickStateKey(), false);
-                _statusLine = "Install selected completed.";
-                AppendReport("Install selected completed.");
+            if (_setupStarterScaffold)
+            {
+                OpenEntryPointScene();
+            }
+
+            _statusLine = "Setup completed.";
+            Debug.Log("[Evo Setup] Setup completed.");
             EditorUtility.ClearProgressBar();
             Repaint();
         }
@@ -2535,17 +2501,19 @@ namespace Evo.Infrastructure.Core.Editor
             var stepCount = GetOneClickStepCount();
             var progress = Mathf.Clamp01(stepIndex / (float)stepCount);
             EditorUtility.DisplayProgressBar(
-                "Evo Install Selected",
+                "Evo Setup",
                 _statusLine,
                 progress);
         }
 
         private int GetOneClickStepCount()
         {
-            var count = 8;
-            if (_installYandexModule)
+            var count = 0;
+            if (CollectSelectedUpmPackagesToInstall().Count > 0 || !IsSelectedUpmPackagesReady()) count++;
+            if (_installReactiveNuGets) count++;
+            if (_setupStarterScaffold)
             {
-                count++;
+                count += 3;
             }
 
             if (_installOdinPackage)
@@ -2553,42 +2521,44 @@ namespace Evo.Infrastructure.Core.Editor
                 count++;
             }
 
-            return count;
+            return Mathf.Max(1, count);
         }
 
         private int GetOneClickCompletedStepCount()
         {
             var completed = 0;
-            if (_dependenciesInstalled) completed++;
-            if (_primeTweenInstalled) completed++;
-            if (_r3UnityInstalled) completed++;
-            if (_r3Ready && _observableCollectionsReady && _observableCollectionsR3Ready) completed++;
-            if (_runtimeInstalled) completed++;
-            if (_installYandexModule && _yandexInstalled) completed++;
-            if (_templatesReady) completed++;
-            if (HasStarterScaffold()) completed++;
-            if (_bootstrapScopesReady) completed++;
+            if (IsSelectedUpmPackagesReady()) completed++;
+            if (_installReactiveNuGets && _r3Ready && _observableCollectionsReady && _observableCollectionsR3Ready) completed++;
+            if (_setupStarterScaffold && _templatesReady) completed++;
+            if (_setupStarterScaffold && HasStarterScaffold()) completed++;
+            if (_setupStarterScaffold && _bootstrapScopesReady) completed++;
             if (_installOdinPackage && _odinInstalled) completed++;
             return completed;
+        }
+
+        private bool HasSelectedUpmPackagesToInstall()
+        {
+            return CollectSelectedUpmPackagesToInstall().Count > 0;
+        }
+
+        private bool IsSelectedUpmPackagesReady()
+        {
+            return (!_installVContainer || _vContainerInstalled) &&
+                   (!_installUniTask || _uniTaskInstalled) &&
+                   (!_installNuGetForUnity || _nuGetForUnityInstalled) &&
+                   (!_installAddressables || _addressablesInstalled) &&
+                   (!_installLocalization || _localizationInstalled) &&
+                   (!_installInputSystem || _inputSystemInstalled) &&
+                   (!_installUgui || _uguiInstalled) &&
+                   (!_installPrimeTween || _primeTweenInstalled) &&
+                   (!_installR3Unity || _r3UnityInstalled) &&
+                   (!_installRuntimeModule || _runtimeInstalled) &&
+                   (!_installYandexModule || _yandexInstalled);
         }
 
         private static string GetOneClickStateKey()
         {
             return OneClickStateKeyPrefix + Application.dataPath.GetHashCode();
-        }
-
-        private void AppendReport(string line)
-        {
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                return;
-            }
-
-            _setupReport.Add($"[{DateTime.Now:HH:mm:ss}] {line}");
-            if (_setupReport.Count > 100)
-            {
-                _setupReport.RemoveAt(0);
-            }
         }
 
         private readonly struct StarterScriptTemplate
