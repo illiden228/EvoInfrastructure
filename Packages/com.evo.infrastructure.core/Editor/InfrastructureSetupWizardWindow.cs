@@ -1697,58 +1697,17 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            var settingsType = Type.GetType(
-                "UnityEditor.AddressableAssets.Settings.AddressableAssetSettingsDefaultObject, Unity.Addressables.Editor");
-            if (settingsType == null)
+            var settings = GetAddressableSettings(true);
+            if (settings == null)
             {
+                Debug.LogError("[Evo Setup] Addressables settings are unavailable. Install Addressables before creating starter scaffold.");
                 return;
             }
 
-            var settingsProperty = settingsType.GetProperty("Settings", BindingFlags.Public | BindingFlags.Static);
-            var settings = settingsProperty?.GetValue(null);
-            if (settings == null)
-            {
-                var getSettingsMethod = settingsType
-                    .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                    .FirstOrDefault(m =>
-                    {
-                        if (!string.Equals(m.Name, "GetSettings", StringComparison.Ordinal))
-                        {
-                            return false;
-                        }
-
-                        var p = m.GetParameters();
-                        return p.Length == 1 && p[0].ParameterType == typeof(bool);
-                    });
-
-                settings = getSettingsMethod?.Invoke(null, new object[] { true });
-            }
-            if (settings == null)
-            {
-                return;
-            }
-
-            var defaultGroupProperty = settings.GetType().GetProperty("DefaultGroup", BindingFlags.Public | BindingFlags.Instance);
-            var defaultGroup = defaultGroupProperty?.GetValue(settings);
+            var defaultGroup = GetAddressableDefaultGroup(settings);
             if (defaultGroup == null)
             {
-                var groupsProperty = settings.GetType().GetProperty("groups", BindingFlags.Public | BindingFlags.Instance);
-                var groups = groupsProperty?.GetValue(settings) as System.Collections.IEnumerable;
-                if (groups != null)
-                {
-                    foreach (var group in groups)
-                    {
-                        if (group != null)
-                        {
-                            defaultGroup = group;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (defaultGroup == null)
-            {
+                Debug.LogError("[Evo Setup] Addressables default group is unavailable.");
                 return;
             }
 
@@ -1769,6 +1728,7 @@ namespace Evo.Infrastructure.Core.Editor
 
             if (createOrMoveEntryMethod == null)
             {
+                Debug.LogError("[Evo Setup] Addressables CreateOrMoveEntry API was not found.");
                 return;
             }
 
@@ -1784,12 +1744,13 @@ namespace Evo.Infrastructure.Core.Editor
             }
             else
             {
-                args = new object[] { sceneGuid, defaultGroup, false, false };
+                args = new object[] { sceneGuid, defaultGroup, false, true };
             }
 
             var entry = createOrMoveEntryMethod.Invoke(settings, args);
             if (entry == null)
             {
+                Debug.LogError($"[Evo Setup] Failed to create Addressables entry for {scenePath}.");
                 return;
             }
 
@@ -1801,8 +1762,124 @@ namespace Evo.Infrastructure.Core.Editor
                     : address);
             }
 
+            MarkAddressableSettingsDirty(settings, entry);
             EditorUtility.SetDirty((UnityEngine.Object)settings);
             AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        private static object GetAddressableSettings(bool create)
+        {
+            var settingsType = FindTypeByName("UnityEditor.AddressableAssets.AddressableAssetSettingsDefaultObject");
+            if (settingsType == null)
+            {
+                return null;
+            }
+
+            var getSettingsMethod = settingsType
+                .GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .FirstOrDefault(m =>
+                {
+                    if (!string.Equals(m.Name, "GetSettings", StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+
+                    var p = m.GetParameters();
+                    return p.Length == 1 && p[0].ParameterType == typeof(bool);
+                });
+
+            var settings = getSettingsMethod?.Invoke(null, new object[] { create });
+            if (settings != null)
+            {
+                return settings;
+            }
+
+            var settingsProperty = settingsType.GetProperty("Settings", BindingFlags.Public | BindingFlags.Static);
+            return settingsProperty?.GetValue(null);
+        }
+
+        private static object GetAddressableDefaultGroup(object settings)
+        {
+            var defaultGroupProperty = settings.GetType().GetProperty("DefaultGroup", BindingFlags.Public | BindingFlags.Instance);
+            var defaultGroup = defaultGroupProperty?.GetValue(settings);
+            if (defaultGroup != null)
+            {
+                return defaultGroup;
+            }
+
+            var groupsProperty = settings.GetType().GetProperty("groups", BindingFlags.Public | BindingFlags.Instance);
+            var groups = groupsProperty?.GetValue(settings) as System.Collections.IEnumerable;
+            if (groups == null)
+            {
+                return null;
+            }
+
+            foreach (var group in groups)
+            {
+                if (group != null)
+                {
+                    return group;
+                }
+            }
+
+            return null;
+        }
+
+        private static object FindAddressableEntry(object settings, string guid)
+        {
+            if (settings == null || string.IsNullOrEmpty(guid))
+            {
+                return null;
+            }
+
+            var findMethod = settings.GetType()
+                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .FirstOrDefault(m =>
+                {
+                    if (!string.Equals(m.Name, "FindAssetEntry", StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+
+                    var p = m.GetParameters();
+                    return p.Length == 1 && p[0].ParameterType == typeof(string);
+                });
+
+            return findMethod?.Invoke(settings, new object[] { guid });
+        }
+
+        private static void MarkAddressableSettingsDirty(object settings, object entry)
+        {
+            var modificationEventType = settings.GetType().GetNestedType("ModificationEvent", BindingFlags.Public);
+            var setDirtyMethod = settings.GetType()
+                .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .FirstOrDefault(m =>
+                {
+                    if (!string.Equals(m.Name, "SetDirty", StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+
+                    var p = m.GetParameters();
+                    return p.Length >= 3 &&
+                           modificationEventType != null &&
+                           p[0].ParameterType == modificationEventType &&
+                           p[1].ParameterType == typeof(object) &&
+                           p[2].ParameterType == typeof(bool);
+                });
+
+            if (modificationEventType == null || setDirtyMethod == null)
+            {
+                return;
+            }
+
+            var modificationEvent = Enum.Parse(modificationEventType, "EntryModified");
+            var parameters = setDirtyMethod.GetParameters();
+            var args = parameters.Length >= 4
+                ? new object[] { modificationEvent, entry, true, true }
+                : new object[] { modificationEvent, entry, true };
+            setDirtyMethod.Invoke(settings, args);
         }
 
         private static void ConfigureProjectConfigForStarterPipeline()
@@ -2449,23 +2526,26 @@ namespace Evo.Infrastructure.Core.Editor
         private static bool HasAddressableEntry(string scenePath, string address)
         {
             var guid = AssetDatabase.AssetPathToGUID(scenePath);
-            if (string.IsNullOrEmpty(guid) || !Directory.Exists("Assets/AddressableAssetsData"))
+            if (string.IsNullOrEmpty(guid))
             {
                 return false;
             }
 
-            var files = Directory.GetFiles("Assets/AddressableAssetsData", "*.asset", SearchOption.AllDirectories);
-            for (var i = 0; i < files.Length; i++)
+            var settings = GetAddressableSettings(false);
+            var entry = FindAddressableEntry(settings, guid);
+            if (entry == null)
             {
-                var text = SafeReadAllText(files[i]);
-                if (text.IndexOf(guid, StringComparison.Ordinal) >= 0 &&
-                    (string.IsNullOrWhiteSpace(address) || text.IndexOf(address, StringComparison.Ordinal) >= 0))
-                {
-                    return true;
-                }
+                return false;
             }
 
-            return false;
+            if (string.IsNullOrWhiteSpace(address))
+            {
+                return true;
+            }
+
+            var addressProperty = entry.GetType().GetProperty("address", BindingFlags.Public | BindingFlags.Instance);
+            var actualAddress = addressProperty?.GetValue(entry) as string;
+            return string.Equals(actualAddress, address, StringComparison.Ordinal);
         }
 
         private void DrawReactiveWarning()
