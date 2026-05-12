@@ -177,6 +177,8 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _installRuntimeModule = true;
         private bool _installYandexModule = true;
         private bool _installOdinPackage;
+        private bool _installProjectStructure = true;
+        private bool _installStarterScaffold = true;
         private bool _templatesReady;
         private bool _scaffoldScriptsUpToDate;
         private double _refreshStartedAt;
@@ -283,7 +285,8 @@ namespace Evo.Infrastructure.Core.Editor
             _installYandexModule = DrawInstallPlanRow("Evo Infrastructure Yandex", _installYandexModule, _yandexInstalled, "YG2 integration package.", () => RemovePackage(YandexPackageName, "Evo Infrastructure Yandex"));
             _installOdinPackage = DrawInstallPlanRow("Odin Inspector", _installOdinPackage, _odinInstalled, "Imported automatically at the end of Setup. Odin is not required for starter runtime.");
 
-            SaveSelectionState();
+            EditorGUILayout.Space(4f);
+            DrawProjectRuntimeActions();
 
             using (new EditorGUI.DisabledScope(_isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested || !_stateAnalyzed))
             {
@@ -291,13 +294,13 @@ namespace Evo.Infrastructure.Core.Editor
                 DrawActionButton(
                     "Setup",
                     canInstallSelected
-                        ? "Install selected packages only."
+                        ? "Install selected packages and selected project runtime tasks."
                         : "Wait until the current installation process completes.",
                     canInstallSelected,
                     StartOneClickSetup);
             }
 
-            DrawProjectRuntimeActions();
+            SaveSelectionState();
         }
 
         private void DrawProjectRuntimeActions()
@@ -307,16 +310,18 @@ namespace Evo.Infrastructure.Core.Editor
 
             var packagesReadyForScaffold = ArePackagesReadyForStarterScaffold();
             var scaffoldReady = IsStarterScaffoldReady();
-            DrawStatusOnlyRow(
+            _installProjectStructure = DrawSetupTaskRow(
                 "Project Structure",
+                _installProjectStructure,
                 _structureReady,
                 _structureReady ? "Ready" : "Missing",
                 "Base folders under Assets/_Project.",
                 _structureReady ? "Ready" : "Create",
                 _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_scaffoldSetupRequested && !_isRefreshingState && !_structureReady,
                 CreateProjectStructure);
-            DrawStatusOnlyRow(
+            _installStarterScaffold = DrawSetupTaskRow(
                 "Starter Scaffold",
+                _installStarterScaffold,
                 scaffoldReady,
                 _scaffoldSetupRequested ? "Running" : scaffoldReady ? "Ready" : HasStarterScaffoldFiles() ? "Needs Repair" : "Missing",
                 GetStarterScaffoldStatusDetails(packagesReadyForScaffold),
@@ -325,8 +330,9 @@ namespace Evo.Infrastructure.Core.Editor
                 StartStarterRuntimeScaffold);
         }
 
-        private void DrawStatusOnlyRow(
+        private bool DrawSetupTaskRow(
             string label,
+            bool selected,
             bool ready,
             string status,
             string details,
@@ -335,7 +341,11 @@ namespace Evo.Infrastructure.Core.Editor
             Action action)
         {
             EditorGUILayout.BeginHorizontal();
-            GUILayout.Space(18f);
+            using (new EditorGUI.DisabledScope(ready || _isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested))
+            {
+                selected = EditorGUILayout.Toggle(ready || selected, GUILayout.Width(18f));
+            }
+
             EditorGUILayout.LabelField(label, GUILayout.Width(202f));
             var old = GUI.color;
             GUI.color = ready
@@ -343,15 +353,16 @@ namespace Evo.Infrastructure.Core.Editor
                 : new Color(0.85f, 0.65f, 0.2f);
             EditorGUILayout.LabelField(status, GUILayout.Width(92f));
             GUI.color = old;
-            EditorGUILayout.LabelField(details, EditorStyles.wordWrappedMiniLabel);
-            using (new EditorGUI.DisabledScope(!actionEnabled || action == null))
+            EditorGUILayout.LabelField(details);
+            using (new EditorGUI.DisabledScope(!actionEnabled))
             {
-                if (GUILayout.Button(actionLabel, GUILayout.Width(72f)))
+                if (GUILayout.Button(actionLabel, GUILayout.Width(76f)))
                 {
                     action?.Invoke();
                 }
             }
             EditorGUILayout.EndHorizontal();
+            return ready || selected;
         }
 
         private string GetStarterScaffoldStatusDetails(bool packagesReadyForScaffold)
@@ -3339,6 +3350,7 @@ namespace Evo.Infrastructure.Core.Editor
             SaveSelectionState();
             _oneClickSetupRequested = true;
             _bootstrapValidationAttempted = false;
+            _scaffoldFinalizationAttempts = 0;
             SessionState.SetBool(GetOneClickStateKey(), true);
             Debug.Log("[Evo Setup] Setup started.");
             _statusLine = "Setup started.";
@@ -3361,6 +3373,8 @@ namespace Evo.Infrastructure.Core.Editor
             _installRuntimeModule = GetSelection(nameof(_installRuntimeModule), _installRuntimeModule);
             _installYandexModule = GetSelection(nameof(_installYandexModule), _installYandexModule);
             _installOdinPackage = GetSelection(nameof(_installOdinPackage), _installOdinPackage);
+            _installProjectStructure = GetSelection(nameof(_installProjectStructure), _installProjectStructure);
+            _installStarterScaffold = GetSelection(nameof(_installStarterScaffold), _installStarterScaffold);
         }
 
         private void SaveSelectionState()
@@ -3378,6 +3392,8 @@ namespace Evo.Infrastructure.Core.Editor
             SetSelection(nameof(_installRuntimeModule), _installRuntimeModule);
             SetSelection(nameof(_installYandexModule), _installYandexModule);
             SetSelection(nameof(_installOdinPackage), _installOdinPackage);
+            SetSelection(nameof(_installProjectStructure), _installProjectStructure);
+            SetSelection(nameof(_installStarterScaffold), _installStarterScaffold);
         }
 
         private static bool GetSelection(string key, bool defaultValue)
@@ -3426,6 +3442,11 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             if (_scaffoldFinalizeQueued)
+            {
+                return;
+            }
+
+            if (_scaffoldSetupRequested)
             {
                 return;
             }
@@ -3517,11 +3538,33 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
+            if (_installProjectStructure && !_structureReady)
+            {
+                _statusLine = "Setup: creating project structure...";
+                Debug.Log("[Evo Setup] Creating project structure...");
+                CreateProjectStructure();
+                return;
+            }
+
+            if (_installStarterScaffold && !IsStarterScaffoldReady())
+            {
+                if (!ArePackagesReadyForStarterScaffold())
+                {
+                    StopSetupWithError("Setup stopped: starter scaffold requires selected runtime packages to be installed and compiled.");
+                    return;
+                }
+
+                _statusLine = "Setup: creating starter scaffold...";
+                Debug.Log("[Evo Setup] Creating starter scaffold...");
+                StartStarterRuntimeScaffold();
+                return;
+            }
+
             _oneClickSetupRequested = false;
             _bootstrapValidationAttempted = false;
             SessionState.SetBool(GetOneClickStateKey(), false);
-            _statusLine = "Package setup completed. Create project structure/scaffold when ready.";
-            Debug.Log("[Evo Setup] Package setup completed.");
+            _statusLine = "Setup completed.";
+            Debug.Log("[Evo Setup] Setup completed.");
             EditorUtility.ClearProgressBar();
             Repaint();
         }
@@ -3559,6 +3602,8 @@ namespace Evo.Infrastructure.Core.Editor
             if (CollectSelectedUpmPackagesToInstall().Count > 0 || !IsSelectedUpmPackagesReady()) count++;
             if (_installReactiveNuGets) count++;
             if (_installOdinPackage) count++;
+            if (_installProjectStructure) count++;
+            if (_installStarterScaffold) count++;
 
             return Mathf.Max(1, count);
         }
@@ -3569,6 +3614,8 @@ namespace Evo.Infrastructure.Core.Editor
             if (IsSelectedUpmPackagesReady()) completed++;
             if (_installReactiveNuGets && AreReactiveAssembliesReady()) completed++;
             if (_installOdinPackage && _odinInstalled) completed++;
+            if (_installProjectStructure && _structureReady) completed++;
+            if (_installStarterScaffold && IsStarterScaffoldReady()) completed++;
             return completed;
         }
 
