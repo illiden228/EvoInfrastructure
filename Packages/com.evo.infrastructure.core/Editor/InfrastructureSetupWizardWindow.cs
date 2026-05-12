@@ -148,6 +148,7 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _oneClickSetupRequested;
         private bool _scaffoldFinalizeQueued;
         private bool _reactiveRestoreRequested;
+        private bool _stateAnalyzed;
         private bool _installVContainer = true;
         private bool _installUniTask = true;
         private bool _installNuGetForUnity = true;
@@ -180,9 +181,9 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void OnEnable()
         {
-            RefreshState();
             EditorApplication.update += UpdateInstallQueue;
             ResumeOneClickSetupIfNeeded();
+            RefreshState();
         }
 
         private void OnDisable()
@@ -229,9 +230,10 @@ namespace Evo.Infrastructure.Core.Editor
             DrawStatusRow("Infrastructure runtime installed", _runtimeInstalled);
             DrawStatusRow("Infrastructure Yandex installed", _yandexInstalled);
             DrawStatusRow("Odin installed", _odinInstalled);
-            DrawStatusRow("Starter runtime scaffold ready", HasStarterScaffold());
+            DrawStatusRow("Starter runtime scaffold files ready", HasStarterScaffoldFiles());
             DrawStatusRow("Scaffold templates valid", _templatesReady);
             DrawStatusRow("Scaffold scripts up to date", _scaffoldScriptsUpToDate);
+            DrawStatusRow("Starter runtime types compiled", AreStarterRuntimeTypesReady());
             DrawStatusRow("Bootstrap scopes valid", _bootstrapScopesReady);
 
             if (_templateValidationIssues.Count > 0)
@@ -259,6 +261,15 @@ namespace Evo.Infrastructure.Core.Editor
             EditorGUILayout.HelpBox(
                 "Analyze installed packages, choose modules, then run Setup. Installed items are checked and locked. Recommended items are selected by default.",
                 MessageType.Info);
+
+            if (!_stateAnalyzed)
+            {
+                EditorGUILayout.HelpBox(
+                    _isRefreshingState
+                        ? "Analyzing packages and project state..."
+                        : "Run Analyze Installed Packages before Setup.",
+                    MessageType.Warning);
+            }
 
             using (new EditorGUI.DisabledScope(_isRefreshingState || _isInstalling || _oneClickSetupRequested))
             {
@@ -291,9 +302,9 @@ namespace Evo.Infrastructure.Core.Editor
 
             EditorGUILayout.Space(4f);
             EditorGUILayout.LabelField("Project Runtime", EditorStyles.boldLabel);
-            _setupStarterScaffold = DrawInstallPlanRow("Starter scaffold", _setupStarterScaffold, HasStarterScaffold() && _bootstrapScopesReady, "Creates EntryPoint, loading flow, configs, scenes and Addressables entries.");
+            _setupStarterScaffold = DrawInstallPlanRow("Starter scaffold", _setupStarterScaffold, HasStarterScaffold() && AreStarterRuntimeTypesReady() && _bootstrapScopesReady, "Creates EntryPoint, loading flow, configs, scenes and Addressables entries.");
 
-            using (new EditorGUI.DisabledScope(_isInstalling || _oneClickSetupRequested))
+            using (new EditorGUI.DisabledScope(_isInstalling || _oneClickSetupRequested || !_stateAnalyzed))
             {
 
                 if (_installOdinPackage && !_odinInstalled)
@@ -301,7 +312,7 @@ namespace Evo.Infrastructure.Core.Editor
                     DrawOdinPackagePathField();
                 }
 
-                var canInstallSelected = !_isInstalling && !_oneClickSetupRequested && !_isRefreshingState;
+                var canInstallSelected = _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_isRefreshingState;
                 DrawActionButton(
                     "Setup",
                     canInstallSelected
@@ -447,7 +458,7 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void InstallPrimeTween()
         {
-            if (!EnsurePrimeTweenScopedRegistry())
+            if (!EnsurePrimeTweenScopedRegistry(out _))
             {
                 _statusLine = "Failed to add scoped registry for PrimeTween in Packages/manifest.json.";
                 return;
@@ -483,11 +494,23 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            if (_installPrimeTween && !_primeTweenInstalled && !EnsurePrimeTweenScopedRegistry())
+            if (_installPrimeTween && !_primeTweenInstalled)
             {
-                _statusLine = "Failed to add scoped registry for PrimeTween in Packages/manifest.json.";
-                Debug.LogError("[Evo Setup] Failed to add scoped registry for PrimeTween in Packages/manifest.json.");
-                return;
+                if (!EnsurePrimeTweenScopedRegistry(out var registryChanged))
+                {
+                    _statusLine = "Failed to add scoped registry for PrimeTween in Packages/manifest.json.";
+                    Debug.LogError("[Evo Setup] Failed to add scoped registry for PrimeTween in Packages/manifest.json.");
+                    return;
+                }
+
+                if (registryChanged)
+                {
+                    _statusLine = "Added PrimeTween scoped registry. Waiting for Unity Package Manager resolve...";
+                    Debug.Log("[Evo Setup] Added PrimeTween scoped registry. Waiting for Unity Package Manager resolve...");
+                    RefreshState();
+                    QueueRefreshBurst();
+                    return;
+                }
             }
 
             _isInstalling = true;
@@ -717,6 +740,9 @@ namespace Evo.Infrastructure.Core.Editor
 
             if (EditorApplication.isCompiling || EditorApplication.isUpdating || !AreStarterRuntimeTypesReady())
             {
+                _oneClickSetupRequested = true;
+                SessionState.SetBool(GetOneClickStateKey(), true);
+                _statusLine = "Waiting for starter runtime scripts to compile before configuring scaffold...";
                 QueueFinalizeStarterRuntimeScaffold();
                 return;
             }
@@ -1485,8 +1511,9 @@ namespace Evo.Infrastructure.Core.Editor
                 }
                 else
                 {
-                    _statusLine = $"Package remove failed: {_removeRequest.Error?.message}";
-                    Debug.LogError($"[Evo Setup] Package remove failed: {_removeRequest.Error?.message}");
+                    var message = GetRequestErrorMessage(_removeRequest.Error);
+                    _statusLine = $"Package remove failed: {message}";
+                    Debug.LogError($"[Evo Setup] Package remove failed: {message}");
                 }
 
                 _removeRequest = null;
@@ -1512,8 +1539,9 @@ namespace Evo.Infrastructure.Core.Editor
                 }
                 else
                 {
-                    _statusLine = $"Package setup failed: {_addAndRemoveRequest.Error?.message}";
-                    Debug.LogError($"[Evo Setup] Package setup failed: {_addAndRemoveRequest.Error?.message}");
+                    var message = GetRequestErrorMessage(_addAndRemoveRequest.Error);
+                    _statusLine = $"Package setup failed: {message}";
+                    Debug.LogError($"[Evo Setup] Package setup failed: {message}");
                     _installQueue.Clear();
                     _isInstalling = false;
                     _oneClickSetupRequested = false;
@@ -1547,8 +1575,9 @@ namespace Evo.Infrastructure.Core.Editor
                 }
                 else
                 {
-                    _statusLine = $"Install failed: {_addRequest.Error?.message}";
-                    Debug.LogError($"[Evo Setup] Package install failed: {_addRequest.Error?.message}");
+                    var message = GetRequestErrorMessage(_addRequest.Error);
+                    _statusLine = $"Install failed: {message}";
+                    Debug.LogError($"[Evo Setup] Package install failed: {message}");
                     _installQueue.Clear();
                     _isInstalling = false;
                     _oneClickSetupRequested = false;
@@ -1589,6 +1618,18 @@ namespace Evo.Infrastructure.Core.Editor
             ContinueOneClickSetup();
         }
 
+        private static string GetRequestErrorMessage(Error error)
+        {
+            if (error == null)
+            {
+                return "Package Manager request failed without an error message. Unity may have interrupted the request during domain reload or package resolve.";
+            }
+
+            return string.IsNullOrWhiteSpace(error.message)
+                ? $"Package Manager request failed with error code {error.errorCode}."
+                : error.message;
+        }
+
         private void RefreshState()
         {
             if (EditorApplication.isCompiling || EditorApplication.isUpdating)
@@ -1618,6 +1659,7 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
+            _stateAnalyzed = false;
             _isRefreshingState = true;
             _refreshStartedAt = EditorApplication.timeSinceStartup;
             _listRequest = Client.List(false, false);
@@ -1684,11 +1726,18 @@ namespace Evo.Infrastructure.Core.Editor
                     _reactiveRestoreRequested = false;
                 }
             }
+            else
+            {
+                var message = GetRequestErrorMessage(_listRequest.Error);
+                _statusLine = $"Package analysis failed: {message}";
+                Debug.LogError($"[Evo Setup] Package analysis failed: {message}");
+            }
 
             _structureReady = HasProjectStructure();
             _odinInstalled = IsOdinInstalled();
             ValidateTemplatesAndScaffoldScriptsState();
             _bootstrapScopesReady = AreBootstrapScopesValid();
+            _stateAnalyzed = _listRequest.Status == StatusCode.Success;
             _isRefreshingState = false;
             ContinueOneClickSetup();
             Repaint();
@@ -1790,6 +1839,11 @@ namespace Evo.Infrastructure.Core.Editor
         }
 
         private static bool HasStarterScaffold()
+        {
+            return HasStarterScaffoldFiles();
+        }
+
+        private static bool HasStarterScaffoldFiles()
         {
             return File.Exists(EntryScenePath) &&
                    File.Exists(LoadingScenePath) &&
@@ -2340,8 +2394,9 @@ namespace Evo.Infrastructure.Core.Editor
             return Path.Combine(assetsPath, "packages.config");
         }
 
-        private static bool EnsurePrimeTweenScopedRegistry()
+        private static bool EnsurePrimeTweenScopedRegistry(out bool changed)
         {
+            changed = false;
             var manifestPath = Path.Combine(GetProjectRootPath(), "Packages", "manifest.json");
             if (!File.Exists(manifestPath))
             {
@@ -2364,7 +2419,8 @@ namespace Evo.Infrastructure.Core.Editor
                 }
 
                 File.WriteAllText(manifestPath, inserted);
-                AssetDatabase.Refresh();
+                Debug.Log("[Evo Setup] Added PrimeTween scoped registry to Packages/manifest.json.");
+                changed = true;
                 return true;
             }
 
@@ -2377,7 +2433,8 @@ namespace Evo.Infrastructure.Core.Editor
             var block = $"  \"scopedRegistries\": [\n{registryObject}\n  ],\n";
             var withScoped = json.Insert(dependenciesIndex, block);
             File.WriteAllText(manifestPath, withScoped);
-            AssetDatabase.Refresh();
+            Debug.Log("[Evo Setup] Added PrimeTween scoped registry to Packages/manifest.json.");
+            changed = true;
             return true;
         }
 
@@ -2629,6 +2686,13 @@ namespace Evo.Infrastructure.Core.Editor
                 _statusLine = "Setup: creating starter runtime scaffold...";
                 Debug.Log("[Evo Setup] Creating starter runtime scaffold...");
                 SetupStarterRuntimeScaffold();
+                return;
+            }
+
+            if (_setupStarterScaffold && HasStarterScaffold() && !AreStarterRuntimeTypesReady())
+            {
+                _statusLine = "Setup: waiting for starter runtime scripts to compile...";
+                QueueFinalizeStarterRuntimeScaffold();
                 return;
             }
 
