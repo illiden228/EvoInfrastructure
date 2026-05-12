@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using _Project.Scripts.Application.UI;
 using _Project.Scripts.Application.UI.Views;
 using Cysharp.Threading.Tasks;
 using PrimeTween;

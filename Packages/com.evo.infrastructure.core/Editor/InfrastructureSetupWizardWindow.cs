@@ -311,39 +311,28 @@ namespace Evo.Infrastructure.Core.Editor
                 "Project Structure",
                 _structureReady,
                 _structureReady ? "Ready" : "Missing",
-                "Base folders under Assets/_Project.");
+                "Base folders under Assets/_Project.",
+                _structureReady ? "Ready" : "Create",
+                _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_scaffoldSetupRequested && !_isRefreshingState && !_structureReady,
+                CreateProjectStructure);
             DrawStatusOnlyRow(
                 "Starter Scaffold",
                 scaffoldReady,
                 _scaffoldSetupRequested ? "Running" : scaffoldReady ? "Ready" : HasStarterScaffoldFiles() ? "Needs Repair" : "Missing",
-                GetStarterScaffoldStatusDetails(packagesReadyForScaffold));
-
-            DrawActionButton(
-                _structureReady ? "Create Project Structure (Ready)" : "Create Project Structure",
-                _structureReady
-                    ? "Project folder structure is already ready."
-                    : "Create base folders under Assets/_Project.",
-                _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_scaffoldSetupRequested && !_isRefreshingState && !_structureReady,
-                CreateProjectStructure,
-                28f);
-
-            DrawActionButton(
-                scaffoldReady
-                    ? "Create Starter Scaffold (Ready)"
-                    : _scaffoldSetupRequested
-                        ? "Create Starter Scaffold (Running)"
-                    : "Create Starter Scaffold",
-                scaffoldReady
-                    ? "Starter scaffold is already configured."
-                    : packagesReadyForScaffold
-                    ? "Create starter scripts, scenes, configs, Addressables entries and build scenes."
-                    : "Requires runtime scaffold packages to be installed first.",
+                GetStarterScaffoldStatusDetails(packagesReadyForScaffold),
+                scaffoldReady ? "Ready" : HasStarterScaffoldFiles() ? "Repair" : "Create",
                 _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_scaffoldSetupRequested && !_isRefreshingState && packagesReadyForScaffold && !scaffoldReady,
-                StartStarterRuntimeScaffold,
-                28f);
+                StartStarterRuntimeScaffold);
         }
 
-        private void DrawStatusOnlyRow(string label, bool ready, string status, string details)
+        private void DrawStatusOnlyRow(
+            string label,
+            bool ready,
+            string status,
+            string details,
+            string actionLabel,
+            bool actionEnabled,
+            Action action)
         {
             EditorGUILayout.BeginHorizontal();
             GUILayout.Space(18f);
@@ -355,6 +344,13 @@ namespace Evo.Infrastructure.Core.Editor
             EditorGUILayout.LabelField(status, GUILayout.Width(92f));
             GUI.color = old;
             EditorGUILayout.LabelField(details, EditorStyles.wordWrappedMiniLabel);
+            using (new EditorGUI.DisabledScope(!actionEnabled || action == null))
+            {
+                if (GUILayout.Button(actionLabel, GUILayout.Width(72f)))
+                {
+                    action?.Invoke();
+                }
+            }
             EditorGUILayout.EndHorizontal();
         }
 
@@ -3416,6 +3412,16 @@ namespace Evo.Infrastructure.Core.Editor
             {
                 if (_odinImportRequested)
                 {
+                    if (IsOdinInstalled())
+                    {
+                        _odinInstalled = true;
+                        _odinImportRequested = false;
+                        SessionState.SetBool(GetOdinImportStateKey(), false);
+                        _statusLine = "Setup: Odin import completed.";
+                        RefreshState();
+                        return;
+                    }
+
                     _statusLine = "Setup: waiting for Odin import to finish...";
                     return;
                 }
