@@ -700,6 +700,7 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void SetupStarterRuntimeScaffold()
         {
+            Debug.Log($"[Evo Setup] Scaffold setup started. Templates root: {TemplatesRootPath}");
             ValidateTemplatesAndScaffoldScriptsState();
             if (!_templatesReady)
             {
@@ -714,8 +715,11 @@ namespace Evo.Infrastructure.Core.Editor
             EnsureScene(LoadingScenePath, "LoadingRoot");
             EnsureScene(TransitionScenePath, "TransitionRoot");
             EnsureScene(MenuScenePath, "MainMenuRoot");
+            _statusLine = "Setup: syncing starter scaffold scripts from templates...";
+            Debug.Log("[Evo Setup] Syncing starter scaffold scripts from templates...");
             EnsureStarterScripts();
             ValidateTemplatesAndScaffoldScriptsState();
+            Debug.Log($"[Evo Setup] Scaffold scripts up to date after sync: {_scaffoldScriptsUpToDate}");
 
             if (!_scaffoldScriptsUpToDate)
             {
@@ -2031,6 +2035,7 @@ namespace Evo.Infrastructure.Core.Editor
         {
             _templateValidationIssues.Clear();
             _templatesReady = true;
+            _scaffoldScriptsUpToDate = true;
 
             for (var i = 0; i < StarterScriptTemplates.Length; i++)
             {
@@ -2040,9 +2045,14 @@ namespace Evo.Infrastructure.Core.Editor
                     _templatesReady = false;
                     _templateValidationIssues.Add($"Missing template: {templatePath}");
                 }
+
+                if (!IsScaffoldScriptUpToDate(StarterScriptTemplates[i]))
+                {
+                    _scaffoldScriptsUpToDate = false;
+                }
             }
 
-            _scaffoldScriptsUpToDate = _templatesReady && AreScaffoldScriptsUpToDate();
+            _scaffoldScriptsUpToDate = _templatesReady && _scaffoldScriptsUpToDate;
         }
 
         private static bool AreScaffoldScriptsUpToDate()
@@ -2062,6 +2072,7 @@ namespace Evo.Infrastructure.Core.Editor
         {
             if (!File.Exists(template.TargetPath))
             {
+                Debug.Log($"[Evo Setup] Scaffold script missing: {template.TargetPath}");
                 return false;
             }
 
@@ -2075,10 +2086,20 @@ namespace Evo.Infrastructure.Core.Editor
             {
                 var templateText = NormalizeText(File.ReadAllText(templatePath));
                 var targetText = NormalizeText(File.ReadAllText(template.TargetPath));
-                return string.Equals(templateText, targetText, StringComparison.Ordinal);
+                var upToDate = string.Equals(templateText, targetText, StringComparison.Ordinal);
+                if (!upToDate)
+                {
+                    Debug.Log(
+                        $"[Evo Setup] Scaffold script differs from template: {template.TargetPath}. " +
+                        $"Template={templatePath} ({GetFileLength(templatePath)} bytes), " +
+                        $"Target={GetFileLength(template.TargetPath)} bytes.");
+                }
+
+                return upToDate;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.LogError($"[Evo Setup] Failed to compare scaffold script '{template.TargetPath}': {ex.Message}");
                 return false;
             }
         }
@@ -2095,6 +2116,7 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void UpdateScaffoldScriptsFromTemplates()
         {
+            Debug.Log("[Evo Setup] Force-updating scaffold scripts from templates...");
             var updated = new List<string>();
             var errors = new List<string>();
 
@@ -2694,8 +2716,25 @@ namespace Evo.Infrastructure.Core.Editor
                 var targetText = File.ReadAllText(targetPath);
                 if (string.Equals(NormalizeText(templateText), NormalizeText(targetText), StringComparison.Ordinal))
                 {
+                    Debug.Log($"[Evo Setup] Scaffold script already matches template: {targetPath}");
                     return;
                 }
+
+                if (LooksLikeLegacyMinimalScope(targetText))
+                {
+                    Debug.LogWarning($"[Evo Setup] Legacy/minimal scaffold script detected and will be replaced: {targetPath}");
+                }
+
+                Debug.Log(
+                    $"[Evo Setup] Replacing scaffold script from template: {targetPath}. " +
+                    $"Template={templatePath} ({GetTextByteCount(templateText)} bytes), " +
+                    $"ExistingTarget={GetTextByteCount(targetText)} bytes.");
+            }
+            else
+            {
+                Debug.Log(
+                    $"[Evo Setup] Creating scaffold script from template: {targetPath}. " +
+                    $"Template={templatePath} ({GetTextByteCount(templateText)} bytes).");
             }
 
             var directory = Path.GetDirectoryName(targetPath);
@@ -2705,7 +2744,28 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             File.WriteAllText(targetPath, templateText);
-            Debug.Log($"[Evo Setup] Synced scaffold script from template: {targetPath}");
+            Debug.Log($"[Evo Setup] Synced scaffold script from template: {targetPath}. NewTarget={GetFileLength(targetPath)} bytes.");
+        }
+
+        private static bool LooksLikeLegacyMinimalScope(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            return text.IndexOf("public class RuntimeProjectLifetimeScope", StringComparison.Ordinal) >= 0 ||
+                   text.IndexOf("public class LoadingSceneLifetimeScope", StringComparison.Ordinal) >= 0;
+        }
+
+        private static long GetFileLength(string path)
+        {
+            return File.Exists(path) ? new FileInfo(path).Length : 0L;
+        }
+
+        private static int GetTextByteCount(string text)
+        {
+            return string.IsNullOrEmpty(text) ? 0 : Encoding.UTF8.GetByteCount(text);
         }
 
         private static string GetTemplatePath(string templateFileName)
