@@ -19,7 +19,7 @@ namespace Evo.Infrastructure.Core.Editor
     public sealed class InfrastructureSetupWizardWindow : EditorWindow
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
-        private const string RuntimeGitTag = "v0.3.34";
+        private const string RuntimeGitTag = "v0.3.35";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
         private const string R3NuGetId = "R3";
         private const string R3NuGetVersion = "1.3.0";
@@ -579,7 +579,8 @@ namespace Evo.Infrastructure.Core.Editor
             AssetDatabase.Refresh();
             EnsureDefaultAssets();
             ConfigureStarterScenes();
-            EnsureMainMenuInAddressables();
+            EnsureStarterSceneInAddressables(LoadingScenePath, "LoadingScene");
+            EnsureStarterSceneInAddressables(MenuScenePath, "MainMenuScene");
             ConfigureProjectConfigForStarterPipeline();
             EnsureBuildScenes();
             ValidateAndFixBootstrapScopes();
@@ -1111,14 +1112,14 @@ namespace Evo.Infrastructure.Core.Editor
             return true;
         }
 
-        private static void EnsureMainMenuInAddressables()
+        private static void EnsureStarterSceneInAddressables(string scenePath, string address)
         {
-            if (!File.Exists(MenuScenePath))
+            if (string.IsNullOrWhiteSpace(scenePath) || !File.Exists(scenePath))
             {
                 return;
             }
 
-            var sceneGuid = AssetDatabase.AssetPathToGUID(MenuScenePath);
+            var sceneGuid = AssetDatabase.AssetPathToGUID(scenePath);
             if (string.IsNullOrEmpty(sceneGuid))
             {
                 return;
@@ -1223,7 +1224,9 @@ namespace Evo.Infrastructure.Core.Editor
             var addressProperty = entry.GetType().GetProperty("address", BindingFlags.Public | BindingFlags.Instance);
             if (addressProperty != null && addressProperty.CanWrite)
             {
-                addressProperty.SetValue(entry, "MainMenuScene");
+                addressProperty.SetValue(entry, string.IsNullOrWhiteSpace(address)
+                    ? Path.GetFileNameWithoutExtension(scenePath)
+                    : address);
             }
 
             EditorUtility.SetDirty((UnityEngine.Object)settings);
