@@ -65,6 +65,7 @@ namespace Evo.Infrastructure.Core.Editor
         private const string LoadingViewSystemTemplateName = "LoadingViewSystem.cs.txt";
         private const string ProjectScopeTypeName = "RuntimeProjectLifetimeScope";
         private const string OneClickStateKeyPrefix = "Evo.Infrastructure.Core.OneClickSetup.";
+        private const string OdinImportStateKeyPrefix = "Evo.Infrastructure.Core.OdinImportRequested.";
         private static readonly StarterScriptTemplate[] StarterScriptTemplates =
         {
             new(StarterRuntimeProjectLifetimeScopePath, RuntimeProjectLifetimeScopeTemplateName),
@@ -150,6 +151,8 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _scaffoldFinalizeQueued;
         private bool _reactiveRestoreRequested;
         private bool _stateAnalyzed;
+        private bool _odinImportRequested;
+        private bool _bootstrapValidationAttempted;
         private bool _installVContainer = true;
         private bool _installUniTask = true;
         private bool _installNuGetForUnity = true;
@@ -1783,6 +1786,11 @@ namespace Evo.Infrastructure.Core.Editor
                 _yandexInstalled = HasAnyPackage(packages, YandexPackageName, "com.evo.infrastructure.yandex") ||
                                    ManifestHasAnyDependency(YandexPackageName);
                 _odinInstalled = IsOdinInstalled();
+                if (_odinInstalled)
+                {
+                    _odinImportRequested = false;
+                    SessionState.SetBool(GetOdinImportStateKey(), false);
+                }
                 ReadReactivePackagesConfig(
                     out _r3InPackagesConfig,
                     out _observableCollectionsInPackagesConfig,
@@ -2187,6 +2195,8 @@ namespace Evo.Infrastructure.Core.Editor
             if (IsOdinInstalled())
             {
                 _odinInstalled = true;
+                _odinImportRequested = false;
+                SessionState.SetBool(GetOdinImportStateKey(), false);
                 _statusLine = "Odin Inspector is already installed.";
                 return true;
             }
@@ -2223,9 +2233,17 @@ namespace Evo.Infrastructure.Core.Editor
 
             _statusLine = $"Importing Odin package: {Path.GetFileName(path)}";
             Debug.Log("[Evo Setup] " + _statusLine);
+            _odinImportRequested = true;
+            SessionState.SetBool(GetOdinImportStateKey(), true);
             AssetDatabase.ImportPackage(path, false);
             AssetDatabase.Refresh();
             _odinInstalled = IsOdinInstalled();
+            if (_odinInstalled)
+            {
+                _odinImportRequested = false;
+                SessionState.SetBool(GetOdinImportStateKey(), false);
+            }
+
             return true;
         }
 
@@ -2643,6 +2661,7 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             _oneClickSetupRequested = true;
+            _bootstrapValidationAttempted = false;
             SessionState.SetBool(GetOneClickStateKey(), true);
             Debug.Log("[Evo Setup] Setup started.");
             _statusLine = "Setup started.";
@@ -2653,6 +2672,7 @@ namespace Evo.Infrastructure.Core.Editor
         private void ResumeOneClickSetupIfNeeded()
         {
             _oneClickSetupRequested = SessionState.GetBool(GetOneClickStateKey(), false);
+            _odinImportRequested = SessionState.GetBool(GetOdinImportStateKey(), false);
             if (_oneClickSetupRequested)
             {
                 _statusLine = "Resuming setup after domain reload...";
@@ -2776,6 +2796,13 @@ namespace Evo.Infrastructure.Core.Editor
 
             if (_setupStarterScaffold && !_bootstrapScopesReady)
             {
+                if (_bootstrapValidationAttempted)
+                {
+                    StopSetupWithError("Setup stopped: bootstrap scopes are still invalid after auto-fix. Check EntryPoint/MainMenu/Loading scenes.");
+                    return;
+                }
+
+                _bootstrapValidationAttempted = true;
                 _statusLine = "Setup: validating bootstrap scopes...";
                 Debug.Log("[Evo Setup] Validating bootstrap scopes...");
                 ValidateAndFixBootstrapScopes();
@@ -2784,6 +2811,13 @@ namespace Evo.Infrastructure.Core.Editor
 
             if (_installOdinPackage && !_odinInstalled)
             {
+                if (_odinImportRequested)
+                {
+                    _statusLine = "Setup: waiting for Odin import/domain reload...";
+                    QueueRefreshBurst();
+                    return;
+                }
+
                 _statusLine = "Setup: importing Odin package...";
                 Debug.Log("[Evo Setup] Importing Odin package...");
                 if (!TryImportOdinPackage(false))
@@ -2797,6 +2831,7 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             _oneClickSetupRequested = false;
+            _bootstrapValidationAttempted = false;
             SessionState.SetBool(GetOneClickStateKey(), false);
             if (_setupStarterScaffold)
             {
@@ -2916,6 +2951,11 @@ namespace Evo.Infrastructure.Core.Editor
         private static string GetOneClickStateKey()
         {
             return OneClickStateKeyPrefix + Application.dataPath.GetHashCode();
+        }
+
+        private static string GetOdinImportStateKey()
+        {
+            return OdinImportStateKeyPrefix + Application.dataPath.GetHashCode();
         }
 
         private readonly struct StarterScriptTemplate
