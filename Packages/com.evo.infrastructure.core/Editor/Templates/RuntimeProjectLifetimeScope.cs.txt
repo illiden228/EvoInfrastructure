@@ -1,15 +1,20 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using _Project.Scripts.Application.Loading;
 using _Project.Scripts.Application.UI;
+using _Project.Scripts.Infrastructure.Services.Ads;
+using _Project.Scripts.Infrastructure.Services.Analytics;
 using _Project.Scripts.Infrastructure.Services.Audio;
 using _Project.Scripts.Infrastructure.Services.Config;
 using _Project.Scripts.Infrastructure.Services.Focus;
+using _Project.Scripts.Infrastructure.Services.Leaderboard;
 using _Project.Scripts.Infrastructure.Services.Localization;
 using _Project.Scripts.Infrastructure.Services.PlatformInfo;
 using _Project.Scripts.Infrastructure.Services.ResourceCatalog;
 using _Project.Scripts.Infrastructure.Services.ResourceLoader;
 using _Project.Scripts.Infrastructure.Services.ResourceProvider;
+using _Project.Scripts.Infrastructure.Services.Save;
 using _Project.Scripts.Infrastructure.Services.SceneLoader;
 using _Project.Scripts.Infrastructure.Services.ScenePayload;
 using _Project.Scripts.Infrastructure.Services.UI;
@@ -52,12 +57,19 @@ namespace _Project.Scripts.Runtime.EntryPoint
             builder.Register<IScenePayloadService, ScenePayloadService>(Lifetime.Singleton);
             builder.Register<ILocalizationService, LocalizationService>(Lifetime.Singleton);
             builder.Register<IAudioService, AudioService>(Lifetime.Singleton);
+            builder.Register<IAdsService, AdsService>(Lifetime.Singleton);
+            builder.Register<IAnalyticsService, AnalyticsService>(Lifetime.Singleton);
+            builder.Register<ILeaderboardService, LeaderboardService>(Lifetime.Singleton);
+            builder.Register<ISaveService, SaveService>(Lifetime.Singleton);
+            builder.Register<ISaveBackend, FileSaveBackend>(Lifetime.Singleton);
 
             if (uiSystemConfig != null)
             {
                 builder.RegisterInstance(uiSystemConfig);
                 RegisterUiViewModels(builder, uiSystemConfig);
             }
+
+            RegisterOptionalYandex(builder);
 
             builder.Register<IUiService, UiService>(Lifetime.Singleton);
             builder.Register<ILoadingProgress, LoadingProgressReporter>(Lifetime.Singleton);
@@ -88,6 +100,47 @@ namespace _Project.Scripts.Runtime.EntryPoint
                 builder.Register(viewModelType, Lifetime.Transient);
                 registered.Add(viewModelType);
             }
+        }
+
+        private void RegisterOptionalYandex(IContainerBuilder builder)
+        {
+            var installerType = FindTypeByName("_Project.Scripts.Infrastructure.Services.Yandex.YandexRuntimeInstaller");
+            var registerMethod = installerType?.GetMethod("Register", BindingFlags.Public | BindingFlags.Static);
+            if (registerMethod == null)
+            {
+                return;
+            }
+
+            var parameters = registerMethod.GetParameters();
+            if (parameters.Length >= 2)
+            {
+                var configProvider = new ScriptableObjectConfigProvider(configCatalogs ?? Array.Empty<ScriptableConfigCatalog>());
+                var configService = new ConfigService(new IConfigProvider[] { configProvider });
+                registerMethod.Invoke(null, new object[] { builder, configService });
+                return;
+            }
+
+            registerMethod.Invoke(null, new object[] { builder });
+        }
+
+        private static Type FindTypeByName(string fullName)
+        {
+            if (string.IsNullOrWhiteSpace(fullName))
+            {
+                return null;
+            }
+
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            for (var i = 0; i < assemblies.Length; i++)
+            {
+                var type = assemblies[i].GetType(fullName, false);
+                if (type != null)
+                {
+                    return type;
+                }
+            }
+
+            return null;
         }
     }
 }

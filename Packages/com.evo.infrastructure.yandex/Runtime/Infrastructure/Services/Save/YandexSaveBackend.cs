@@ -32,7 +32,7 @@ namespace _Project.Scripts.Infrastructure.Services.Save
 
 #if YandexGamesPlatform_yg && Storage_yg
             await AwaitStorageDataAsync(cancellationToken);
-            var envelope = YG2.saves != null ? YG2.saves.blindShotSave : null;
+            var envelope = YG2.saves != null ? YG2.saves.evoSave : null;
             if (envelope == null || envelope.profile == null || envelope.schemaVersion <= 0)
             {
                 return null;
@@ -57,7 +57,7 @@ namespace _Project.Scripts.Infrastructure.Services.Save
                 YG2.saves = new SavesYG();
             }
 
-            YG2.saves.blindShotSave = envelope;
+            YG2.saves.evoSave = envelope;
             YG2.SaveProgress();
             return true;
 #else

@@ -11,3 +11,8 @@ Yandex-specific integrations for `com.evo.infrastructure.runtime`:
 ## Required in target project
 
 - Yandex Games plugin package and scripting define symbols (`YandexGamesPlatform_yg`, etc.).
+
+This package intentionally has no runtime asmdef. YG2 is usually installed into
+`Assets/PluginYourGames` without an asmdef, so a separate `Evo.Infrastructure.Yandex`
+assembly cannot reference it. The package compiles with the project scripts and
+registers adapters through `_Project.Scripts.Infrastructure.Services.Yandex.YandexRuntimeInstaller`.

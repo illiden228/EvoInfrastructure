@@ -1,3 +1,4 @@
+using _Project.Scripts.Infrastructure.Services.Ads;
 using _Project.Scripts.Infrastructure.Services.Config;
 
 namespace _Project.Scripts.Infrastructure.Services.Ads.Adapters

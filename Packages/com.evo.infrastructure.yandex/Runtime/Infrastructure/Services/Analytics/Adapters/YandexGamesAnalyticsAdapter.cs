@@ -3,6 +3,7 @@ using System.Collections.Generic;
 #if YandexGamesPlatform_yg
 using YG;
 #endif
+using _Project.Scripts.Infrastructure.Services.Analytics;
 using _Project.Scripts.Infrastructure.Services.Analytics.Config;
 using _Project.Scripts.Infrastructure.Services.Config;
 using _Project.Scripts.Infrastructure.Services.PlatformInfo;

@@ -18,7 +18,7 @@ namespace Evo.Infrastructure.Core.Editor
         private static void TryShowPrompt()
         {
             var promptKey = PromptKeyPrefix + Application.dataPath.GetHashCode() + "." + GetPackageStamp();
-            if (SessionState.GetBool(promptKey, false))
+            if (EditorPrefs.GetBool(promptKey, false))
             {
                 return;
             }
@@ -29,7 +29,7 @@ namespace Evo.Infrastructure.Core.Editor
                 "Open Wizard",
                 "Later");
 
-            SessionState.SetBool(promptKey, true);
+            EditorPrefs.SetBool(promptKey, true);
             if (open)
             {
                 InfrastructureSetupWizardWindow.OpenWindow();

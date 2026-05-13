@@ -1,3 +1,4 @@
+using _Project.Scripts.Infrastructure.Services.Leaderboard;
 using _Project.Scripts.Infrastructure.Services.PlatformInfo;
 #if YandexGamesPlatform_yg
 using YG;

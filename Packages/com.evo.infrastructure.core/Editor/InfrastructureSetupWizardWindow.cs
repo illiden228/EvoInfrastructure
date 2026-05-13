@@ -20,8 +20,8 @@ namespace Evo.Infrastructure.Core.Editor
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
         private const string YandexPackageName = "com.evo.infrastructure.yandex";
-        private const string RuntimeGitTag = "v0.3.38";
-        private const string YandexGitTag = "v0.3.38";
+        private const string RuntimeGitTag = "v0.3.39";
+        private const string YandexGitTag = "v0.3.39";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
         private const string YandexGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.yandex";
         private const string OdinPackagePathPrefsKey = "Evo.Infrastructure.Core.OdinPackagePath";
@@ -49,6 +49,7 @@ namespace Evo.Infrastructure.Core.Editor
         private const string UiSystemConfigPath = "Assets/_Project/Configs/UiSystemConfig.asset";
         private const string ConfigCatalogPath = "Assets/_Project/Configs/ScriptableConfigCatalog.asset";
         private const string ResourceCatalogPath = "Assets/_Project/Configs/ResourceCatalog.asset";
+        private const string YandexRuntimeConfigPath = "Assets/_Project/Configs/YandexRuntimeConfig.asset";
         private const string LifetimeScopePrefabPath = "Assets/_Project/Prefabs/Runtime/InfrastructureProjectLifetimeScope.prefab";
         private const string StarterRuntimeProjectLifetimeScopePath = "Assets/_Project/Scripts/Runtime/EntryPoint/RuntimeProjectLifetimeScope.cs";
         private const string StarterRuntimeEntryPointPath = "Assets/_Project/Scripts/Runtime/EntryPoint/RuntimeEntryPoint.cs";
@@ -916,6 +917,10 @@ namespace Evo.Infrastructure.Core.Editor
             CreateScriptableAsset(
                 "_Project.Scripts.Infrastructure.Services.ResourceCatalog.ResourceCatalog, Evo.Infrastructure.Runtime",
                 ResourceCatalogPath);
+            CreateScriptableAsset(
+                "_Project.Scripts.Infrastructure.Services.Yandex.YandexRuntimeConfig, Assembly-CSharp",
+                YandexRuntimeConfigPath);
+            RebuildConfigCatalog();
             CreateLifetimeScopePrefab();
         }
 
@@ -939,6 +944,25 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             AssetDatabase.CreateAsset(instance, assetPath);
+        }
+
+        private static void RebuildConfigCatalog()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<ScriptableObject>(ConfigCatalogPath);
+            if (catalog == null)
+            {
+                return;
+            }
+
+            var rebuildMethod = catalog.GetType().GetMethod("RebuildFromFolders", BindingFlags.Public | BindingFlags.Instance);
+            if (rebuildMethod == null)
+            {
+                return;
+            }
+
+            rebuildMethod.Invoke(catalog, Array.Empty<object>());
+            EditorUtility.SetDirty(catalog);
+            AssetDatabase.SaveAssets();
         }
 
         private void CreateLifetimeScopePrefab()
