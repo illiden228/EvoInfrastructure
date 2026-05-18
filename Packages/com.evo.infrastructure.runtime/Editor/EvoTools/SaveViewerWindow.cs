@@ -435,7 +435,9 @@ namespace Evo.Infrastructure.Editor.EvoTools
 
         private void SyncRawJsonFromEnvelope()
         {
-            EnsureEnvelope();
+            envelope ??= new SaveEnvelope();
+            envelope.schemaVersion = envelope.schemaVersion > 0 ? envelope.schemaVersion : 1;
+            envelope.payloads ??= new List<SavePayloadData>();
             rawEnvelopeJson = JsonUtility.ToJson(envelope, true);
         }
 
@@ -463,7 +465,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
             envelope.payloads ??= new List<SavePayloadData>();
             if (string.IsNullOrWhiteSpace(rawEnvelopeJson))
             {
-                SyncRawJsonFromEnvelope();
+                rawEnvelopeJson = JsonUtility.ToJson(envelope, true);
             }
         }
 

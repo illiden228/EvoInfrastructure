@@ -20,6 +20,7 @@ namespace Evo.Infrastructure.Services.Audio
 #endif
         [SerializeField] private AssetReferenceAudio clip;
 
+        public string Id => CueName;
         public string CueName => cueName;
         public AssetReferenceAudio Clip => clip;
         public bool HasClip => clip != null && !string.IsNullOrEmpty(clip.AssetGUID);
@@ -65,32 +66,6 @@ namespace Evo.Infrastructure.Services.Audio
             };
         }
 
-#if ODIN_INSPECTOR
-        [GUIColor(1f, 0.45f, 0.45f)]
-        [Button(ButtonSizes.Small, Name = "Delete", Icon = SdfIconType.Trash)]
-#endif
-        private void DeleteAsset()
-        {
-            var path = AssetDatabase.GetAssetPath(this);
-            if (string.IsNullOrEmpty(path))
-            {
-                return;
-            }
-
-            var confirmed = EditorUtility.DisplayDialog(
-                "Delete Audio Cue Key",
-                $"Delete asset '{name}'?\nThis action cannot be undone.",
-                "Delete",
-                "Cancel");
-
-            if (!confirmed)
-            {
-                return;
-            }
-
-            AssetDatabase.DeleteAsset(path);
-            AssetDatabase.SaveAssets();
-        }
 #endif
     }
 }
