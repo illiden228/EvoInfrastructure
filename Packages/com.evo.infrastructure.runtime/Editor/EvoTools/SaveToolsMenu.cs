@@ -14,8 +14,7 @@ namespace _Project.Scripts.Editor.EvoTools
         private const string SETTINGS_ASSET_NAME = "EvoToolsSettings.asset";
         private static readonly string[] DefaultSaveKeys =
         {
-            "BLINDSHOT_SAVE_FULL_PREFS",
-            "BLINDSHOT_SAVE_FULL_YG_CACHE"
+            _Project.Scripts.Infrastructure.Services.Save.SaveStorageDefaults.PlayerPrefsKey
         };
 
         [MenuItem(MENU_CLEAR_SAVE, false, 80)]
@@ -24,7 +23,7 @@ namespace _Project.Scripts.Editor.EvoTools
             var title = EvoToolsLocalization.Get("save_tools.clear.title", "Clear Save");
             var message = EvoToolsLocalization.Get(
                 "save_tools.clear.confirm",
-                "Delete local profile save file and cached save keys?");
+                "Delete local save file and cached save keys?");
             var confirm = GetDialogButtonText("save_tools.clear.confirm_button", "Clear");
             var cancel = GetDialogButtonText("save_tools.clear.cancel_button", "Cancel");
 
@@ -36,7 +35,7 @@ namespace _Project.Scripts.Editor.EvoTools
             var settings = LoadOrCreateSettings();
             var saveFileName = settings != null && !string.IsNullOrWhiteSpace(settings.SaveFileName)
                 ? settings.SaveFileName
-                : "save.json";
+                : _Project.Scripts.Infrastructure.Services.Save.SaveStorageDefaults.FileName;
             var saveKeys = settings?.PlayerPrefsSaveKeys != null && settings.PlayerPrefsSaveKeys.Count > 0
                 ? settings.PlayerPrefsSaveKeys
                 : DefaultSaveKeys;

@@ -61,6 +61,7 @@ namespace _Project.Scripts.Runtime.EntryPoint
             builder.Register<IAnalyticsService, AnalyticsService>(Lifetime.Singleton);
             builder.Register<ILeaderboardService, LeaderboardService>(Lifetime.Singleton);
             builder.Register<ISaveService, SaveService>(Lifetime.Singleton);
+            builder.RegisterInstance(new SaveStorageOptions());
             builder.Register<ISaveBackend, FileSaveBackend>(Lifetime.Singleton);
 
             if (uiSystemConfig != null)

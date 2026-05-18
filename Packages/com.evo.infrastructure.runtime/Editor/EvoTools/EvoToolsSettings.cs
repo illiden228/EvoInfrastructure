@@ -8,11 +8,10 @@ namespace _Project.Scripts.Editor.EvoTools
     public sealed class EvoToolsSettings : ScriptableObject
     {
         [SerializeField] private Locale locale;
-        [SerializeField] private string saveFileName = "save.json";
+        [SerializeField] private string saveFileName = _Project.Scripts.Infrastructure.Services.Save.SaveStorageDefaults.FileName;
         [SerializeField] private string[] playerPrefsSaveKeys =
         {
-            "BLINDSHOT_SAVE_FULL_PREFS",
-            "BLINDSHOT_SAVE_FULL_YG_CACHE"
+            _Project.Scripts.Infrastructure.Services.Save.SaveStorageDefaults.PlayerPrefsKey
         };
 
         public Locale Locale => locale;

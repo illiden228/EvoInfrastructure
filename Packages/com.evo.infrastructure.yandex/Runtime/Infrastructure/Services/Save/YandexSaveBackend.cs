@@ -33,7 +33,7 @@ namespace _Project.Scripts.Infrastructure.Services.Save
 #if YandexGamesPlatform_yg && Storage_yg
             await AwaitStorageDataAsync(cancellationToken);
             var envelope = YG2.saves != null ? YG2.saves.evoSave : null;
-            if (envelope == null || envelope.profile == null || envelope.schemaVersion <= 0)
+            if (envelope == null || envelope.schemaVersion <= 0)
             {
                 return null;
             }

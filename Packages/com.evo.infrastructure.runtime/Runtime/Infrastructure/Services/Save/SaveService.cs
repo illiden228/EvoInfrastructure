@@ -25,13 +25,13 @@ namespace _Project.Scripts.Infrastructure.Services.Save
         {
             SaveEnvelope selected = null;
             var selectedPriority = int.MinValue;
-            var activeBackends = GetActiveBackends();
+            var useYandexOnly = HasAvailableBackend(YANDEX_BACKEND_ID);
 
-            for (var i = 0; i < activeBackends.Count; i++)
+            for (var i = 0; i < _backends.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var backend = activeBackends[i];
-                if (backend == null)
+                var backend = _backends[i];
+                if (!ShouldUseBackend(backend, useYandexOnly))
                 {
                     continue;
                 }
@@ -68,12 +68,12 @@ namespace _Project.Scripts.Infrastructure.Services.Save
             }
 
             envelope.updatedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var activeBackends = GetActiveBackends();
-            for (var i = 0; i < activeBackends.Count; i++)
+            var useYandexOnly = HasAvailableBackend(YANDEX_BACKEND_ID);
+            for (var i = 0; i < _backends.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var backend = activeBackends[i];
-                if (backend == null)
+                var backend = _backends[i];
+                if (!ShouldUseBackend(backend, useYandexOnly))
                 {
                     continue;
                 }
@@ -89,16 +89,70 @@ namespace _Project.Scripts.Infrastructure.Services.Save
             }
         }
 
-        private static bool IsValid(SaveEnvelope envelope)
+        public async UniTask<T> LoadPayloadAsync<T>(System.Threading.CancellationToken cancellationToken = default)
+            where T : class
         {
-            return envelope != null && envelope.schemaVersion > 0 && envelope.profile != null;
+            return await LoadPayloadAsync<T>(SaveEnvelope.GetDefaultPayloadKey<T>(), cancellationToken);
         }
 
-        private List<ISaveBackend> GetActiveBackends()
+        public async UniTask<T> LoadPayloadAsync<T>(string key, System.Threading.CancellationToken cancellationToken = default)
+            where T : class
         {
-            var active = new List<ISaveBackend>(_backends.Count);
-            var hasYandex = false;
+            var envelope = await LoadLatestValidAsync(cancellationToken);
+            return envelope != null && envelope.TryGetPayload<T>(key, out var payload)
+                ? payload
+                : default;
+        }
 
+        public async UniTask<string> LoadPayloadJsonAsync(
+            string key,
+            System.Threading.CancellationToken cancellationToken = default)
+        {
+            var envelope = await LoadLatestValidAsync(cancellationToken);
+            return envelope != null && envelope.TryGetPayloadJson(key, out var json)
+                ? json
+                : null;
+        }
+
+        public async UniTask SavePayloadAsync<T>(
+            T payload,
+            int version = 1,
+            System.Threading.CancellationToken cancellationToken = default)
+            where T : class
+        {
+            await SavePayloadAsync(SaveEnvelope.GetDefaultPayloadKey<T>(), payload, version, cancellationToken);
+        }
+
+        public async UniTask SavePayloadAsync<T>(
+            string key,
+            T payload,
+            int version = 1,
+            System.Threading.CancellationToken cancellationToken = default)
+            where T : class
+        {
+            var envelope = await LoadLatestValidAsync(cancellationToken) ?? new SaveEnvelope();
+            envelope.SetPayload(key, payload, version);
+            await SaveAsync(envelope, cancellationToken);
+        }
+
+        public async UniTask SavePayloadJsonAsync(
+            string key,
+            string json,
+            int version = 1,
+            System.Threading.CancellationToken cancellationToken = default)
+        {
+            var envelope = await LoadLatestValidAsync(cancellationToken) ?? new SaveEnvelope();
+            envelope.SetPayloadJson(key, json, version);
+            await SaveAsync(envelope, cancellationToken);
+        }
+
+        private static bool IsValid(SaveEnvelope envelope)
+        {
+            return envelope != null && envelope.schemaVersion > 0;
+        }
+
+        private bool HasAvailableBackend(string backendId)
+        {
             for (var i = 0; i < _backends.Count; i++)
             {
                 var backend = _backends[i];
@@ -107,31 +161,24 @@ namespace _Project.Scripts.Infrastructure.Services.Save
                     continue;
                 }
 
-                if (string.Equals(backend.BackendId, YANDEX_BACKEND_ID, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(backend.BackendId, backendId, StringComparison.OrdinalIgnoreCase))
                 {
-                    hasYandex = true;
-                    break;
+                    return true;
                 }
             }
 
-            for (var i = 0; i < _backends.Count; i++)
+            return false;
+        }
+
+        private static bool ShouldUseBackend(ISaveBackend backend, bool useYandexOnly)
+        {
+            if (backend == null || !backend.IsAvailable)
             {
-                var backend = _backends[i];
-                if (backend == null || !backend.IsAvailable)
-                {
-                    continue;
-                }
-
-                if (hasYandex &&
-                    !string.Equals(backend.BackendId, YANDEX_BACKEND_ID, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                active.Add(backend);
+                return false;
             }
 
-            return active;
+            return !useYandexOnly ||
+                   string.Equals(backend.BackendId, YANDEX_BACKEND_ID, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

@@ -293,7 +293,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 814095560335372
-    m_Localized: Delete local profile save file and cached save keys?
+    m_Localized: Delete local save file and cached save keys?
     m_Metadata:
       m_Items: []
   - m_Id: 814095560335373

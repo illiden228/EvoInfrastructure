@@ -8,7 +8,15 @@ namespace _Project.Scripts.Infrastructure.Services.Save
 {
     public sealed class PrefsSaveBackend : ISaveBackend
     {
-        private const string SAVE_KEY = "BLINDSHOT_SAVE_FULL_PREFS";
+        private readonly string _saveKey;
+
+        public PrefsSaveBackend(SaveStorageOptions options = null)
+        {
+            _saveKey = !string.IsNullOrWhiteSpace(options?.playerPrefsKey)
+                ? options.playerPrefsKey
+                : SaveStorageDefaults.PlayerPrefsKey;
+        }
+
         public string BackendId => "prefs";
         public int Priority => 10;
         public bool IsAvailable => true;
@@ -16,12 +24,12 @@ namespace _Project.Scripts.Infrastructure.Services.Save
         public async UniTask<SaveEnvelope> LoadAsync(System.Threading.CancellationToken cancellationToken = default)
         {
             await UniTask.SwitchToMainThread(cancellationToken);
-            if (!PlayerPrefs.HasKey(SAVE_KEY))
+            if (!PlayerPrefs.HasKey(_saveKey))
             {
                 return null;
             }
 
-            var json = PlayerPrefs.GetString(SAVE_KEY, string.Empty);
+            var json = PlayerPrefs.GetString(_saveKey, string.Empty);
             if (string.IsNullOrWhiteSpace(json))
             {
                 return null;
@@ -34,7 +42,7 @@ namespace _Project.Scripts.Infrastructure.Services.Save
         {
             await UniTask.SwitchToMainThread(cancellationToken);
             var json = JsonUtility.ToJson(envelope);
-            PlayerPrefs.SetString(SAVE_KEY, json);
+            PlayerPrefs.SetString(_saveKey, json);
             PlayerPrefs.Save();
             return true;
         }
@@ -42,10 +50,18 @@ namespace _Project.Scripts.Infrastructure.Services.Save
 
     public sealed class FileSaveBackend : ISaveBackend
     {
-        private const string FILE_NAME = "save.json";
         private const int MAX_IO_ATTEMPTS = 3;
         private const int IO_RETRY_DELAY_MS = 50;
         private static readonly SemaphoreSlim FileIoLock = new(1, 1);
+        private readonly string _fileName;
+
+        public FileSaveBackend(SaveStorageOptions options = null)
+        {
+            _fileName = !string.IsNullOrWhiteSpace(options?.fileName)
+                ? options.fileName
+                : SaveStorageDefaults.FileName;
+        }
+
         public string BackendId => "file";
         public int Priority => 20;
         public bool IsAvailable =>
@@ -55,9 +71,9 @@ namespace _Project.Scripts.Infrastructure.Services.Save
             true;
 #endif
 
-        private static string BuildFilePath()
+        private string BuildFilePath()
         {
-            return Path.Combine(UnityEngine.Application.persistentDataPath, FILE_NAME);
+            return Path.Combine(UnityEngine.Application.persistentDataPath, _fileName);
         }
 
         public async UniTask<SaveEnvelope> LoadAsync(System.Threading.CancellationToken cancellationToken = default)
