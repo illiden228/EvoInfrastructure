@@ -11,6 +11,8 @@ namespace Evo.Infrastructure.Editor.EvoTools
     {
         private const string MenuPath = "EvoTools/Save Viewer";
         private const string EditorPrefsPrefix = "EvoTools.SaveViewer.";
+        private const float MinJsonHeight = 72f;
+        private const float MaxJsonHeight = 520f;
 
         [SerializeField] private string fileName = SaveStorageDefaults.FileName;
         [SerializeField] private string playerPrefsKey = SaveStorageDefaults.PlayerPrefsKey;
@@ -18,8 +20,12 @@ namespace Evo.Infrastructure.Editor.EvoTools
         [SerializeField] private string rawEnvelopeJson = string.Empty;
         [SerializeField] private Vector2 scrollPosition;
         [SerializeField] private Vector2 fileListScrollPosition;
+        [SerializeField] private Vector2 rawJsonScrollPosition;
+        [SerializeField] private float payloadJsonHeight = 120f;
+        [SerializeField] private float rawJsonHeight = 220f;
 
         private readonly List<string> files = new();
+        private readonly List<Vector2> payloadJsonScrollPositions = new();
         private GUIStyle jsonTextAreaStyle;
         private string statusMessage = string.Empty;
         private MessageType statusType = MessageType.Info;
@@ -28,7 +34,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
         public static void Open()
         {
             var window = GetWindow<SaveViewerWindow>("Save Viewer");
-            window.minSize = new Vector2(620f, 520f);
+            window.minSize = new Vector2(720f, 560f);
             window.Show();
         }
 
@@ -200,6 +206,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("Payloads", EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
+            payloadJsonHeight = EditorGUILayout.Slider(payloadJsonHeight, MinJsonHeight, MaxJsonHeight, GUILayout.Width(190f));
             if (GUILayout.Button("Add Payload", GUILayout.Width(120f)))
             {
                 envelope.payloads.Add(new SavePayloadData { key = "default", version = 1, json = "{}" });
@@ -207,6 +214,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
             }
 
             EditorGUILayout.EndHorizontal();
+            EnsurePayloadScrollCount(envelope.payloads.Count);
 
             for (var i = 0; i < envelope.payloads.Count; i++)
             {
@@ -232,7 +240,9 @@ namespace Evo.Infrastructure.Editor.EvoTools
                 EditorGUILayout.EndHorizontal();
                 payload.version = Mathf.Max(1, EditorGUILayout.IntField("Version", payload.version));
                 EditorGUILayout.LabelField("Json");
-                payload.json = EditorGUILayout.TextArea(payload.json ?? string.Empty, jsonTextAreaStyle, GUILayout.MinHeight(72f));
+                var payloadScroll = payloadJsonScrollPositions[i];
+                payload.json = DrawScrollableTextArea(payload.json ?? string.Empty, ref payloadScroll, payloadJsonHeight);
+                payloadJsonScrollPositions[i] = payloadScroll;
                 EditorGUILayout.EndVertical();
             }
         }
@@ -240,8 +250,13 @@ namespace Evo.Infrastructure.Editor.EvoTools
         private void DrawRawJson()
         {
             EditorGUILayout.Space(6f);
+            EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("Raw Envelope Json", EditorStyles.boldLabel);
-            rawEnvelopeJson = EditorGUILayout.TextArea(rawEnvelopeJson ?? string.Empty, jsonTextAreaStyle, GUILayout.MinHeight(140f));
+            GUILayout.FlexibleSpace();
+            rawJsonHeight = EditorGUILayout.Slider(rawJsonHeight, MinJsonHeight, MaxJsonHeight, GUILayout.Width(190f));
+            EditorGUILayout.EndHorizontal();
+
+            rawEnvelopeJson = DrawScrollableTextArea(rawEnvelopeJson ?? string.Empty, ref rawJsonScrollPosition, rawJsonHeight);
 
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("Copy From Envelope"))
@@ -304,6 +319,15 @@ namespace Evo.Infrastructure.Editor.EvoTools
                     EditorGUILayout.HelpBox($"Duplicate payload key: {payload.key}", MessageType.Warning);
                 }
             }
+        }
+
+        private string DrawScrollableTextArea(string value, ref Vector2 scroll, float height)
+        {
+            var rect = EditorGUILayout.GetControlRect(false, Mathf.Clamp(height, MinJsonHeight, MaxJsonHeight), GUILayout.ExpandWidth(true));
+            scroll = GUI.BeginScrollView(rect, scroll, new Rect(0f, 0f, Mathf.Max(rect.width - 18f, 1f), Mathf.Max(height - 4f, jsonTextAreaStyle.CalcHeight(new GUIContent(value), Mathf.Max(rect.width - 22f, 1f)))));
+            var next = EditorGUI.TextArea(new Rect(0f, 0f, Mathf.Max(rect.width - 22f, 1f), Mathf.Max(height - 4f, jsonTextAreaStyle.CalcHeight(new GUIContent(value), Mathf.Max(rect.width - 22f, 1f)))), value, jsonTextAreaStyle);
+            GUI.EndScrollView();
+            return next;
         }
 
         private void LoadFromFile()
@@ -463,9 +487,23 @@ namespace Evo.Infrastructure.Editor.EvoTools
             envelope ??= new SaveEnvelope();
             envelope.schemaVersion = envelope.schemaVersion > 0 ? envelope.schemaVersion : 1;
             envelope.payloads ??= new List<SavePayloadData>();
+            EnsurePayloadScrollCount(envelope.payloads.Count);
             if (string.IsNullOrWhiteSpace(rawEnvelopeJson))
             {
                 rawEnvelopeJson = JsonUtility.ToJson(envelope, true);
+            }
+        }
+
+        private void EnsurePayloadScrollCount(int count)
+        {
+            while (payloadJsonScrollPositions.Count < count)
+            {
+                payloadJsonScrollPositions.Add(Vector2.zero);
+            }
+
+            while (payloadJsonScrollPositions.Count > count)
+            {
+                payloadJsonScrollPositions.RemoveAt(payloadJsonScrollPositions.Count - 1);
             }
         }
 
@@ -509,7 +547,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
         {
             jsonTextAreaStyle ??= new GUIStyle(EditorStyles.textArea)
             {
-                wordWrap = false
+                wordWrap = true
             };
         }
     }

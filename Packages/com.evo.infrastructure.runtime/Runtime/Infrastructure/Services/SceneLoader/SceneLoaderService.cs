@@ -13,12 +13,13 @@ namespace Evo.Infrastructure.Services.SceneLoader
 {
     public sealed class SceneLoaderService : ISceneLoaderService
     {
-        private const float SCENE_LOAD_TIMEOUT_SECONDS = 45f;
         private static long _loadOperationSequence;
 
         private readonly IResourceLoaderService _resourceLoader;
+        private readonly SceneLoaderOptions _options;
         private string _lastSceneKey;
         private AssetReference _lastSceneReference;
+        private bool _isApplicationFocused = true;
 
         public event Action<SceneLoadInfo> SceneLoadStarted;
         public event Action<SceneLoadProgress> SceneLoadProgress;
@@ -27,10 +28,18 @@ namespace Evo.Infrastructure.Services.SceneLoader
         public string CurrentSceneName { get; private set; }
 
         public SceneLoaderService(IResourceLoaderService resourceLoader)
+            : this(resourceLoader, null)
+        {
+        }
+
+        public SceneLoaderService(IResourceLoaderService resourceLoader, SceneLoaderOptions options)
         {
             _resourceLoader = resourceLoader ?? throw new ArgumentNullException(nameof(resourceLoader));
+            _options = NormalizeOptions(options);
+            _isApplicationFocused = UnityEngine.Application.isFocused;
             CurrentSceneName = SceneManager.GetActiveScene().name;
             SceneManager.activeSceneChanged += OnActiveSceneChanged;
+            UnityEngine.Application.focusChanged += OnApplicationFocusChanged;
         }
 
         public UniTask<SceneInstance> LoadAsync(
@@ -54,13 +63,15 @@ namespace Evo.Infrastructure.Services.SceneLoader
                 priority,
                 SceneLoadSource.Key,
                 forceReload);
-            var handle = _resourceLoader.LoadSceneHandle(
-                key,
-                mode,
-                activateOnLoad,
-                priority,
-                forceReload);
-            return LoadWithEvents(handle, info, cancellationToken);
+            return LoadWithRetry(
+                () => _resourceLoader.LoadSceneHandle(
+                    key,
+                    mode,
+                    activateOnLoad,
+                    priority,
+                    forceReload),
+                info,
+                cancellationToken);
         }
 
         public UniTask<SceneInstance> LoadAsync(
@@ -85,13 +96,15 @@ namespace Evo.Infrastructure.Services.SceneLoader
                 priority,
                 SceneLoadSource.Reference,
                 forceReload);
-            var handle = _resourceLoader.LoadSceneHandle(
-                reference,
-                mode,
-                activateOnLoad,
-                priority,
-                forceReload);
-            return LoadWithEvents(handle, info, cancellationToken);
+            return LoadWithRetry(
+                () => _resourceLoader.LoadSceneHandle(
+                    reference,
+                    mode,
+                    activateOnLoad,
+                    priority,
+                    forceReload),
+                info,
+                cancellationToken);
         }
 
         public UniTask UnloadAsync(string key, CancellationToken cancellationToken = default)
@@ -150,13 +163,15 @@ namespace Evo.Infrastructure.Services.SceneLoader
                             100,
                             SceneLoadSource.Reference,
                             true);
-                        var handle = _resourceLoader.LoadSceneHandle(
-                            _lastSceneReference,
-                            LoadSceneMode.Single,
-                            true,
-                            100,
-                            true);
-                        await LoadWithEvents(handle, info, cancellationToken);
+                        await LoadWithRetry(
+                            () => _resourceLoader.LoadSceneHandle(
+                                _lastSceneReference,
+                                LoadSceneMode.Single,
+                                true,
+                                100,
+                                true),
+                            info,
+                            cancellationToken);
                         return;
                     }
                     catch (Exception ex)
@@ -179,13 +194,15 @@ namespace Evo.Infrastructure.Services.SceneLoader
                         100,
                         SceneLoadSource.Key,
                         true);
-                    var handle = _resourceLoader.LoadSceneHandle(
-                        _lastSceneKey,
-                        LoadSceneMode.Single,
-                        true,
-                        100,
-                        true);
-                    await LoadWithEvents(handle, info, cancellationToken);
+                    await LoadWithRetry(
+                        () => _resourceLoader.LoadSceneHandle(
+                            _lastSceneKey,
+                            LoadSceneMode.Single,
+                            true,
+                            100,
+                            true),
+                        info,
+                        cancellationToken);
                     return;
                 }
                 catch (Exception ex)
@@ -205,9 +222,58 @@ namespace Evo.Infrastructure.Services.SceneLoader
             await LoadViaSceneManager(activeScene.name, cancellationToken);
         }
 
+        private async UniTask<SceneInstance> LoadWithRetry(
+            Func<AsyncOperationHandle<SceneInstance>> createHandle,
+            SceneLoadInfo info,
+            CancellationToken cancellationToken)
+        {
+            var attempts = Math.Max(0, _options.retryCount) + 1;
+            Exception lastException = null;
+
+            for (var attempt = 1; attempt <= attempts; attempt++)
+            {
+                var handle = createHandle();
+                try
+                {
+                    return await LoadWithEvents(handle, info, attempt, attempts, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (TimeoutException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                    if (attempt >= attempts)
+                    {
+                        break;
+                    }
+
+                    EvoDebug.LogWarning(
+                        $"[SceneLoad] Attempt {attempt}/{attempts} failed for key '{info.SceneKey}'. Retrying. {ex.GetType().Name}: {ex.Message}",
+                        nameof(SceneLoaderService));
+
+                    if (_options.retryDelaySeconds > 0f)
+                    {
+                        await UniTask.Delay(
+                            TimeSpan.FromSeconds(_options.retryDelaySeconds),
+                            cancellationToken: cancellationToken);
+                    }
+                }
+            }
+
+            throw lastException ?? new InvalidOperationException($"Scene load failed for key '{info.SceneKey}'.");
+        }
+
         private async UniTask<SceneInstance> LoadWithEvents(
             AsyncOperationHandle<SceneInstance> handle,
             SceneLoadInfo info,
+            int attempt,
+            int attempts,
             CancellationToken cancellationToken)
         {
             var operationId = Interlocked.Increment(ref _loadOperationSequence);
@@ -217,7 +283,8 @@ namespace Evo.Infrastructure.Services.SceneLoader
             EvoDebug.Log(
                 $"[SceneLoad:{operationId}] START ts={startedAtUtc:O} key='{info.SceneKey}' mode={info.Mode} " +
                 $"activateOnLoad={info.ActivateOnLoad} priority={info.Priority} source={info.Source} " +
-                $"isReload={info.IsReload} handleValid={handle.IsValid()} status={(handle.IsValid() ? handle.Status.ToString() : "Invalid")}",
+                $"isReload={info.IsReload} attempt={attempt}/{attempts} handleValid={handle.IsValid()} " +
+                $"status={(handle.IsValid() ? handle.Status.ToString() : "Invalid")}",
                 nameof(SceneLoaderService));
 
             SceneLoadStarted?.Invoke(info);
@@ -225,7 +292,7 @@ namespace Evo.Infrastructure.Services.SceneLoader
 
             try
             {
-                await AwaitHandleCompletionAsync(handle, info, operationId, SCENE_LOAD_TIMEOUT_SECONDS, cancellationToken);
+                await AwaitHandleCompletionAsync(handle, info, operationId, cancellationToken);
 
                 var loadDoneAtUtc = DateTime.UtcNow;
                 var loadedScene = handle.Result.Scene;
@@ -275,23 +342,49 @@ namespace Evo.Infrastructure.Services.SceneLoader
             }
         }
 
-        private static async UniTask AwaitHandleCompletionAsync(
+        private async UniTask AwaitHandleCompletionAsync(
             AsyncOperationHandle<SceneInstance> handle,
             SceneLoadInfo info,
             long operationId,
-            float timeoutSeconds,
             CancellationToken cancellationToken)
         {
             var startedAtUtc = DateTime.UtcNow;
-            var stopwatch = Stopwatch.StartNew();
+            var activeElapsedSeconds = 0f;
+            var finalizationElapsedSeconds = 0f;
+            var lastTickUtc = DateTime.UtcNow;
+            var finalizationWarningLogged = false;
             while (!handle.IsDone)
             {
-                if (stopwatch.Elapsed.TotalSeconds >= timeoutSeconds)
+                var nowUtc = DateTime.UtcNow;
+                var deltaSeconds = Math.Max(0f, (float)(nowUtc - lastTickUtc).TotalSeconds);
+                lastTickUtc = nowUtc;
+
+                var countTimeout = ShouldCountTimeoutSeconds();
+                if (countTimeout)
+                {
+                    activeElapsedSeconds += deltaSeconds;
+                    if (IsWaitingForFinalization(handle))
+                    {
+                        finalizationElapsedSeconds += deltaSeconds;
+                        if (!finalizationWarningLogged)
+                        {
+                            finalizationWarningLogged = true;
+                            EvoDebug.LogWarning(
+                                $"[SceneLoad:{operationId}] Scene handle reached progress={handle.PercentComplete:0.000} " +
+                                $"for key '{info.SceneKey}' but is not done yet. Waiting for Addressables/Unity finalization.",
+                                nameof(SceneLoaderService));
+                        }
+                    }
+                }
+
+                if (ShouldTimeout(handle, activeElapsedSeconds, finalizationElapsedSeconds))
                 {
                     throw new TimeoutException(
-                        $"Scene handle wait exceeded {timeoutSeconds:0.###}s for key '{info.SceneKey}' " +
-                        $"(mode={info.Mode}, activateOnLoad={info.ActivateOnLoad}, status={handle.Status}, " +
-                        $"percent={handle.PercentComplete:0.000}, startedAt={startedAtUtc:O}, operationId={operationId}).");
+                        $"Scene handle wait exceeded active timeout for key '{info.SceneKey}' " +
+                        $"(mode={info.Mode}, activateOnLoad={info.ActivateOnLoad}, status={GetHandleStatus(handle)}, " +
+                        $"percent={GetHandleProgress(handle):0.000}, activeElapsed={activeElapsedSeconds:0.###}, " +
+                        $"finalizationElapsed={finalizationElapsedSeconds:0.###}, startedAt={startedAtUtc:O}, " +
+                        $"operationId={operationId}).");
                 }
 
                 await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
@@ -302,6 +395,54 @@ namespace Evo.Infrastructure.Services.SceneLoader
                 throw handle.OperationException ?? new InvalidOperationException(
                     "Scene load operation failed without explicit exception.");
             }
+        }
+
+        private bool ShouldCountTimeoutSeconds()
+        {
+            if (!_options.enableTimeout)
+            {
+                return false;
+            }
+
+            return !_options.ignoreTimeoutWhenApplicationNotFocused ||
+                   _isApplicationFocused ||
+                   UnityEngine.Application.runInBackground;
+        }
+
+        private bool IsWaitingForFinalization(AsyncOperationHandle<SceneInstance> handle)
+        {
+            return handle.IsValid() &&
+                   handle.Status == AsyncOperationStatus.None &&
+                   handle.PercentComplete >= _options.completedProgressThreshold;
+        }
+
+        private static string GetHandleStatus(AsyncOperationHandle<SceneInstance> handle)
+        {
+            return handle.IsValid() ? handle.Status.ToString() : "Invalid";
+        }
+
+        private static float GetHandleProgress(AsyncOperationHandle<SceneInstance> handle)
+        {
+            return handle.IsValid() ? handle.PercentComplete : 0f;
+        }
+
+        private bool ShouldTimeout(
+            AsyncOperationHandle<SceneInstance> handle,
+            float activeElapsedSeconds,
+            float finalizationElapsedSeconds)
+        {
+            if (!_options.enableTimeout)
+            {
+                return false;
+            }
+
+            if (IsWaitingForFinalization(handle))
+            {
+                return _options.finalizationTimeoutSeconds > 0f &&
+                       finalizationElapsedSeconds >= _options.finalizationTimeoutSeconds;
+            }
+
+            return _options.timeoutSeconds > 0f && activeElapsedSeconds >= _options.timeoutSeconds;
         }
 
         private async UniTask LoadViaSceneManager(string sceneName, CancellationToken cancellationToken)
@@ -388,6 +529,22 @@ namespace Evo.Infrastructure.Services.SceneLoader
         {
             CurrentSceneName = nextScene.name;
             ActiveSceneChanged?.Invoke(CurrentSceneName);
+        }
+
+        private void OnApplicationFocusChanged(bool hasFocus)
+        {
+            _isApplicationFocused = hasFocus;
+        }
+
+        private static SceneLoaderOptions NormalizeOptions(SceneLoaderOptions options)
+        {
+            options ??= new SceneLoaderOptions();
+            options.timeoutSeconds = Math.Max(0f, options.timeoutSeconds);
+            options.finalizationTimeoutSeconds = Math.Max(options.timeoutSeconds, options.finalizationTimeoutSeconds);
+            options.completedProgressThreshold = Math.Max(0.5f, Math.Min(1f, options.completedProgressThreshold));
+            options.retryCount = Math.Max(0, options.retryCount);
+            options.retryDelaySeconds = Math.Max(0f, options.retryDelaySeconds);
+            return options;
         }
     }
 }

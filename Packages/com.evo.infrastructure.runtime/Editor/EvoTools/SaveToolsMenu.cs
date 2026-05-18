@@ -1,5 +1,7 @@
 using System.IO;
+using System.Collections.Generic;
 using Evo.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.Save;
 using UnityEditor;
 using UnityEngine;
 
@@ -14,7 +16,11 @@ namespace Evo.Infrastructure.Editor.EvoTools
         private const string SETTINGS_ASSET_NAME = "EvoToolsSettings.asset";
         private static readonly string[] DefaultSaveKeys =
         {
-            Evo.Infrastructure.Services.Save.SaveStorageDefaults.PlayerPrefsKey
+            SaveStorageDefaults.PlayerPrefsKey,
+            "BLINDSHOT_SAVE_FULL_PREFS",
+            "BLINDSHOT_SAVE_PREFS",
+            "SAVE_FULL_PREFS",
+            "SAVE_PREFS"
         };
 
         [MenuItem(MENU_CLEAR_SAVE, false, 80)]
@@ -35,10 +41,8 @@ namespace Evo.Infrastructure.Editor.EvoTools
             var settings = LoadOrCreateSettings();
             var saveFileName = settings != null && !string.IsNullOrWhiteSpace(settings.SaveFileName)
                 ? settings.SaveFileName
-                : Evo.Infrastructure.Services.Save.SaveStorageDefaults.FileName;
-            var saveKeys = settings?.PlayerPrefsSaveKeys != null && settings.PlayerPrefsSaveKeys.Count > 0
-                ? settings.PlayerPrefsSaveKeys
-                : DefaultSaveKeys;
+                : SaveStorageDefaults.FileName;
+            var saveKeys = BuildSaveKeys(settings);
 
             var filePath = Path.Combine(UnityEngine.Application.persistentDataPath, saveFileName);
             var deletedFile = false;
@@ -49,6 +53,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
             }
 
             var deletedPrefs = false;
+            var deletedPrefsCount = 0;
             for (var i = 0; i < saveKeys.Count; i++)
             {
                 var key = saveKeys[i];
@@ -59,6 +64,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
 
                 PlayerPrefs.DeleteKey(key);
                 deletedPrefs = true;
+                deletedPrefsCount++;
             }
 
             if (deletedPrefs)
@@ -72,7 +78,52 @@ namespace Evo.Infrastructure.Editor.EvoTools
                 ? EvoToolsLocalization.Get("save_tools.clear.done", "Save cleared.")
                 : EvoToolsLocalization.Get("save_tools.clear.nothing", "Save was already clean.");
 
-            EvoDebug.Log($"{title}: {result}", SOURCE);
+            EvoDebug.Log($"{title}: {result} FileDeleted={deletedFile}, PlayerPrefsDeleted={deletedPrefsCount}.", SOURCE);
+        }
+
+        private static IReadOnlyList<string> BuildSaveKeys(EvoToolsSettings settings)
+        {
+            var keys = new List<string>();
+            AddKeys(keys, DefaultSaveKeys);
+
+            if (settings?.PlayerPrefsSaveKeys != null)
+            {
+                AddKeys(keys, settings.PlayerPrefsSaveKeys);
+            }
+
+            return keys;
+        }
+
+        private static void AddKeys(List<string> keys, IReadOnlyList<string> values)
+        {
+            if (keys == null || values == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < values.Count; i++)
+            {
+                var key = values[i];
+                if (string.IsNullOrWhiteSpace(key) || ContainsKey(keys, key))
+                {
+                    continue;
+                }
+
+                keys.Add(key.Trim());
+            }
+        }
+
+        private static bool ContainsKey(IReadOnlyList<string> keys, string key)
+        {
+            for (var i = 0; i < keys.Count; i++)
+            {
+                if (string.Equals(keys[i], key, System.StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static string GetDialogButtonText(string key, string fallback)
