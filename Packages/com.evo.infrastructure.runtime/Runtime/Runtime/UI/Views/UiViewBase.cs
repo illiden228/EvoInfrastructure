@@ -1,10 +1,11 @@
+using Evo.Infrastructure.Runtime.UI;
 using Evo.Infrastructure.Runtime.UI.Transitions;
 using R3;
 using UnityEngine;
 
 namespace Evo.Infrastructure.Runtime.UI.Views
 {
-    public abstract class UiViewBase : MonoBehaviour
+    public abstract class UiViewBase : MonoBehaviour, IUiUnbindable
     {
         [SerializeReference] private IUiTransition transition;
         private IUiViewModel _viewModel;
