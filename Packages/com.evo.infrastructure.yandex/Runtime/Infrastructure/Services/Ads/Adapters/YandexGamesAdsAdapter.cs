@@ -1,15 +1,15 @@
 using System;
 using System.Threading;
-using _Project.Scripts.Infrastructure.Services.Ads;
-using _Project.Scripts.Infrastructure.Services.Ads.Config;
-using _Project.Scripts.Infrastructure.Services.Config;
-using _Project.Scripts.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.Ads;
+using Evo.Infrastructure.Services.Ads.Config;
+using Evo.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Debug;
 using Cysharp.Threading.Tasks;
 #if YandexGamesPlatform_yg
 using YG;
 #endif
 
-namespace _Project.Scripts.Infrastructure.Services.Ads.Adapters
+namespace Evo.Infrastructure.Services.Ads.Adapters
 {
     public sealed class YandexGamesAdsAdapter : IAdsAdapter
     {

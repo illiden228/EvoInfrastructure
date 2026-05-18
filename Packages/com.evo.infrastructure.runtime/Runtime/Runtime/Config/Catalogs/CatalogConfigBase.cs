@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Config;
 using UnityEngine;
 
-namespace _Project.Scripts.Application.Config.Catalogs
+namespace Evo.Infrastructure.Runtime.Config.Catalogs
 {
     public interface ICatalogItemWithId
     {

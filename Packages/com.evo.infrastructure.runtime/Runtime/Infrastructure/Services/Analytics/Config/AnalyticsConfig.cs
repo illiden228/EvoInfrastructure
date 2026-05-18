@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Config;
 #if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
 #endif
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.Analytics.Config
+namespace Evo.Infrastructure.Services.Analytics.Config
 {
     [CreateAssetMenu(fileName = "AnalyticsConfig", menuName = "Project/Analytics/Analytics Config")]
     [GameConfig("Analytics")]

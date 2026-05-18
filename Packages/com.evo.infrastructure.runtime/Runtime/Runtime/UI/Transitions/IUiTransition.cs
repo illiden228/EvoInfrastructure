@@ -1,7 +1,7 @@
 using Cysharp.Threading.Tasks;
-using _Project.Scripts.Application.UI.Views;
+using Evo.Infrastructure.Runtime.UI.Views;
 
-namespace _Project.Scripts.Application.UI.Transitions
+namespace Evo.Infrastructure.Runtime.UI.Transitions
 {
     public interface IUiTransition
     {

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.PlatformInfo
+namespace Evo.Infrastructure.Services.PlatformInfo
 {
     public sealed class UnityPlatformInfoProvider : IPlatformInfoProvider
     {

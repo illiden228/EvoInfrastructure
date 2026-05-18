@@ -1,15 +1,15 @@
-using _Project.Scripts.Infrastructure.Services.Ads;
-using _Project.Scripts.Infrastructure.Services.Ads.Adapters;
-using _Project.Scripts.Infrastructure.Services.Analytics;
-using _Project.Scripts.Infrastructure.Services.Analytics.Adapters;
-using _Project.Scripts.Infrastructure.Services.Config;
-using _Project.Scripts.Infrastructure.Services.Leaderboard;
-using _Project.Scripts.Infrastructure.Services.Leaderboard.Adapters;
-using _Project.Scripts.Infrastructure.Services.PlatformInfo;
-using _Project.Scripts.Infrastructure.Services.Save;
+using Evo.Infrastructure.Services.Ads;
+using Evo.Infrastructure.Services.Ads.Adapters;
+using Evo.Infrastructure.Services.Analytics;
+using Evo.Infrastructure.Services.Analytics.Adapters;
+using Evo.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Leaderboard;
+using Evo.Infrastructure.Services.Leaderboard.Adapters;
+using Evo.Infrastructure.Services.PlatformInfo;
+using Evo.Infrastructure.Services.Save;
 using VContainer;
 
-namespace _Project.Scripts.Infrastructure.Services.Yandex
+namespace Evo.Infrastructure.Services.Yandex
 {
     public static class YandexRuntimeInstaller
     {

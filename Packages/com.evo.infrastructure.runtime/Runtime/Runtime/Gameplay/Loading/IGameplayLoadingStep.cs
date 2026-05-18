@@ -1,6 +1,6 @@
-using _Project.Scripts.Application.Loading;
+using Evo.Infrastructure.Runtime.Loading;
 
-namespace _Project.Scripts.Application.Gameplay.Loading
+namespace Evo.Infrastructure.Runtime.Gameplay.Loading
 {
     public interface IGameplayLoadingStep : ILoadingStep
     {

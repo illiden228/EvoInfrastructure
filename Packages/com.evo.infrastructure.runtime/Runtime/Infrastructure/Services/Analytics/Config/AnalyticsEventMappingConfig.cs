@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Config;
 #if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
 #endif
@@ -8,10 +8,10 @@ using UnityEngine;
 
 #if UNITY_EDITOR
 using UnityEditor;
-using _Project.Scripts.Infrastructure.Services.PlatformInfo.Config;
+using Evo.Infrastructure.Services.PlatformInfo.Config;
 #endif
 
-namespace _Project.Scripts.Infrastructure.Services.Analytics.Config
+namespace Evo.Infrastructure.Services.Analytics.Config
 {
     [CreateAssetMenu(fileName = "AnalyticsEventMappingConfig", menuName = "Project/Analytics/Event Mapping Config")]
     [GameConfig("Analytics")]

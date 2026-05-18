@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 
-namespace _Project.Scripts.Application.Loading
+namespace Evo.Infrastructure.Runtime.Loading
 {
     public interface ILoadingProgress
     {

@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using EvoDebug = _Project.Scripts.Infrastructure.Services.Debug.EvoDebug;
+using EvoDebug = Evo.Infrastructure.Services.Debug.EvoDebug;
 
-namespace _Project.Scripts.Infrastructure.Services.Config
+namespace Evo.Infrastructure.Services.Config
 {
     [CreateAssetMenu(fileName = "ConfigCatalog", menuName = "Project/Config Catalog")]
     public sealed class ScriptableConfigCatalog : ScriptableObject

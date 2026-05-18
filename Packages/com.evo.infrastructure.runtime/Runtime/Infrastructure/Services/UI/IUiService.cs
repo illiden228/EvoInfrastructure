@@ -1,9 +1,9 @@
 using System;
 using Cysharp.Threading.Tasks;
-using _Project.Scripts.Application.UI;
-using _Project.Scripts.Application.UI.Views;
+using Evo.Infrastructure.Runtime.UI;
+using Evo.Infrastructure.Runtime.UI.Views;
 
-namespace _Project.Scripts.Infrastructure.Services.UI
+namespace Evo.Infrastructure.Services.UI
 {
     public interface IUiService
     {

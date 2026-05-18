@@ -67,8 +67,8 @@ namespace Evo.Infrastructure.Core.Editor
         private const string LoadingViewModelTemplateName = "LoadingViewModel.cs.txt";
         private const string LoadingScreenViewTemplateName = "LoadingScreenView.cs.txt";
         private const string ProjectScopeTypeName = "RuntimeProjectLifetimeScope";
-        private const string ProjectScopeFullTypeName = "_Project.Scripts.Runtime.EntryPoint.RuntimeProjectLifetimeScope";
-        private const string LegacyProjectScopeFullTypeName = "_Project.Scripts.Runtime.Bootstrap.RuntimeProjectLifetimeScope";
+        private const string ProjectScopeFullTypeName = "Game.Runtime.EntryPoint.RuntimeProjectLifetimeScope";
+        private const string LegacyProjectScopeFullTypeName = "Game.Runtime.Bootstrap.RuntimeProjectLifetimeScope";
         private const string OneClickStateKeyPrefix = "Evo.Infrastructure.Core.OneClickSetup.";
         private const string ScaffoldStateKeyPrefix = "Evo.Infrastructure.Core.ScaffoldSetup.";
         private const string OdinImportStateKeyPrefix = "Evo.Infrastructure.Core.OdinImportRequested.";
@@ -899,26 +899,26 @@ namespace Evo.Infrastructure.Core.Editor
 
         private static bool AreStarterRuntimeTypesReady()
         {
-            return FindTypeByName("_Project.Scripts.Runtime.EntryPoint.RuntimeProjectLifetimeScope") != null &&
-                   FindTypeByName("_Project.Scripts.Application.Config.ProjectConfig") != null;
+            return FindTypeByName("Game.Runtime.EntryPoint.RuntimeProjectLifetimeScope") != null &&
+                   FindTypeByName("Evo.Infrastructure.Runtime.Config.ProjectConfig") != null;
         }
 
         private void EnsureDefaultAssets()
         {
             CreateScriptableAsset(
-                "_Project.Scripts.Application.Config.ProjectConfig, Assembly-CSharp",
+                "Evo.Infrastructure.Runtime.Config.ProjectConfig, Assembly-CSharp",
                 ProjectConfigPath);
             CreateScriptableAsset(
-                "_Project.Scripts.Application.UI.UiSystemConfig, Evo.Infrastructure.Runtime",
+                "Evo.Infrastructure.Runtime.UI.UiSystemConfig, Evo.Infrastructure.Runtime",
                 UiSystemConfigPath);
             CreateScriptableAsset(
-                "_Project.Scripts.Infrastructure.Services.Config.ScriptableConfigCatalog, Evo.Infrastructure.Runtime",
+                "Evo.Infrastructure.Services.Config.ScriptableConfigCatalog, Evo.Infrastructure.Runtime",
                 ConfigCatalogPath);
             CreateScriptableAsset(
-                "_Project.Scripts.Infrastructure.Services.ResourceCatalog.ResourceCatalog, Evo.Infrastructure.Runtime",
+                "Evo.Infrastructure.Services.ResourceCatalog.ResourceCatalog, Evo.Infrastructure.Runtime",
                 ResourceCatalogPath);
             CreateScriptableAsset(
-                "_Project.Scripts.Infrastructure.Services.Yandex.YandexRuntimeConfig, Assembly-CSharp",
+                "Evo.Infrastructure.Services.Yandex.YandexRuntimeConfig, Assembly-CSharp",
                 YandexRuntimeConfigPath);
             RebuildConfigCatalog();
             CreateLifetimeScopePrefab();
@@ -972,8 +972,8 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            var type = FindTypeByName("_Project.Scripts.Runtime.EntryPoint.RuntimeProjectLifetimeScope") ??
-                       FindTypeByName("_Project.Scripts.Runtime.Bootstrap.RuntimeProjectLifetimeScope");
+            var type = FindTypeByName("Game.Runtime.EntryPoint.RuntimeProjectLifetimeScope") ??
+                       FindTypeByName("Game.Runtime.Bootstrap.RuntimeProjectLifetimeScope");
             if (type == null || !typeof(Component).IsAssignableFrom(type))
             {
                 return;
@@ -1094,7 +1094,7 @@ namespace Evo.Infrastructure.Core.Editor
                 scene,
                 "Context",
                 null,
-                "_Project.Scripts.Runtime.Loading.LoadingSceneLifetimeScope",
+                "Game.Runtime.Loading.LoadingSceneLifetimeScope",
                 "SceneLifetimeScope");
             var loadingView = EnsureLoadingSceneView(scene);
             ConfigureLoadingSceneScopeReference(scene, loadingView);
@@ -1103,7 +1103,7 @@ namespace Evo.Infrastructure.Core.Editor
 
         private static Component EnsureLoadingSceneView(Scene scene)
         {
-            var viewType = FindTypeByName("_Project.Scripts.Runtime.Loading.LoadingScreenView");
+            var viewType = FindTypeByName("Game.Runtime.Loading.LoadingScreenView");
             if (viewType == null || !typeof(Component).IsAssignableFrom(viewType))
             {
                 return null;
@@ -1173,7 +1173,7 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            var scope = FindComponentInScene(scene, FindTypeByName("_Project.Scripts.Runtime.Loading.LoadingSceneLifetimeScope"));
+            var scope = FindComponentInScene(scene, FindTypeByName("Game.Runtime.Loading.LoadingSceneLifetimeScope"));
             if (scope == null)
             {
                 return;
@@ -1196,7 +1196,7 @@ namespace Evo.Infrastructure.Core.Editor
             var context = GetOrCreateRoot(scene, "Context", "MainMenuRoot");
             var scope = GetOrAddScopeComponent(
                 context,
-                "_Project.Scripts.Runtime.MainMenu.MainMenuSceneLifetimeScope",
+                "Game.Runtime.MainMenu.MainMenuSceneLifetimeScope",
                 "SceneLifetimeScope");
             EnsureParentReferenceTypeName(scope, ProjectScopeFullTypeName);
             EditorSceneManager.SaveScene(scene);
@@ -1595,7 +1595,7 @@ namespace Evo.Infrastructure.Core.Editor
                 "MainMenuRoot",
                 fixedItems,
                 issues,
-                "_Project.Scripts.Runtime.MainMenu.MainMenuSceneLifetimeScope",
+                "Game.Runtime.MainMenu.MainMenuSceneLifetimeScope",
                 "SceneLifetimeScope");
             ValidateAndFixSceneScope(
                 LoadingScenePath,
@@ -1603,7 +1603,7 @@ namespace Evo.Infrastructure.Core.Editor
                 "LoadingRoot",
                 fixedItems,
                 issues,
-                "_Project.Scripts.Runtime.Loading.LoadingSceneLifetimeScope",
+                "Game.Runtime.Loading.LoadingSceneLifetimeScope",
                 "SceneLifetimeScope");
 
             if (issues.Count == 0)

@@ -1,8 +1,8 @@
 using System;
-using _Project.Scripts.Infrastructure.Services.UI;
+using Evo.Infrastructure.Services.UI;
 using R3;
 
-namespace _Project.Scripts.Application.UI.ViewLogics
+namespace Evo.Infrastructure.Runtime.UI.ViewLogics
 {
     public abstract class ViewLogicBase : IDisposable
     {

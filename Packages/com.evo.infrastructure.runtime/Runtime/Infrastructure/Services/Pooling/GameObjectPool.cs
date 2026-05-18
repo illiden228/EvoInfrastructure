@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.Pooling
+namespace Evo.Infrastructure.Services.Pooling
 {
     public sealed class GameObjectPool
     {

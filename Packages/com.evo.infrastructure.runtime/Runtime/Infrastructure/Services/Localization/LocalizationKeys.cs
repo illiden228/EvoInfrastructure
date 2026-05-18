@@ -1,4 +1,4 @@
-namespace _Project.Scripts.Infrastructure.Services.Localization
+namespace Evo.Infrastructure.Services.Localization
 {
     public static class LocalizationKeys
     {

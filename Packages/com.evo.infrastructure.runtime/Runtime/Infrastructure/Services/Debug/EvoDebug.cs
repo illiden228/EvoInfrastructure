@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.Debug
+namespace Evo.Infrastructure.Services.Debug
 {
     public interface IEvoDebugSink
     {

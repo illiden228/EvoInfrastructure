@@ -1,4 +1,4 @@
-using _Project.Scripts.Infrastructure.AddressablesExtension;
+using Evo.Infrastructure.AddressablesExtension;
 #if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
 #endif
@@ -9,7 +9,7 @@ using UnityEditor;
 using System.Collections.Generic;
 #endif
 
-namespace _Project.Scripts.Infrastructure.Services.Audio
+namespace Evo.Infrastructure.Services.Audio
 {
     [CreateAssetMenu(fileName = "AudioCueKey", menuName = "Project/Audio/Cue Key")]
     public sealed class AudioCueKey : ScriptableObject

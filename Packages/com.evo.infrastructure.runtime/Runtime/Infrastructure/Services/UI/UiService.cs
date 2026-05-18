@@ -1,11 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using _Project.Scripts.Application.UI;
-using _Project.Scripts.Application.UI.Transitions;
-using _Project.Scripts.Application.UI.Views;
-using _Project.Scripts.Infrastructure.Services.Debug;
-using _Project.Scripts.Infrastructure.Services.ResourceProvider;
+using Evo.Infrastructure.Runtime.UI;
+using Evo.Infrastructure.Runtime.UI.Transitions;
+using Evo.Infrastructure.Runtime.UI.Views;
+using Evo.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.ResourceProvider;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -14,7 +14,7 @@ using VContainer;
 using UnityEngine.InputSystem.UI;
 #endif
 
-namespace _Project.Scripts.Infrastructure.Services.UI
+namespace Evo.Infrastructure.Services.UI
 {
     public sealed class UiService : IUiService
     {

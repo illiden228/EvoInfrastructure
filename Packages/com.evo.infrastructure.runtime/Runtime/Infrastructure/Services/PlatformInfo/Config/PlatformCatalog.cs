@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Config;
 #if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
 #endif
@@ -12,7 +12,7 @@ using UnityEditor;
 using UnityEditor.Build;
 #endif
 
-namespace _Project.Scripts.Infrastructure.Services.PlatformInfo.Config
+namespace Evo.Infrastructure.Services.PlatformInfo.Config
 {
     [CreateAssetMenu(fileName = "PlatformCatalog", menuName = "Project/Platform/Platform Catalog")]
     [GameConfig("Platform")]

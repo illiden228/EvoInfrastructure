@@ -6,7 +6,7 @@ using UnityEngine.AddressableAssets;
 using UnityEditor;
 #endif
 
-namespace _Project.Scripts.Infrastructure.AddressablesExtension
+namespace Evo.Infrastructure.AddressablesExtension
 {
     [Serializable]
 #if UNITY_EDITOR

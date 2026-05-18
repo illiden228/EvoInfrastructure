@@ -3,7 +3,7 @@ using UnityEngine;
 using YG;
 #endif
 
-namespace _Project.Scripts.Infrastructure.Services.PlatformInfo
+namespace Evo.Infrastructure.Services.PlatformInfo
 {
     public sealed class YandexGamesPlatformInfoProvider : IPlatformInfoProvider
     {

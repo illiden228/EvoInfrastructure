@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Config;
 #if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
 #endif
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.Ads.Config
+namespace Evo.Infrastructure.Services.Ads.Config
 {
     [CreateAssetMenu(fileName = "AdsRoutingConfig", menuName = "Project/Ads/Ads Routing Config")]
     [GameConfig("Ads")]

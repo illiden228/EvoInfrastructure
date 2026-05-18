@@ -1,10 +1,10 @@
-using _Project.Scripts.Infrastructure.Services.UI;
+using Evo.Infrastructure.Services.UI;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
 
-namespace _Project.Scripts.Runtime.Loading
+namespace Game.Runtime.Loading
 {
     public sealed class LoadingSceneLifetimeScope : LifetimeScope
     {

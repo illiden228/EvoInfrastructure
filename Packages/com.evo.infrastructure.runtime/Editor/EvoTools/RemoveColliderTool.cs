@@ -1,6 +1,6 @@
-п»їusing UnityEngine;
+using UnityEngine;
 using UnityEditor;
-using EvoDebug = _Project.Scripts.Infrastructure.Services.Debug.EvoDebug;
+using EvoDebug = Evo.Infrastructure.Services.Debug.EvoDebug;
 
 public static class RemoveColliderTool
 {
@@ -11,7 +11,7 @@ public static class RemoveColliderTool
     {
         if (Selection.activeObject == null)
         {
-            EvoDebug.LogWarning("РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РІС‹Р±РµСЂРёС‚Рµ РїСЂРµС„Р°Р± РІ РѕРєРЅРµ Project.", SOURCE);
+            EvoDebug.LogWarning("Пожалуйста, выберите префаб в окне Project.", SOURCE);
             return;
         }
 
@@ -19,7 +19,7 @@ public static class RemoveColliderTool
 
         if (string.IsNullOrEmpty(path) || !PrefabUtility.IsPartOfPrefabAsset(Selection.activeObject))
         {
-            EvoDebug.LogWarning("Р’С‹Р±СЂР°РЅРЅС‹Р№ РѕР±СЉРµРєС‚ РЅРµ СЏРІР»СЏРµС‚СЃСЏ РїСЂРµС„Р°Р±РѕРј. Р’С‹Р±РµСЂРёС‚Рµ С„Р°Р№Р» РїСЂРµС„Р°Р±Р° РІ РѕРєРЅРµ Project.", SOURCE);
+            EvoDebug.LogWarning("Выбранный объект не является префабом. Выберите файл префаба в окне Project.", SOURCE);
             return;
         }
 
@@ -31,7 +31,7 @@ public static class RemoveColliderTool
 
             if (prefabRoot == null)
             {
-                EvoDebug.LogError($"РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РїСЂРµС„Р°Р±: {path}", SOURCE);
+                EvoDebug.LogError($"Не удалось загрузить префаб: {path}", SOURCE);
                 return;
             }
 
@@ -47,11 +47,11 @@ public static class RemoveColliderTool
             bool saved = PrefabUtility.SaveAsPrefabAsset(prefabRoot, path, out bool success);
             if (!saved || !success)
             {
-                EvoDebug.LogError($"РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РїСЂРµС„Р°Р± РїРѕСЃР»Рµ СѓРґР°Р»РµРЅРёСЏ MeshCollider: {path}", SOURCE);
+                EvoDebug.LogError($"Не удалось сохранить префаб после удаления MeshCollider: {path}", SOURCE);
                 return;
             }
 
-            EvoDebug.Log($"РЈРґР°Р»РµРЅРѕ {removedCount} РєРѕРјРїРѕРЅРµРЅС‚РѕРІ MeshCollider РёР· РїСЂРµС„Р°Р±Р°: {Selection.activeObject.name} ({path})", SOURCE);
+            EvoDebug.Log($"Удалено {removedCount} компонентов MeshCollider из префаба: {Selection.activeObject.name} ({path})", SOURCE);
         }
         finally
         {

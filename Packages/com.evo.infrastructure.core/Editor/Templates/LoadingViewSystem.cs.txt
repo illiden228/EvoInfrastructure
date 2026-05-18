@@ -1,9 +1,9 @@
 using System;
 using System.Threading;
-using _Project.Scripts.Application.Config;
-using _Project.Scripts.Application.Loading;
-using _Project.Scripts.Infrastructure.Services.Config;
-using _Project.Scripts.Infrastructure.Services.ResourceLoader;
+using Evo.Infrastructure.Runtime.Config;
+using Evo.Infrastructure.Runtime.Loading;
+using Evo.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.ResourceLoader;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -12,7 +12,7 @@ using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 using VContainer.Unity;
 
-namespace _Project.Scripts.Runtime.Loading
+namespace Game.Runtime.Loading
 {
     public sealed class LoadingViewSystem : IInitializable, IDisposable
     {

@@ -1,4 +1,4 @@
-namespace _Project.Scripts.Application.UI
+namespace Evo.Infrastructure.Runtime.UI
 {
     public enum UiLayer
     {

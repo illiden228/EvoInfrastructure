@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using _Project.Scripts.Infrastructure.Services.Debug;
-using _Project.Scripts.Infrastructure.Services.ResourceLoader;
+using Evo.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.ResourceLoader;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.Audio
+namespace Evo.Infrastructure.Services.Audio
 {
     public sealed class AudioService : IAudioService, IDisposable
     {

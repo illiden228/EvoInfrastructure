@@ -1,8 +1,8 @@
-using _Project.Scripts.Infrastructure.AddressablesExtension;
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.AddressablesExtension;
+using Evo.Infrastructure.Services.Config;
 using UnityEngine;
 
-namespace _Project.Scripts.Application.Config
+namespace Evo.Infrastructure.Runtime.Config
 {
     [CreateAssetMenu(fileName = "ProjectConfig", menuName = "Project/Project Config")]
     [GameConfig("Project")]

@@ -1,8 +1,8 @@
 using System;
-using _Project.Scripts.Infrastructure.Services.Ads.Config;
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Ads.Config;
+using Evo.Infrastructure.Services.Config;
 
-namespace _Project.Scripts.Infrastructure.Services.Ads
+namespace Evo.Infrastructure.Services.Ads
 {
     public interface IRewardedAdsCooldownState
     {

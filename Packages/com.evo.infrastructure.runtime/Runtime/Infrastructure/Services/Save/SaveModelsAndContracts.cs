@@ -4,7 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.Save
+namespace Evo.Infrastructure.Services.Save
 {
     [Serializable]
     public sealed class SaveEnvelope

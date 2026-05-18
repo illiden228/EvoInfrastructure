@@ -4,7 +4,7 @@ using Cysharp.Threading.Tasks;
 using UnityEngine.AddressableAssets;
 using UnityEngine.SceneManagement;
 
-namespace _Project.Scripts.Application.Loading
+namespace Evo.Infrastructure.Runtime.Loading
 {
     public interface ISceneLoadingPipeline
     {

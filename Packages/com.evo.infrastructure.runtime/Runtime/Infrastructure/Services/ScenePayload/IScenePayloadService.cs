@@ -1,4 +1,4 @@
-namespace _Project.Scripts.Infrastructure.Services.ScenePayload
+namespace Evo.Infrastructure.Services.ScenePayload
 {
     public interface IScenePayloadService
     {

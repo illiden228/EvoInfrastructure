@@ -1,6 +1,6 @@
-using _Project.Scripts.Application.UI;
+using Evo.Infrastructure.Runtime.UI;
 
-namespace _Project.Scripts.Infrastructure.Services.UI
+namespace Evo.Infrastructure.Services.UI
 {
     public sealed class UiOpenOptions
     {

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.ResourceCatalog
+namespace Evo.Infrastructure.Services.ResourceCatalog
 {
     [CreateAssetMenu(fileName = "ResourceCatalog", menuName = "Project/Resource Catalog")]
     public sealed class ResourceCatalog : ScriptableObject, IResourceCatalog

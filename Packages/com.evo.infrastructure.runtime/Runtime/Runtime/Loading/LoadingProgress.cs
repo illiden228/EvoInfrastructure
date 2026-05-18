@@ -1,4 +1,4 @@
-namespace _Project.Scripts.Application.Loading
+namespace Evo.Infrastructure.Runtime.Loading
 {
     public readonly struct LoadingProgress
     {

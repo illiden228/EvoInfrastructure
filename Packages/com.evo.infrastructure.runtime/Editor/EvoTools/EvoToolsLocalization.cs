@@ -4,7 +4,7 @@ using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
-namespace _Project.Scripts.Editor.EvoTools
+namespace Evo.Infrastructure.Editor.EvoTools
 {
     public static class EvoToolsLocalization
     {

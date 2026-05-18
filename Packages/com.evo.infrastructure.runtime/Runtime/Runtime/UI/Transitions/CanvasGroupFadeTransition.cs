@@ -2,9 +2,9 @@ using System;
 using Cysharp.Threading.Tasks;
 using PrimeTween;
 using UnityEngine;
-using _Project.Scripts.Application.UI.Views;
+using Evo.Infrastructure.Runtime.UI.Views;
 
-namespace _Project.Scripts.Application.UI.Transitions
+namespace Evo.Infrastructure.Runtime.UI.Transitions
 {
     [Serializable]
     public sealed class CanvasGroupFadeTransition : IUiTransition

@@ -6,7 +6,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 
-namespace _Project.Scripts.Infrastructure.Services.ResourceLoader
+namespace Evo.Infrastructure.Services.ResourceLoader
 {
     public interface IResourceLoaderService
     {

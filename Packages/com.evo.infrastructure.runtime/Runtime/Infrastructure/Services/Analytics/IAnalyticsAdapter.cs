@@ -1,4 +1,4 @@
-namespace _Project.Scripts.Infrastructure.Services.Analytics
+namespace Evo.Infrastructure.Services.Analytics
 {
     public interface IAnalyticsAdapter
     {

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace _Project.Scripts.Infrastructure.Services.Pooling
+namespace Evo.Infrastructure.Services.Pooling
 {
     public sealed class Pool<T>
     {

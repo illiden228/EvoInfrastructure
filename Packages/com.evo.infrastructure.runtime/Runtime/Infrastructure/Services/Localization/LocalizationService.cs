@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using _Project.Scripts.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.Debug;
 using Cysharp.Threading.Tasks;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
 using UnityEngine.Localization.Tables;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
-namespace _Project.Scripts.Infrastructure.Services.Localization
+namespace Evo.Infrastructure.Services.Localization
 {
     public sealed class LocalizationService : ILocalizationService
     {

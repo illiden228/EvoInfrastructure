@@ -4,12 +4,12 @@ using System.Collections.Generic;
 using System.IO;
 using Sirenix.OdinInspector;
 using Sirenix.OdinInspector.Editor;
-using EvoDebug = _Project.Scripts.Infrastructure.Services.Debug.EvoDebug;
+using EvoDebug = Evo.Infrastructure.Services.Debug.EvoDebug;
 using UnityEditor;
 using UnityEngine;
-using _Project.Scripts.Infrastructure.Services.ResourceCatalog;
+using Evo.Infrastructure.Services.ResourceCatalog;
 
-namespace _Project.Scripts.Editor.EvoTools
+namespace Evo.Infrastructure.Editor.EvoTools
 {
     public sealed class ResourceCatalogToolWindow : OdinEditorWindow
     {

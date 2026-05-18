@@ -1,9 +1,9 @@
 using System.IO;
-using _Project.Scripts.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.Debug;
 using UnityEditor;
 using UnityEngine;
 
-namespace _Project.Scripts.Editor.EvoTools
+namespace Evo.Infrastructure.Editor.EvoTools
 {
     public static class SaveToolsMenu
     {
@@ -14,7 +14,7 @@ namespace _Project.Scripts.Editor.EvoTools
         private const string SETTINGS_ASSET_NAME = "EvoToolsSettings.asset";
         private static readonly string[] DefaultSaveKeys =
         {
-            _Project.Scripts.Infrastructure.Services.Save.SaveStorageDefaults.PlayerPrefsKey
+            Evo.Infrastructure.Services.Save.SaveStorageDefaults.PlayerPrefsKey
         };
 
         [MenuItem(MENU_CLEAR_SAVE, false, 80)]
@@ -35,7 +35,7 @@ namespace _Project.Scripts.Editor.EvoTools
             var settings = LoadOrCreateSettings();
             var saveFileName = settings != null && !string.IsNullOrWhiteSpace(settings.SaveFileName)
                 ? settings.SaveFileName
-                : _Project.Scripts.Infrastructure.Services.Save.SaveStorageDefaults.FileName;
+                : Evo.Infrastructure.Services.Save.SaveStorageDefaults.FileName;
             var saveKeys = settings?.PlayerPrefsSaveKeys != null && settings.PlayerPrefsSaveKeys.Count > 0
                 ? settings.PlayerPrefsSaveKeys
                 : DefaultSaveKeys;

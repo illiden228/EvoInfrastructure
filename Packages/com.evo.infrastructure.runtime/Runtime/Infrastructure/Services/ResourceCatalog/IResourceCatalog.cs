@@ -1,4 +1,4 @@
-namespace _Project.Scripts.Infrastructure.Services.ResourceCatalog
+namespace Evo.Infrastructure.Services.ResourceCatalog
 {
     public interface IResourceCatalog
     {

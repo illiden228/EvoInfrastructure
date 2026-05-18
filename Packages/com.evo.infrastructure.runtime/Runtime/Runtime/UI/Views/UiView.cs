@@ -1,4 +1,4 @@
-namespace _Project.Scripts.Application.UI.Views
+namespace Evo.Infrastructure.Runtime.UI.Views
 {
     public abstract class UiView<TViewModel> : UiViewBase where TViewModel : class, IUiViewModel
     {

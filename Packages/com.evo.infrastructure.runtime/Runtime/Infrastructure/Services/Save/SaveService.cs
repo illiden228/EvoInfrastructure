@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using _Project.Scripts.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.Debug;
 
-namespace _Project.Scripts.Infrastructure.Services.Save
+namespace Evo.Infrastructure.Services.Save
 {
     public sealed class SaveService : ISaveService
     {

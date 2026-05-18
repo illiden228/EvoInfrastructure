@@ -1,7 +1,7 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
 
-namespace _Project.Scripts.Infrastructure.Services.Ads
+namespace Evo.Infrastructure.Services.Ads
 {
     public interface IAdsService
     {

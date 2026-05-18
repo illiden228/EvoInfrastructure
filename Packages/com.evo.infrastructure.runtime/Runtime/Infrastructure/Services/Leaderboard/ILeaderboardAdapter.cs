@@ -1,4 +1,4 @@
-namespace _Project.Scripts.Infrastructure.Services.Leaderboard
+namespace Evo.Infrastructure.Services.Leaderboard
 {
     public interface ILeaderboardAdapter
     {

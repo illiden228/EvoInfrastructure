@@ -1,14 +1,14 @@
 using System;
 using System.Threading;
-using _Project.Scripts.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.Debug;
 using Cysharp.Threading.Tasks;
-using _Project.Scripts.Infrastructure.Services.ResourceCatalog;
-using _Project.Scripts.Infrastructure.Services.ResourceLoader;
+using Evo.Infrastructure.Services.ResourceCatalog;
+using Evo.Infrastructure.Services.ResourceLoader;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.U2D;
 
-namespace _Project.Scripts.Infrastructure.Services.ResourceProvider
+namespace Evo.Infrastructure.Services.ResourceProvider
 {
     public sealed class ResourceProviderService : IResourceProviderService
     {

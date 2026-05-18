@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using _Project.Scripts.Infrastructure.Services.Config;
-using _Project.Scripts.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Debug;
 
-namespace _Project.Scripts.Infrastructure.Services.Leaderboard
+namespace Evo.Infrastructure.Services.Leaderboard
 {
     public sealed class LeaderboardService : ILeaderboardService
     {

@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using _Project.Scripts.Infrastructure.Services.Analytics.Config;
+using Evo.Infrastructure.Services.Analytics.Config;
 
-namespace _Project.Scripts.Infrastructure.Services.Analytics.Mapping
+namespace Evo.Infrastructure.Services.Analytics.Mapping
 {
     public sealed class AnalyticsEventMapper
     {

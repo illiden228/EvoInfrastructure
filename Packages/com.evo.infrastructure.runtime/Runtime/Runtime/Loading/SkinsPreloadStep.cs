@@ -1,11 +1,11 @@
 using System;
 using System.Threading;
-using _Project.Scripts.Infrastructure.Services.Debug;
-using _Project.Scripts.Infrastructure.Services.ResourceLoader;
+using Evo.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.ResourceLoader;
 using Cysharp.Threading.Tasks;
 using UnityEngine.AddressableAssets;
 
-namespace _Project.Scripts.Application.Loading
+namespace Evo.Infrastructure.Runtime.Loading
 {
     public sealed class SkinsPreloadStep : ILoadingStep
     {

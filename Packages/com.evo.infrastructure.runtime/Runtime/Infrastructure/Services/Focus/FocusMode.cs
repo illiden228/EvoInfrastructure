@@ -1,4 +1,4 @@
-namespace _Project.Scripts.Infrastructure.Services.Focus
+namespace Evo.Infrastructure.Services.Focus
 {
     public enum FocusMode
     {

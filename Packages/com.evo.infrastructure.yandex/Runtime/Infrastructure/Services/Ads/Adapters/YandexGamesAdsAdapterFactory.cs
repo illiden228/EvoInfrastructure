@@ -1,7 +1,7 @@
-using _Project.Scripts.Infrastructure.Services.Ads;
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Ads;
+using Evo.Infrastructure.Services.Config;
 
-namespace _Project.Scripts.Infrastructure.Services.Ads.Adapters
+namespace Evo.Infrastructure.Services.Ads.Adapters
 {
     public sealed class YandexGamesAdsAdapterFactory : IAdsAdapterFactory
     {

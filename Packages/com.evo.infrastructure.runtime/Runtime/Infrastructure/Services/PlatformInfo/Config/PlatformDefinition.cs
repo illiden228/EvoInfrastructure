@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.PlatformInfo.Config
+namespace Evo.Infrastructure.Services.PlatformInfo.Config
 {
     [CreateAssetMenu(fileName = "PlatformDefinition", menuName = "Project/Platform/Platform Definition")]
     public sealed class PlatformDefinition : ScriptableObject

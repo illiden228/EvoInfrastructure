@@ -1,4 +1,4 @@
-namespace _Project.Scripts.Infrastructure.Services.Ads
+namespace Evo.Infrastructure.Services.Ads
 {
     public enum AdType
     {

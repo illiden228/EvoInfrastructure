@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.Build;
 
-namespace _Project.Scripts.Editor.EvoTools
+namespace Evo.Infrastructure.Editor.EvoTools
 {
     public static class EvoDebugMenu
     {

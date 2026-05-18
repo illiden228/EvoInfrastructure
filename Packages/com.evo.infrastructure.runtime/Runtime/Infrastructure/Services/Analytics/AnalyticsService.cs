@@ -2,14 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using _Project.Scripts.Infrastructure.Services.Analytics.Config;
-using _Project.Scripts.Infrastructure.Services.Analytics.Mapping;
-using _Project.Scripts.Infrastructure.Services.Config;
-using _Project.Scripts.Infrastructure.Services.Debug;
-using _Project.Scripts.Infrastructure.Services.PlatformInfo;
-using _Project.Scripts.Infrastructure.Services.PlatformInfo.Config;
+using Evo.Infrastructure.Services.Analytics.Config;
+using Evo.Infrastructure.Services.Analytics.Mapping;
+using Evo.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.PlatformInfo;
+using Evo.Infrastructure.Services.PlatformInfo.Config;
 
-namespace _Project.Scripts.Infrastructure.Services.Analytics
+namespace Evo.Infrastructure.Services.Analytics
 {
     public sealed class AnalyticsService : IAnalyticsService, IAnalyticsInitialization
     {

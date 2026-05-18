@@ -2,18 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
-using _Project.Scripts.Application.Gameplay.Loading;
+using Evo.Infrastructure.Runtime.Gameplay.Loading;
 using Cysharp.Threading.Tasks;
-using _Project.Scripts.Infrastructure.Services.SceneLoader;
-using _Project.Scripts.Infrastructure.Services.Config;
-using _Project.Scripts.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.SceneLoader;
+using Evo.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Debug;
 using UnityEngine.AddressableAssets;
 using UnityEngine.SceneManagement;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using VContainer;
 using VContainer.Unity;
 
-namespace _Project.Scripts.Application.Loading
+namespace Evo.Infrastructure.Runtime.Loading
 {
     public sealed class SceneLoadingPipeline : ISceneLoadingPipeline
     {
@@ -410,7 +410,7 @@ namespace _Project.Scripts.Application.Loading
                 return null;
             }
 
-            var configType = FindTypeByName("_Project.Scripts.Application.Config.ProjectConfig");
+            var configType = FindTypeByName("Evo.Infrastructure.Runtime.Config.ProjectConfig");
             if (configType == null)
             {
                 return null;

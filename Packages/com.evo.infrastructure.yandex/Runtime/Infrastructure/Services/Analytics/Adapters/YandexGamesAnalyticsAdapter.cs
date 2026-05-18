@@ -3,13 +3,13 @@ using System.Collections.Generic;
 #if YandexGamesPlatform_yg
 using YG;
 #endif
-using _Project.Scripts.Infrastructure.Services.Analytics;
-using _Project.Scripts.Infrastructure.Services.Analytics.Config;
-using _Project.Scripts.Infrastructure.Services.Config;
-using _Project.Scripts.Infrastructure.Services.PlatformInfo;
-using _Project.Scripts.Infrastructure.Services.PlatformInfo.Config;
+using Evo.Infrastructure.Services.Analytics;
+using Evo.Infrastructure.Services.Analytics.Config;
+using Evo.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.PlatformInfo;
+using Evo.Infrastructure.Services.PlatformInfo.Config;
 
-namespace _Project.Scripts.Infrastructure.Services.Analytics.Adapters
+namespace Evo.Infrastructure.Services.Analytics.Adapters
 {
     public sealed class YandexGamesAnalyticsAdapter : IAnalyticsAdapter
     {

@@ -1,10 +1,10 @@
 using System.Linq;
-using _Project.Scripts.Application.UI;
-using _Project.Scripts.Infrastructure.Services.UI;
+using Evo.Infrastructure.Runtime.UI;
+using Evo.Infrastructure.Services.UI;
 using UnityEditor;
 using UnityEngine;
 
-namespace _Project.Scripts.Editor.EvoTools
+namespace Evo.Infrastructure.Editor.EvoTools
 {
     public static class UiSystemMenu
     {

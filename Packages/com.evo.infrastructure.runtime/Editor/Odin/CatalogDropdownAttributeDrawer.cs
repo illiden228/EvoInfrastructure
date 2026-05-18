@@ -1,16 +1,16 @@
 #if ODIN_INSPECTOR
 using System;
 using System.Collections.Generic;
-using _Project.Scripts.Infrastructure.Services.Analytics.Config;
-using _Project.Scripts.Infrastructure.Services.Ads.Config;
-using _Project.Scripts.Infrastructure.Services.Config;
-using _Project.Scripts.Infrastructure.Services.PlatformInfo.Config;
+using Evo.Infrastructure.Services.Analytics.Config;
+using Evo.Infrastructure.Services.Ads.Config;
+using Evo.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.PlatformInfo.Config;
 using Sirenix.OdinInspector;
 using Sirenix.OdinInspector.Editor;
 using UnityEditor;
 using UnityEngine;
 
-namespace _Project.Scripts.Editor.Odin
+namespace Evo.Infrastructure.Editor.Odin
 {
     public sealed class CatalogDropdownAttributeDrawer : OdinAttributeDrawer<CatalogDropdownAttribute, string>
     {

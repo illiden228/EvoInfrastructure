@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace _Project.Scripts.Infrastructure.Services.Leaderboard
+namespace Evo.Infrastructure.Services.Leaderboard
 {
     public readonly struct LeaderboardSubmitRequest
     {

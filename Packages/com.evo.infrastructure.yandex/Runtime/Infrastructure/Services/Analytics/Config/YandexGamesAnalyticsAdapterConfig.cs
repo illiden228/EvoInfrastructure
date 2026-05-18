@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Config;
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.Analytics.Config
+namespace Evo.Infrastructure.Services.Analytics.Config
 {
     [CreateAssetMenu(fileName = "YandexGamesAnalyticsAdapterConfig", menuName = "Project/Analytics/Adapters/Yandex Games Config")]
     public sealed class YandexGamesAnalyticsAdapterConfig : AnalyticsAdapterConfigBase

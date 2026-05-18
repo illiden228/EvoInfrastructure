@@ -2,13 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using _Project.Scripts.Infrastructure.Services.Analytics;
-using _Project.Scripts.Infrastructure.Services.Localization;
-using _Project.Scripts.Infrastructure.Services.ResourceLoader;
-using _Project.Scripts.Infrastructure.Services.ResourceProvider;
-using _Project.Scripts.Infrastructure.Services.SceneLoader;
+using Evo.Infrastructure.Services.Analytics;
+using Evo.Infrastructure.Services.Localization;
+using Evo.Infrastructure.Services.ResourceLoader;
+using Evo.Infrastructure.Services.ResourceProvider;
+using Evo.Infrastructure.Services.SceneLoader;
 
-namespace _Project.Scripts.Application.Loading
+namespace Evo.Infrastructure.Runtime.Loading
 {
     public sealed class ServiceWarmupStep : ILoadingStep
     {

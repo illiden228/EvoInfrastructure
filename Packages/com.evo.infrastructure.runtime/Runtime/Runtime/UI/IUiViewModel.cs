@@ -1,6 +1,6 @@
 using System;
 
-namespace _Project.Scripts.Application.UI
+namespace Evo.Infrastructure.Runtime.UI
 {
     public interface IUiViewModel : IDisposable
     {

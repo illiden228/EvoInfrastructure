@@ -1,8 +1,8 @@
-using _Project.Scripts.Application.UI.Transitions;
+using Evo.Infrastructure.Runtime.UI.Transitions;
 using R3;
 using UnityEngine;
 
-namespace _Project.Scripts.Application.UI.Views
+namespace Evo.Infrastructure.Runtime.UI.Views
 {
     public abstract class UiViewBase : MonoBehaviour
     {

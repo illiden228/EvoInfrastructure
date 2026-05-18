@@ -1,6 +1,6 @@
-using _Project.Scripts.Infrastructure.Services.ScenePayload;
+using Evo.Infrastructure.Services.ScenePayload;
 
-namespace _Project.Scripts.Application.Scene
+namespace Evo.Infrastructure.Runtime.Scene
 {
     public interface ISceneContext
     {

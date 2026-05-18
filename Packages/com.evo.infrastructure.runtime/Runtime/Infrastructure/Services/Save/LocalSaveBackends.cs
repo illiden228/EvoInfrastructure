@@ -1,10 +1,10 @@
 using System.IO;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using _Project.Scripts.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.Debug;
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.Save
+namespace Evo.Infrastructure.Services.Save
 {
     public sealed class PrefsSaveBackend : ISaveBackend
     {

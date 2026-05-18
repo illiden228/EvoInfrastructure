@@ -1,6 +1,6 @@
 using System;
 
-namespace _Project.Scripts.Infrastructure.Services.ResourceCatalog
+namespace Evo.Infrastructure.Services.ResourceCatalog
 {
     [Serializable]
     public struct ResourceCatalogEntry

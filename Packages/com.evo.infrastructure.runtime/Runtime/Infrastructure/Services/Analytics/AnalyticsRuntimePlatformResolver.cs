@@ -1,7 +1,7 @@
-using _Project.Scripts.Infrastructure.Services.PlatformInfo;
+using Evo.Infrastructure.Services.PlatformInfo;
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.Analytics
+namespace Evo.Infrastructure.Services.Analytics
 {
     public static class AnalyticsRuntimePlatformResolver
     {

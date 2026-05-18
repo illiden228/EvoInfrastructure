@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace _Project.Scripts.Infrastructure.Services.Config
+namespace Evo.Infrastructure.Services.Config
 {
     public sealed class ScriptableObjectConfigProvider : IConfigProvider
     {

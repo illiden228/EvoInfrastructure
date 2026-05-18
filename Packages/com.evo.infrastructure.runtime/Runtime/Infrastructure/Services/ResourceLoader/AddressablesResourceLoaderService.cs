@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using _Project.Scripts.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.Debug;
 using Cysharp.Threading.Tasks;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 
-namespace _Project.Scripts.Infrastructure.Services.ResourceLoader
+namespace Evo.Infrastructure.Services.ResourceLoader
 {
     public sealed class AddressablesResourceLoaderService : IResourceLoaderService, IDisposable
     {

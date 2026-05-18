@@ -1,10 +1,10 @@
 using System;
 using System.Threading;
-using _Project.Scripts.Infrastructure.Services.PlatformInfo;
+using Evo.Infrastructure.Services.PlatformInfo;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
-namespace _Project.Scripts.Application.Loading
+namespace Evo.Infrastructure.Runtime.Loading
 {
     public sealed class TargetFrameRateStep : ILoadingStep
     {

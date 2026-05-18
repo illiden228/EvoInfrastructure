@@ -3,7 +3,7 @@ using R3;
 using TMPro;
 using UnityEngine.UI;
 
-namespace _Project.Scripts.Application.UI
+namespace Evo.Infrastructure.Runtime.UI
 {
     public static class MVVMExtensions
     {

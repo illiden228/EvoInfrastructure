@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using _Project.Scripts.Application.UI.Views;
+using Evo.Infrastructure.Runtime.UI.Views;
 #if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
 #endif
@@ -12,10 +12,10 @@ using UnityEngine.AddressableAssets;
 #if UNITY_EDITOR
 using System.Text;
 using UnityEditor;
-using EvoDebug = _Project.Scripts.Infrastructure.Services.Debug.EvoDebug;
+using EvoDebug = Evo.Infrastructure.Services.Debug.EvoDebug;
 #endif
 
-namespace _Project.Scripts.Application.UI
+namespace Evo.Infrastructure.Runtime.UI
 {
     public enum UiLayerBuildMode
     {
@@ -334,7 +334,7 @@ namespace _Project.Scripts.Application.UI
         {
             var path = "Assets/_Project/Scripts/Runtime/UI/UiLayer.cs";
             var builder = new StringBuilder();
-            builder.AppendLine("namespace _Project.Scripts.Application.UI");
+            builder.AppendLine("namespace Evo.Infrastructure.Runtime.UI");
             builder.AppendLine("{");
             builder.AppendLine("    public enum UiLayer");
             builder.AppendLine("    {");

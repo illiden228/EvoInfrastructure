@@ -1,28 +1,28 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using _Project.Scripts.Application.Loading;
-using _Project.Scripts.Application.UI;
-using _Project.Scripts.Infrastructure.Services.Ads;
-using _Project.Scripts.Infrastructure.Services.Analytics;
-using _Project.Scripts.Infrastructure.Services.Audio;
-using _Project.Scripts.Infrastructure.Services.Config;
-using _Project.Scripts.Infrastructure.Services.Focus;
-using _Project.Scripts.Infrastructure.Services.Leaderboard;
-using _Project.Scripts.Infrastructure.Services.Localization;
-using _Project.Scripts.Infrastructure.Services.PlatformInfo;
-using _Project.Scripts.Infrastructure.Services.ResourceCatalog;
-using _Project.Scripts.Infrastructure.Services.ResourceLoader;
-using _Project.Scripts.Infrastructure.Services.ResourceProvider;
-using _Project.Scripts.Infrastructure.Services.Save;
-using _Project.Scripts.Infrastructure.Services.SceneLoader;
-using _Project.Scripts.Infrastructure.Services.ScenePayload;
-using _Project.Scripts.Infrastructure.Services.UI;
+using Evo.Infrastructure.Runtime.Loading;
+using Evo.Infrastructure.Runtime.UI;
+using Evo.Infrastructure.Services.Ads;
+using Evo.Infrastructure.Services.Analytics;
+using Evo.Infrastructure.Services.Audio;
+using Evo.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Focus;
+using Evo.Infrastructure.Services.Leaderboard;
+using Evo.Infrastructure.Services.Localization;
+using Evo.Infrastructure.Services.PlatformInfo;
+using Evo.Infrastructure.Services.ResourceCatalog;
+using Evo.Infrastructure.Services.ResourceLoader;
+using Evo.Infrastructure.Services.ResourceProvider;
+using Evo.Infrastructure.Services.Save;
+using Evo.Infrastructure.Services.SceneLoader;
+using Evo.Infrastructure.Services.ScenePayload;
+using Evo.Infrastructure.Services.UI;
 using UnityEngine;
 using VContainer;
 using VContainer.Unity;
 
-namespace _Project.Scripts.Runtime.EntryPoint
+namespace Game.Runtime.EntryPoint
 {
     public sealed class RuntimeProjectLifetimeScope : LifetimeScope
     {
@@ -75,8 +75,8 @@ namespace _Project.Scripts.Runtime.EntryPoint
             builder.Register<IUiService, UiService>(Lifetime.Singleton);
             builder.Register<ILoadingProgress, LoadingProgressReporter>(Lifetime.Singleton);
             builder.Register<ISceneLoadingPipeline, SceneLoadingPipeline>(Lifetime.Singleton);
-            builder.Register<_Project.Scripts.Runtime.Loading.LoadingViewModel>(Lifetime.Transient);
-            builder.RegisterEntryPoint<_Project.Scripts.Runtime.Loading.LoadingViewSystem>(Lifetime.Singleton);
+            builder.Register<Game.Runtime.Loading.LoadingViewModel>(Lifetime.Transient);
+            builder.RegisterEntryPoint<Game.Runtime.Loading.LoadingViewSystem>(Lifetime.Singleton);
             builder.Register<ILoadingStep, TargetFrameRateStep>(Lifetime.Singleton);
             builder.RegisterEntryPoint<RuntimeEntryPoint>();
         }
@@ -105,7 +105,7 @@ namespace _Project.Scripts.Runtime.EntryPoint
 
         private void RegisterOptionalYandex(IContainerBuilder builder)
         {
-            var installerType = FindTypeByName("_Project.Scripts.Infrastructure.Services.Yandex.YandexRuntimeInstaller");
+            var installerType = FindTypeByName("Evo.Infrastructure.Services.Yandex.YandexRuntimeInstaller");
             var registerMethod = installerType?.GetMethod("Register", BindingFlags.Public | BindingFlags.Static);
             if (registerMethod == null)
             {

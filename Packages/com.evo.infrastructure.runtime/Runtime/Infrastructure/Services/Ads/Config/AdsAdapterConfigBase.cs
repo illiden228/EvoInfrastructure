@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.Ads.Config
+namespace Evo.Infrastructure.Services.Ads.Config
 {
     public abstract class AdsAdapterConfigBase : ScriptableObject
     {

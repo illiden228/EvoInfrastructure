@@ -4,14 +4,14 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using _Project.Scripts.Infrastructure.Services.Ads.Config;
-using _Project.Scripts.Infrastructure.Services.Analytics;
-using _Project.Scripts.Infrastructure.Services.Config;
-using _Project.Scripts.Infrastructure.Services.Debug;
-using _Project.Scripts.Infrastructure.Services.PlatformInfo.Config;
+using Evo.Infrastructure.Services.Ads.Config;
+using Evo.Infrastructure.Services.Analytics;
+using Evo.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.PlatformInfo.Config;
 using Cysharp.Threading.Tasks;
 
-namespace _Project.Scripts.Infrastructure.Services.Ads
+namespace Evo.Infrastructure.Services.Ads
 {
     public sealed class AdsService : IAdsService
     {

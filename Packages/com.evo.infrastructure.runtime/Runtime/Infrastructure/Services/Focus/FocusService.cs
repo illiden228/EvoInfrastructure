@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
-namespace _Project.Scripts.Infrastructure.Services.Focus
+namespace Evo.Infrastructure.Services.Focus
 {
     public sealed class FocusService : IFocusService
     {

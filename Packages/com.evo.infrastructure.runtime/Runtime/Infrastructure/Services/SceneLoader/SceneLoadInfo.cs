@@ -1,6 +1,6 @@
 using UnityEngine.SceneManagement;
 
-namespace _Project.Scripts.Infrastructure.Services.SceneLoader
+namespace Evo.Infrastructure.Services.SceneLoader
 {
     public enum SceneLoadSource
     {

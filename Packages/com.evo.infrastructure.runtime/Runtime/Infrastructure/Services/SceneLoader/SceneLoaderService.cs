@@ -1,15 +1,15 @@
 using System;
 using System.Diagnostics;
 using System.Threading;
-using _Project.Scripts.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.Debug;
 using Cysharp.Threading.Tasks;
-using _Project.Scripts.Infrastructure.Services.ResourceLoader;
+using Evo.Infrastructure.Services.ResourceLoader;
 using UnityEngine.AddressableAssets;
 using UnityEngine.SceneManagement;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceProviders;
 
-namespace _Project.Scripts.Infrastructure.Services.SceneLoader
+namespace Evo.Infrastructure.Services.SceneLoader
 {
     public sealed class SceneLoaderService : ISceneLoaderService
     {

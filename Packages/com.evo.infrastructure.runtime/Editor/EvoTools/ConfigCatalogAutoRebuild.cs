@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using UnityEditor;
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Config;
 
-namespace _Project.Scripts.Editor.EvoTools
+namespace Evo.Infrastructure.Editor.EvoTools
 {
     public sealed class ConfigCatalogAutoRebuild : AssetPostprocessor
     {

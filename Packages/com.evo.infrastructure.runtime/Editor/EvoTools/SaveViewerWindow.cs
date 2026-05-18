@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using _Project.Scripts.Infrastructure.Services.Save;
+using Evo.Infrastructure.Services.Save;
 using UnityEditor;
 using UnityEngine;
 
-namespace _Project.Scripts.Editor.EvoTools
+namespace Evo.Infrastructure.Editor.EvoTools
 {
     public sealed class SaveViewerWindow : EditorWindow
     {
@@ -86,7 +86,7 @@ namespace _Project.Scripts.Editor.EvoTools
 
             if (GUILayout.Button("Open Folder"))
             {
-                EditorUtility.RevealInFinder(Application.persistentDataPath);
+                EditorUtility.RevealInFinder(UnityEngine.Application.persistentDataPath);
             }
 
             EditorGUILayout.EndHorizontal();
@@ -334,7 +334,7 @@ namespace _Project.Scripts.Editor.EvoTools
             {
                 EnsureEnvelope();
                 TouchEnvelope();
-                Directory.CreateDirectory(Application.persistentDataPath);
+                Directory.CreateDirectory(UnityEngine.Application.persistentDataPath);
                 File.WriteAllText(GetFilePath(), JsonUtility.ToJson(envelope, true));
                 SyncRawJsonFromEnvelope();
                 RefreshFiles();
@@ -443,12 +443,12 @@ namespace _Project.Scripts.Editor.EvoTools
         {
             files.Clear();
 
-            if (!Directory.Exists(Application.persistentDataPath))
+            if (!Directory.Exists(UnityEngine.Application.persistentDataPath))
             {
                 return;
             }
 
-            var paths = Directory.GetFiles(Application.persistentDataPath, "*.json", SearchOption.TopDirectoryOnly);
+            var paths = Directory.GetFiles(UnityEngine.Application.persistentDataPath, "*.json", SearchOption.TopDirectoryOnly);
             Array.Sort(paths, StringComparer.OrdinalIgnoreCase);
             for (var i = 0; i < paths.Length; i++)
             {
@@ -476,7 +476,7 @@ namespace _Project.Scripts.Editor.EvoTools
         private string GetFilePath()
         {
             fileName = NormalizeFileName(fileName);
-            return Path.Combine(Application.persistentDataPath, fileName);
+            return Path.Combine(UnityEngine.Application.persistentDataPath, fileName);
         }
 
         private static string NormalizeFileName(string value)
@@ -493,7 +493,7 @@ namespace _Project.Scripts.Editor.EvoTools
 
         private static string BuildPrefsKey(string name)
         {
-            return $"{EditorPrefsPrefix}{Application.dataPath.GetHashCode()}.{name}";
+            return $"{EditorPrefsPrefix}{UnityEngine.Application.dataPath.GetHashCode()}.{name}";
         }
 
         private void SetStatus(string message, MessageType type)

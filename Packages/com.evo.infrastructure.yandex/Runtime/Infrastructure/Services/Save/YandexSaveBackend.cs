@@ -1,12 +1,12 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using _Project.Scripts.Infrastructure.Services.Debug;
-using _Project.Scripts.Infrastructure.Services.PlatformInfo;
+using Evo.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.PlatformInfo;
 #if YandexGamesPlatform_yg
 using YG;
 #endif
 
-namespace _Project.Scripts.Infrastructure.Services.Save
+namespace Evo.Infrastructure.Services.Save
 {
     public sealed class YandexSaveBackend : ISaveBackend
     {

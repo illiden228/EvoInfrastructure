@@ -1,9 +1,9 @@
-using _Project.Scripts.Application.Loading;
-using _Project.Scripts.Application.UI;
+using Evo.Infrastructure.Runtime.Loading;
+using Evo.Infrastructure.Runtime.UI;
 using R3;
 using UnityEngine;
 
-namespace _Project.Scripts.Runtime.Loading
+namespace Game.Runtime.Loading
 {
     public sealed class LoadingViewModel : IUiViewModel
     {

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace _Project.Scripts.Infrastructure.Services.Analytics
+namespace Evo.Infrastructure.Services.Analytics
 {
     public enum AnalyticsEventType
     {

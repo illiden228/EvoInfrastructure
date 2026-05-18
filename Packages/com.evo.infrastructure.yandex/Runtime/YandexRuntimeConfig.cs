@@ -1,7 +1,7 @@
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Config;
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.Yandex
+namespace Evo.Infrastructure.Services.Yandex
 {
     [GameConfig("Yandex")]
     [CreateAssetMenu(fileName = "YandexRuntimeConfig", menuName = "Project/Yandex/Runtime Config")]

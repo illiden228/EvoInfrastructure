@@ -6,11 +6,11 @@ using System.Reflection;
 using Sirenix.OdinInspector;
 using Sirenix.OdinInspector.Editor;
 using UnityEditor;
-using EvoDebug = _Project.Scripts.Infrastructure.Services.Debug.EvoDebug;
+using EvoDebug = Evo.Infrastructure.Services.Debug.EvoDebug;
 using UnityEngine;
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Config;
 
-namespace _Project.Scripts.Editor.EvoTools
+namespace Evo.Infrastructure.Editor.EvoTools
 {
     public sealed class ConfigHubWindow : OdinMenuEditorWindow
     {

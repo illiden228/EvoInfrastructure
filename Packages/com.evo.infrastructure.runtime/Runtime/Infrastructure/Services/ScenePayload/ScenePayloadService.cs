@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using _Project.Scripts.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.Debug;
 
-namespace _Project.Scripts.Infrastructure.Services.ScenePayload
+namespace Evo.Infrastructure.Services.ScenePayload
 {
     public sealed class ScenePayloadService : IScenePayloadService
     {

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Config;
 #if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
 #endif
@@ -11,7 +11,7 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
-namespace _Project.Scripts.Infrastructure.Services.Ads.Config
+namespace Evo.Infrastructure.Services.Ads.Config
 {
     [CreateAssetMenu(fileName = "AdsAdapterCatalog", menuName = "Project/Ads/Adapter Catalog")]
     [GameConfig("Ads")]

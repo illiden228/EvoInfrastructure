@@ -1,7 +1,7 @@
-using _Project.Scripts.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Config;
 using UnityEngine;
 
-namespace _Project.Scripts.Infrastructure.Services.Ads.Config
+namespace Evo.Infrastructure.Services.Ads.Config
 {
     [CreateAssetMenu(fileName = "AdsConfig", menuName = "Project/Ads/Ads Config")]
     [GameConfig("Ads")]

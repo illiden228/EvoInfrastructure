@@ -3,7 +3,7 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 
-namespace _Project.Scripts.Infrastructure.Services.ResourceProvider
+namespace Evo.Infrastructure.Services.ResourceProvider
 {
     public interface IResourceProviderService
     {

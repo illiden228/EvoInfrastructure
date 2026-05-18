@@ -1,10 +1,10 @@
-using _Project.Scripts.Infrastructure.Services.Leaderboard;
-using _Project.Scripts.Infrastructure.Services.PlatformInfo;
+using Evo.Infrastructure.Services.Leaderboard;
+using Evo.Infrastructure.Services.PlatformInfo;
 #if YandexGamesPlatform_yg
 using YG;
 #endif
 
-namespace _Project.Scripts.Infrastructure.Services.Leaderboard.Adapters
+namespace Evo.Infrastructure.Services.Leaderboard.Adapters
 {
     public sealed class YandexGamesLeaderboardAdapter : ILeaderboardAdapter
     {

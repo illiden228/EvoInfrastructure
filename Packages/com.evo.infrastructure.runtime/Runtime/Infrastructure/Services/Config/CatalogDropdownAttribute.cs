@@ -1,6 +1,6 @@
 using System;
 
-namespace _Project.Scripts.Infrastructure.Services.Config
+namespace Evo.Infrastructure.Services.Config
 {
     public enum CatalogDropdownKind
     {

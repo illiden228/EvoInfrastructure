@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace _Project.Scripts.Infrastructure.Services.PlatformInfo
+namespace Evo.Infrastructure.Services.PlatformInfo
 {
     public sealed class PlatformInfoService : IPlatformInfoService
     {

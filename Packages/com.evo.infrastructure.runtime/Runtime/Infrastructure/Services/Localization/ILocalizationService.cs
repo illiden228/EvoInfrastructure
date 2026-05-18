@@ -4,7 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine.Localization;
 
-namespace _Project.Scripts.Infrastructure.Services.Localization
+namespace Evo.Infrastructure.Services.Localization
 {
     public interface ILocalizationService
     {

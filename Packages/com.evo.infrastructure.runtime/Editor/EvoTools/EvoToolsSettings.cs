@@ -3,15 +3,15 @@ using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
 
-namespace _Project.Scripts.Editor.EvoTools
+namespace Evo.Infrastructure.Editor.EvoTools
 {
     public sealed class EvoToolsSettings : ScriptableObject
     {
         [SerializeField] private Locale locale;
-        [SerializeField] private string saveFileName = _Project.Scripts.Infrastructure.Services.Save.SaveStorageDefaults.FileName;
+        [SerializeField] private string saveFileName = Evo.Infrastructure.Services.Save.SaveStorageDefaults.FileName;
         [SerializeField] private string[] playerPrefsSaveKeys =
         {
-            _Project.Scripts.Infrastructure.Services.Save.SaveStorageDefaults.PlayerPrefsKey
+            Evo.Infrastructure.Services.Save.SaveStorageDefaults.PlayerPrefsKey
         };
 
         public Locale Locale => locale;

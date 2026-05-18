@@ -1,4 +1,4 @@
-namespace _Project.Scripts.Infrastructure.Services.Audio
+namespace Evo.Infrastructure.Services.Audio
 {
     public enum AudioLayer
     {
