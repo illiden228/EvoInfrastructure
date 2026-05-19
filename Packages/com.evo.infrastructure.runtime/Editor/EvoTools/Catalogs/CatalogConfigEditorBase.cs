@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
 {
-    public abstract class CatalogConfigEditorBase : Editor
+    public abstract class CatalogConfigEditorBase : UnityEditor.Editor
     {
         public override void OnInspectorGUI()
         {

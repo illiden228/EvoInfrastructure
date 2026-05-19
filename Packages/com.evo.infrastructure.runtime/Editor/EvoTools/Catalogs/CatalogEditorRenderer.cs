@@ -266,7 +266,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
             EditorGUILayout.Space(4f);
             if (!state.Editors.TryGetValue(itemId, out var editor) || editor == null)
             {
-                editor = Editor.CreateEditor(item);
+                editor = UnityEditor.Editor.CreateEditor(item);
                 state.Editors[itemId] = editor;
             }
 
@@ -459,7 +459,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
             public int Tab;
             public string Search = string.Empty;
             public Dictionary<int, bool> Expanded { get; } = new();
-            public Dictionary<int, Editor> Editors { get; } = new();
+            public Dictionary<int, UnityEditor.Editor> Editors { get; } = new();
         }
     }
 }

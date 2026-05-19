@@ -9,7 +9,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
         [SerializeField] private ScriptableObject catalog;
         [SerializeField] private Vector2 scrollPosition;
 
-        private Editor _fallbackEditor;
+        private UnityEditor.Editor _fallbackEditor;
 
         public static void Open(ScriptableObject catalogAsset)
         {
@@ -51,7 +51,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
                 return;
             }
 
-            Editor.CreateCachedEditor(catalog, null, ref _fallbackEditor);
+            UnityEditor.Editor.CreateCachedEditor(catalog, null, ref _fallbackEditor);
             if (_fallbackEditor == null)
             {
                 EditorGUILayout.HelpBox("Failed to create editor for catalog asset.", MessageType.Warning);
@@ -75,7 +75,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
 
         private static Rect GetMainEditorWindowRect()
         {
-            var containerWindowType = typeof(Editor).Assembly.GetType("UnityEditor.ContainerWindow");
+            var containerWindowType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.ContainerWindow");
             if (containerWindowType == null)
             {
                 return new Rect(100f, 100f, 1280f, 720f);
