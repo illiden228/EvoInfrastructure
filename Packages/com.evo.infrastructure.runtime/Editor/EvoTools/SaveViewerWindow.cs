@@ -174,6 +174,8 @@ namespace Evo.Infrastructure.Editor.EvoTools
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             envelope.schemaVersion = Mathf.Max(1, EditorGUILayout.IntField("Schema Version", envelope.schemaVersion));
             envelope.updatedAtUnixMs = EditorGUILayout.LongField("Updated At Unix Ms", envelope.updatedAtUnixMs);
+            EditorGUILayout.LabelField("Updated At UTC", FormatUnixMs(envelope.updatedAtUnixMs, true));
+            EditorGUILayout.LabelField("Updated At Local", FormatUnixMs(envelope.updatedAtUnixMs, false));
 
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("New Empty Envelope"))
@@ -511,6 +513,25 @@ namespace Evo.Infrastructure.Editor.EvoTools
         {
             EnsureEnvelope();
             envelope.updatedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        }
+
+        private static string FormatUnixMs(long unixMs, bool utc)
+        {
+            if (unixMs <= 0)
+            {
+                return "Not set";
+            }
+
+            try
+            {
+                var value = DateTimeOffset.FromUnixTimeMilliseconds(unixMs);
+                value = utc ? value.ToUniversalTime() : value.ToLocalTime();
+                return value.ToString("yyyy-MM-dd HH:mm:ss.fff zzz");
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return "Invalid timestamp";
+            }
         }
 
         private string GetFilePath()
