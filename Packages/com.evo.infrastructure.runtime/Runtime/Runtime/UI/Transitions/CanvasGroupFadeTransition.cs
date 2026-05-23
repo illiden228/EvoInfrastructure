@@ -11,6 +11,7 @@ namespace Evo.Infrastructure.Runtime.UI.Transitions
     {
         [SerializeField] private float duration = 0.2f;
         [SerializeField] private Ease ease = Ease.OutQuad;
+        [SerializeField] private bool useUnscaledTime;
 
         public async UniTask ShowAsync(UiViewBase view)
         {
@@ -24,7 +25,7 @@ namespace Evo.Infrastructure.Runtime.UI.Transitions
             group.blocksRaycasts = true;
             group.interactable = true;
 
-            await Tween.Alpha(group, 1f, duration, ease);
+            await Tween.Alpha(group, 1f, duration, ease, useUnscaledTime: useUnscaledTime);
         }
 
         public async UniTask HideAsync(UiViewBase view)
@@ -38,7 +39,7 @@ namespace Evo.Infrastructure.Runtime.UI.Transitions
             group.blocksRaycasts = false;
             group.interactable = false;
 
-            await Tween.Alpha(group, 0f, duration, ease);
+            await Tween.Alpha(group, 0f, duration, ease, useUnscaledTime: useUnscaledTime);
         }
 
         private static CanvasGroup GetOrCreateGroup(UiViewBase view)

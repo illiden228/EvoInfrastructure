@@ -66,7 +66,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
 
                 for (var itemIndex = 0; itemIndex < list.Count; itemIndex++)
                 {
-                    if (list[itemIndex] == item)
+                    if (list[itemIndex] is UnityEngine.Object catalogItem && catalogItem == item)
                     {
                         return true;
                     }
