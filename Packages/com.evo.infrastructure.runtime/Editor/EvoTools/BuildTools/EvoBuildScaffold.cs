@@ -56,10 +56,12 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             var bundleVersionStep = EnsureStep<IncrementBundleVersionStep>("IncrementBundleVersionStep.asset", result);
             var androidVersionCodeStep = EnsureStep<IncrementAndroidVersionCodeStep>("IncrementAndroidVersionCodeStep.asset", result);
             var iosBuildNumberStep = EnsureStep<IncrementIosBuildNumberStep>("IncrementIosBuildNumberStep.asset", result);
+            var androidSigningPasswordsStep = EnsureStep<ApplyAndroidSigningPasswordsStep>("ApplyAndroidSigningPasswordsStep.asset", result);
             var buildInfoStep = EnsureBuildInfoStep("UpdateBuildInfoAssetStep.asset", buildInfo, result);
             ConfigureStep(bundleVersionStep, EvoBuildStepPhase.PrepareBuild, 0);
             ConfigureStep(androidVersionCodeStep, EvoBuildStepPhase.PrepareBuild, 10);
             ConfigureStep(iosBuildNumberStep, EvoBuildStepPhase.PrepareBuild, 10);
+            ConfigureStep(androidSigningPasswordsStep, EvoBuildStepPhase.BeforeBuild, -100);
             ConfigureStep(buildInfoStep, EvoBuildStepPhase.BeforeBuild, 0);
             var removedMissingProfiles = globalConfig.RemoveMissingProfileReferences();
             if (removedMissingProfiles > 0)
@@ -78,6 +80,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             AddStepToProfiles(profiles, bundleVersionStep, result);
             AddStepToProfiles(profiles, androidVersionCodeStep, result);
             AddStepToProfiles(profiles, iosBuildNumberStep, result);
+            AddStepToProfiles(profiles, androidSigningPasswordsStep, result);
             AddStepToProfiles(profiles, buildInfoStep, result);
             EditorUtility.SetDirty(globalConfig);
             AssetDatabase.SaveAssets();

@@ -41,40 +41,48 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 return result;
             }
 
-            var context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
-            if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.BeforeBuild, result))
+            var signingSnapshot = AndroidSigningPasswordSnapshot.Capture(profile);
+            try
             {
+                var context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
+                if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.BeforeBuild, result))
+                {
+                    return result;
+                }
+
+                outputPath = ResolveOutputPath(globalConfig, profile);
+                context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
+                EnsureOutputDirectory(outputPath);
+                var options = profile.BuildOptions;
+                if (buildAndRun)
+                {
+                    options |= BuildOptions.AutoRunPlayer;
+                }
+
+                var buildReport = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+                {
+                    scenes = GetEnabledScenes(),
+                    locationPathName = outputPath,
+                    target = profile.BuildTarget,
+                    targetGroup = profile.BuildTargetGroup,
+                    options = options
+                });
+
+                if (buildReport.summary.result != BuildResult.Succeeded)
+                {
+                    result.AddError($"Build failed: {buildReport.summary.result}. Errors: {buildReport.summary.totalErrors}.");
+                    return result;
+                }
+
+                result.AddMessage($"Build succeeded: {outputPath}");
+                result.AddMessage($"Build size: {buildReport.summary.totalSize} bytes.");
+                EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.AfterBuild, result);
                 return result;
             }
-
-            outputPath = ResolveOutputPath(globalConfig, profile);
-            context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
-            EnsureOutputDirectory(outputPath);
-            var options = profile.BuildOptions;
-            if (buildAndRun)
+            finally
             {
-                options |= BuildOptions.AutoRunPlayer;
+                signingSnapshot.Restore(result);
             }
-
-            var buildReport = BuildPipeline.BuildPlayer(new BuildPlayerOptions
-            {
-                scenes = GetEnabledScenes(),
-                locationPathName = outputPath,
-                target = profile.BuildTarget,
-                targetGroup = profile.BuildTargetGroup,
-                options = options
-            });
-
-            if (buildReport.summary.result != BuildResult.Succeeded)
-            {
-                result.AddError($"Build failed: {buildReport.summary.result}. Errors: {buildReport.summary.totalErrors}.");
-                return result;
-            }
-
-            result.AddMessage($"Build succeeded: {outputPath}");
-            result.AddMessage($"Build size: {buildReport.summary.totalSize} bytes.");
-            EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.AfterBuild, result);
-            return result;
         }
 
         public static string BuildConfirmationMessage(PlatformBuildProfile profile, string outputPath, bool buildAndRun)
@@ -172,6 +180,45 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
 
             return new string(chars);
+        }
+
+        private readonly struct AndroidSigningPasswordSnapshot
+        {
+            private readonly bool _enabled;
+            private readonly string _keystorePass;
+            private readonly string _keyaliasPass;
+
+            private AndroidSigningPasswordSnapshot(bool enabled, string keystorePass, string keyaliasPass)
+            {
+                _enabled = enabled;
+                _keystorePass = keystorePass;
+                _keyaliasPass = keyaliasPass;
+            }
+
+            public static AndroidSigningPasswordSnapshot Capture(PlatformBuildProfile profile)
+            {
+                if (profile == null || profile.BuildTarget != BuildTarget.Android)
+                {
+                    return new AndroidSigningPasswordSnapshot(false, string.Empty, string.Empty);
+                }
+
+                return new AndroidSigningPasswordSnapshot(
+                    true,
+                    PlayerSettings.Android.keystorePass,
+                    PlayerSettings.Android.keyaliasPass);
+            }
+
+            public void Restore(EvoBuildApplyResult result)
+            {
+                if (!_enabled)
+                {
+                    return;
+                }
+
+                PlayerSettings.Android.keystorePass = _keystorePass;
+                PlayerSettings.Android.keyaliasPass = _keyaliasPass;
+                result.AddMessage("Restored Android signing passwords after build.");
+            }
         }
     }
 }
