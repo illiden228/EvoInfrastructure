@@ -91,6 +91,20 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             builder.AppendLine($"            EvoBuildMenuActions.ValidateProfile(\"{globalGuid}\", \"{profileGuid}\");");
             builder.AppendLine("        }");
             builder.AppendLine();
+
+            builder.AppendLine($"        [MenuItem(\"EvoTools/Build/Build/{menuName}\", false, {1200 + index})]");
+            builder.AppendLine($"        private static void Build_{methodSuffix}()");
+            builder.AppendLine("        {");
+            builder.AppendLine($"            EvoBuildMenuActions.BuildProfile(\"{globalGuid}\", \"{profileGuid}\", \"{catalogGuid}\", false);");
+            builder.AppendLine("        }");
+            builder.AppendLine();
+
+            builder.AppendLine($"        [MenuItem(\"EvoTools/Build/Build And Run/{menuName}\", false, {1300 + index})]");
+            builder.AppendLine($"        private static void BuildAndRun_{methodSuffix}()");
+            builder.AppendLine("        {");
+            builder.AppendLine($"            EvoBuildMenuActions.BuildProfile(\"{globalGuid}\", \"{profileGuid}\", \"{catalogGuid}\", true);");
+            builder.AppendLine("        }");
+            builder.AppendLine();
         }
 
         private static string GetGuid(UnityEngine.Object asset)

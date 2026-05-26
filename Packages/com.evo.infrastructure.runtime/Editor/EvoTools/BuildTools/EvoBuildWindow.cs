@@ -52,6 +52,16 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 {
                     ApplyPlatform();
                 }
+
+                if (GUILayout.Button("Build", GUILayout.Height(26f)))
+                {
+                    Build(buildAndRun: false);
+                }
+
+                if (GUILayout.Button("Build And Run", GUILayout.Height(26f)))
+                {
+                    Build(buildAndRun: true);
+                }
                 EditorGUILayout.EndHorizontal();
             }
 
@@ -156,6 +166,31 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             _report = EvoBuildPlanner.CreateDryRun(_globalConfig, _profile);
         }
 
+        private void Build(bool buildAndRun)
+        {
+            _report = EvoBuildPlanner.CreateDryRun(_globalConfig, _profile);
+            _applyResult = null;
+            if (_report.HasErrors)
+            {
+                return;
+            }
+
+            if (_report.RequiresDefineRemovalConfirmation && !ConfirmDefineRemoval(_report))
+            {
+                return;
+            }
+
+            var outputPath = EvoBuildExecutor.ResolveOutputPath(_globalConfig, _profile);
+            var title = buildAndRun ? "Build And Run" : "Build";
+            if (!EditorUtility.DisplayDialog("Evo Build", $"{title} profile '{_profile.DisplayName}'?\n\nOutput:\n{outputPath}", title, "Cancel"))
+            {
+                return;
+            }
+
+            _applyResult = EvoBuildExecutor.Build(_globalConfig, _profile, _platformCatalog, buildAndRun);
+            _report = EvoBuildPlanner.CreateDryRun(_globalConfig, _profile);
+        }
+
         private void GenerateMenu()
         {
             if (_globalConfig == null)
@@ -189,6 +224,10 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             EditorGUILayout.LabelField("Platform", _report.PlatformId);
             EditorGUILayout.LabelField("Build Target", $"{_report.BuildTargetGroup}/{_report.BuildTarget}");
             EditorGUILayout.LabelField("Define Cleanup", _report.DefineCleanupPolicy.ToString());
+            if (_profile != null)
+            {
+                EditorGUILayout.LabelField("Output", EvoBuildExecutor.ResolveOutputPath(_globalConfig, _profile));
+            }
 
             DrawMessages("Errors", _report.Errors, MessageType.Error);
             DrawMessages("Warnings", _report.Warnings, MessageType.Warning);

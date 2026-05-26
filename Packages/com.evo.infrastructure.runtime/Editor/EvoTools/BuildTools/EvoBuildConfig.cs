@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 
 namespace Evo.Infrastructure.Editor.EvoTools.Build
@@ -43,69 +41,10 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             profiles.Add(profile);
             return true;
         }
-    }
 
-    [CreateAssetMenu(fileName = "PlatformBuildProfile", menuName = "EvoTools/Build/Platform Build Profile")]
-    public sealed class PlatformBuildProfile : ScriptableObject
-    {
-        [SerializeField] private string profileId;
-        [SerializeField] private string platformId;
-        [SerializeField] private string displayName;
-        [SerializeField] private bool showInGeneratedMenu = true;
-        [SerializeField] private EvoBuildMode buildMode = EvoBuildMode.Release;
-        [SerializeField] private BuildTarget buildTarget = BuildTarget.StandaloneWindows64;
-        [SerializeField] private BuildTargetGroup buildTargetGroup = BuildTargetGroup.Standalone;
-        [SerializeField] private List<string> platformDefines = new();
-        [SerializeField] private List<string> profileDefines = new();
-        [SerializeField] private PlayerSettingsOverrides playerSettings = new();
-        [SerializeField] private string outputPathTemplate;
-        [SerializeField] private BuildOptions buildOptions;
-
-        public string ProfileId => string.IsNullOrWhiteSpace(profileId) ? name : profileId;
-        public string PlatformId => platformId;
-        public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? ProfileId : displayName;
-        public bool ShowInGeneratedMenu => showInGeneratedMenu;
-        public EvoBuildMode BuildMode => buildMode;
-        public BuildTarget BuildTarget => buildTarget;
-        public BuildTargetGroup BuildTargetGroup => buildTargetGroup;
-        public IReadOnlyList<string> PlatformDefines => platformDefines;
-        public IReadOnlyList<string> ProfileDefines => profileDefines;
-        public PlayerSettingsOverrides PlayerSettings => playerSettings;
-        public string OutputPathTemplate => outputPathTemplate;
-        public BuildOptions BuildOptions => buildOptions;
-
-        internal void SetDefaults(
-            string valueProfileId,
-            string valuePlatformId,
-            string valueDisplayName,
-            BuildTarget valueBuildTarget,
-            BuildTargetGroup valueBuildTargetGroup)
+        internal int RemoveMissingProfileReferences()
         {
-            profileId = valueProfileId;
-            platformId = valuePlatformId;
-            displayName = valueDisplayName;
-            buildMode = EvoBuildMode.Release;
-            buildTarget = valueBuildTarget;
-            buildTargetGroup = valueBuildTargetGroup;
-            showInGeneratedMenu = true;
+            return profiles.RemoveAll(profile => profile == null);
         }
-    }
-
-    [Serializable]
-    public sealed class PlayerSettingsOverrides
-    {
-        [SerializeField] private bool overrideProductName;
-        [SerializeField] private string productName;
-        [SerializeField] private bool overrideBundleVersion;
-        [SerializeField] private string bundleVersion;
-        [SerializeField] private bool overrideApplicationIdentifier;
-        [SerializeField] private string applicationIdentifier;
-
-        public bool OverrideProductName => overrideProductName;
-        public string ProductName => productName;
-        public bool OverrideBundleVersion => overrideBundleVersion;
-        public string BundleVersion => bundleVersion;
-        public bool OverrideApplicationIdentifier => overrideApplicationIdentifier;
-        public string ApplicationIdentifier => applicationIdentifier;
     }
 }

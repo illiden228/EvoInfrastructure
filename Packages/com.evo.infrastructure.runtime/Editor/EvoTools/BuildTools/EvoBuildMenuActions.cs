@@ -47,6 +47,37 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             EditorUtility.DisplayDialog("Evo Build Validation", message, "OK");
         }
 
+        public static void BuildProfile(string globalConfigGuid, string profileGuid, string platformCatalogGuid, bool buildAndRun)
+        {
+            var globalConfig = LoadAssetByGuid<BuildGlobalConfig>(globalConfigGuid);
+            var profile = LoadAssetByGuid<PlatformBuildProfile>(profileGuid);
+            var platformCatalog = LoadAssetByGuid<PlatformCatalog>(platformCatalogGuid);
+            var report = EvoBuildPlanner.CreateDryRun(globalConfig, profile);
+            if (report.HasErrors)
+            {
+                EditorUtility.DisplayDialog("Evo Build", string.Join("\n", report.Errors), "OK");
+                return;
+            }
+
+            if (report.RequiresDefineRemovalConfirmation && !ConfirmDefineRemoval(report))
+            {
+                return;
+            }
+
+            var outputPath = EvoBuildExecutor.ResolveOutputPath(globalConfig, profile);
+            var title = buildAndRun ? "Build And Run" : "Build";
+            if (!EditorUtility.DisplayDialog("Evo Build", $"{title} profile '{profile.DisplayName}'?\n\nOutput:\n{outputPath}", title, "Cancel"))
+            {
+                return;
+            }
+
+            var result = EvoBuildExecutor.Build(globalConfig, profile, platformCatalog, buildAndRun);
+            var message = result.Success
+                ? string.Join("\n", result.Messages)
+                : string.Join("\n", result.Errors);
+            EditorUtility.DisplayDialog("Evo Build", string.IsNullOrWhiteSpace(message) ? "Done." : message, "OK");
+        }
+
         private static bool ConfirmDefineRemoval(EvoBuildDryRunReport report)
         {
             var message = "The selected profile will remove these scripting define symbols:\n\n" +

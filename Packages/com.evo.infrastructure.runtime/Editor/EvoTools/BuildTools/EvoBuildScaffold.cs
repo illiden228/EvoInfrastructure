@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -48,11 +49,17 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
 
             result.GlobalConfig = globalConfig;
+            var removedMissingProfiles = globalConfig.RemoveMissingProfileReferences();
+            if (removedMissingProfiles > 0)
+            {
+                result.AddMessage($"Removed {removedMissingProfiles} missing profile reference(s) from BuildGlobalConfig. Asset files were not deleted.");
+            }
+
             var profiles = new[]
             {
-                EnsureProfile("Android.asset", "android", "android", "Android", BuildTarget.Android, BuildTargetGroup.Android, result),
-                EnsureProfile("Web.asset", "web", "web", "Web", BuildTarget.WebGL, BuildTargetGroup.WebGL, result),
-                EnsureProfile("Standalone.asset", "standalone", "standalone", "Standalone", BuildTarget.StandaloneWindows64, BuildTargetGroup.Standalone, result)
+                EnsureProfile("Android.asset", "android_release", "android", "Android Release", BuildTarget.Android, result),
+                EnsureProfile("Web.asset", "web_release", "web", "Web Release", BuildTarget.WebGL, result),
+                EnsureProfile("Standalone.asset", "standalone_release", "standalone", "Standalone Release", BuildTarget.StandaloneWindows64, result)
             };
 
             AddProfilesToGlobalConfig(globalConfig, profiles, result);
@@ -68,16 +75,21 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             string platformId,
             string displayName,
             BuildTarget buildTarget,
-            BuildTargetGroup buildTargetGroup,
             EvoBuildScaffoldResult result)
         {
             var path = $"{ProfilesFolder}/{fileName}";
             var profile = AssetDatabase.LoadAssetAtPath<PlatformBuildProfile>(path);
             if (profile == null)
             {
+                if (File.Exists(path) || AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path) != null)
+                {
+                    result.AddMessage($"Found incompatible or missing-script asset at {path}; creating a new profile with a unique path without overwriting it.");
+                    path = AssetDatabase.GenerateUniqueAssetPath(path);
+                }
+
                 profile = ScriptableObject.CreateInstance<PlatformBuildProfile>();
                 profile.name = fileName.Replace(".asset", string.Empty);
-                profile.SetDefaults(profileId, platformId, displayName, buildTarget, buildTargetGroup);
+                profile.SetDefaults(profileId, platformId, displayName, buildTarget);
                 AssetDatabase.CreateAsset(profile, path);
                 EditorUtility.SetDirty(profile);
                 result.AddMessage($"Created {path}");

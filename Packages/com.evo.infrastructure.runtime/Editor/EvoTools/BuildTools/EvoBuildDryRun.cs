@@ -31,8 +31,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         public bool HasErrors => _errors.Count > 0;
         public bool RequiresDefineRemovalConfirmation => _willBeRemovedDefines.Count > 0 && DefineCleanupPolicy == EvoDefineCleanupPolicy.WarnBeforeRemove;
 
-        internal void AddError(string message) => AddUnique(_errors, message);
-        internal void AddWarning(string message) => AddUnique(_warnings, message);
+        public void AddError(string message) => AddUnique(_errors, message);
+        public void AddWarning(string message) => AddUnique(_warnings, message);
         internal void AddCurrentDefine(string define) => AddUnique(_currentDefines, define);
         internal void AddTargetDefine(string define) => AddUnique(_targetDefines, define);
         internal void AddAddedDefine(string define) => AddUnique(_willBeAddedDefines, define);
@@ -89,6 +89,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 ? globalConfig.DefineCleanupPolicy
                 : EvoDefineCleanupPolicy.WarnBeforeRemove;
 
+            ValidateProfile(report, profile);
+
             var currentDefines = SplitDefines(PlayerSettings.GetScriptingDefineSymbols(ToNamedBuildTarget(profile.BuildTargetGroup)));
             var targetDefines = BuildTargetDefines(globalConfig, profile);
             var sortedCurrentDefines = new List<string>(currentDefines);
@@ -127,6 +129,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
 
             AppendPlayerSettingsChanges(report, profile);
+            var context = new EvoBuildContext(globalConfig, profile, report, string.Empty, buildAndRun: false);
+            EvoBuildStepRunner.Validate(context, report);
             return report;
         }
 
@@ -134,8 +138,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         {
             var result = new HashSet<string>(StringComparer.Ordinal);
             AddDefines(result, globalConfig?.CommonDefines);
-            AddDefines(result, profile.PlatformDefines);
-            AddDefines(result, profile.ProfileDefines);
+            AddDefines(result, profile.Defines);
 
             if (profile.BuildMode == EvoBuildMode.Debug)
             {
@@ -167,6 +170,33 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             {
                 var current = PlayerSettings.GetApplicationIdentifier(profile.BuildTargetGroup);
                 AddChangeIfDifferent(report, "PlayerSettings.applicationIdentifier", current, overrides.ApplicationIdentifier, "Profile");
+            }
+
+            if (overrides.OverrideOrientation)
+            {
+                AddChangeIfDifferent(report, "PlayerSettings.defaultInterfaceOrientation", PlayerSettings.defaultInterfaceOrientation.ToString(), overrides.DefaultOrientation.ToString(), "Profile");
+                AddChangeIfDifferent(report, "PlayerSettings.allowedAutorotateToPortrait", PlayerSettings.allowedAutorotateToPortrait.ToString(), overrides.AutorotateToPortrait.ToString(), "Profile");
+                AddChangeIfDifferent(report, "PlayerSettings.allowedAutorotateToPortraitUpsideDown", PlayerSettings.allowedAutorotateToPortraitUpsideDown.ToString(), overrides.AutorotateToPortraitUpsideDown.ToString(), "Profile");
+                AddChangeIfDifferent(report, "PlayerSettings.allowedAutorotateToLandscapeLeft", PlayerSettings.allowedAutorotateToLandscapeLeft.ToString(), overrides.AutorotateToLandscapeLeft.ToString(), "Profile");
+                AddChangeIfDifferent(report, "PlayerSettings.allowedAutorotateToLandscapeRight", PlayerSettings.allowedAutorotateToLandscapeRight.ToString(), overrides.AutorotateToLandscapeRight.ToString(), "Profile");
+            }
+        }
+
+        private static void ValidateProfile(EvoBuildDryRunReport report, PlatformBuildProfile profile)
+        {
+            if (string.IsNullOrWhiteSpace(profile.ProfileId))
+            {
+                report.AddError("Build profile id is missing.");
+            }
+
+            if (string.IsNullOrWhiteSpace(profile.PlatformId))
+            {
+                report.AddWarning("Platform id is empty. Runtime PlatformCatalog.currentPlatformId will be empty after apply.");
+            }
+
+            if (profile.BuildTargetGroup == BuildTargetGroup.Unknown)
+            {
+                report.AddError($"Build target group could not be resolved for {profile.BuildTarget}.");
             }
         }
 

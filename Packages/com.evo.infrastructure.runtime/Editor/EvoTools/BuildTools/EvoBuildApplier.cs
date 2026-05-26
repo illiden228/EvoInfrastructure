@@ -14,7 +14,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         public IReadOnlyList<string> Errors => _errors;
         public bool Success => _errors.Count == 0;
 
-        internal void AddMessage(string message)
+        public void AddMessage(string message)
         {
             if (!string.IsNullOrWhiteSpace(message))
             {
@@ -22,7 +22,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
         }
 
-        internal void AddError(string message)
+        public void AddError(string message)
         {
             if (!string.IsNullOrWhiteSpace(message))
             {
@@ -57,6 +57,12 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 return result;
             }
 
+            var context = new EvoBuildContext(globalConfig, profile, report, string.Empty, buildAndRun: false);
+            if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.BeforeApply, result))
+            {
+                return result;
+            }
+
             if (switchBuildTarget && !SwitchBuildTarget(profile, result))
             {
                 return result;
@@ -65,6 +71,11 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             ApplyDefines(report, result);
             ApplyPlayerSettings(profile, result);
             ApplyPlatformCatalog(profile, platformCatalog, result);
+            if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.AfterApply, result))
+            {
+                return result;
+            }
+
             AssetDatabase.SaveAssets();
             return result;
         }
@@ -119,6 +130,16 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             {
                 PlayerSettings.SetApplicationIdentifier(profile.BuildTargetGroup, overrides.ApplicationIdentifier ?? string.Empty);
                 result.AddMessage("Applied PlayerSettings.applicationIdentifier.");
+            }
+
+            if (overrides.OverrideOrientation)
+            {
+                PlayerSettings.defaultInterfaceOrientation = overrides.DefaultOrientation;
+                PlayerSettings.allowedAutorotateToPortrait = overrides.AutorotateToPortrait;
+                PlayerSettings.allowedAutorotateToPortraitUpsideDown = overrides.AutorotateToPortraitUpsideDown;
+                PlayerSettings.allowedAutorotateToLandscapeLeft = overrides.AutorotateToLandscapeLeft;
+                PlayerSettings.allowedAutorotateToLandscapeRight = overrides.AutorotateToLandscapeRight;
+                result.AddMessage("Applied PlayerSettings orientation settings.");
             }
         }
 
