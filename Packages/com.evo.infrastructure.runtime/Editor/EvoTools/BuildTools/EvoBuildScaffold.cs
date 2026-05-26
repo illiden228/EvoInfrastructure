@@ -26,7 +26,9 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         public const string RootFolder = "Assets/_Project/Configs/Build";
         private const string ProfilesFolder = RootFolder + "/Profiles";
         private const string ReportsFolder = RootFolder + "/Reports";
+        private const string StepsFolder = RootFolder + "/Steps";
         private const string GlobalConfigPath = RootFolder + "/BuildGlobalConfig.asset";
+        private const string BuildInfoPath = RootFolder + "/EvoBuildInfo.asset";
 
         public static EvoBuildScaffoldResult EnsureDefaultAssets()
         {
@@ -34,6 +36,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             EnsureFolder(RootFolder);
             EnsureFolder(ProfilesFolder);
             EnsureFolder(ReportsFolder);
+            EnsureFolder(StepsFolder);
             result.AddMessage("Build assets are created under Assets/_Project/Configs/Build. If the project .gitignore ignores directories named Build, add an exception for this folder.");
 
             var globalConfig = AssetDatabase.LoadAssetAtPath<BuildGlobalConfig>(GlobalConfigPath);
@@ -49,6 +52,15 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
 
             result.GlobalConfig = globalConfig;
+            var buildInfo = EnsureBuildInfo(result);
+            var bundleVersionStep = EnsureStep<IncrementBundleVersionStep>("IncrementBundleVersionStep.asset", result);
+            var androidVersionCodeStep = EnsureStep<IncrementAndroidVersionCodeStep>("IncrementAndroidVersionCodeStep.asset", result);
+            var iosBuildNumberStep = EnsureStep<IncrementIosBuildNumberStep>("IncrementIosBuildNumberStep.asset", result);
+            var buildInfoStep = EnsureBuildInfoStep("UpdateBuildInfoAssetStep.asset", buildInfo, result);
+            ConfigureStep(bundleVersionStep, EvoBuildStepPhase.PrepareBuild, 0);
+            ConfigureStep(androidVersionCodeStep, EvoBuildStepPhase.PrepareBuild, 10);
+            ConfigureStep(iosBuildNumberStep, EvoBuildStepPhase.PrepareBuild, 10);
+            ConfigureStep(buildInfoStep, EvoBuildStepPhase.BeforeBuild, 0);
             var removedMissingProfiles = globalConfig.RemoveMissingProfileReferences();
             if (removedMissingProfiles > 0)
             {
@@ -63,10 +75,116 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             };
 
             AddProfilesToGlobalConfig(globalConfig, profiles, result);
+            AddStepToProfiles(profiles, bundleVersionStep, result);
+            AddStepToProfiles(profiles, androidVersionCodeStep, result);
+            AddStepToProfiles(profiles, iosBuildNumberStep, result);
+            AddStepToProfiles(profiles, buildInfoStep, result);
             EditorUtility.SetDirty(globalConfig);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             return result;
+        }
+
+        private static EvoBuildInfoAsset EnsureBuildInfo(EvoBuildScaffoldResult result)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<EvoBuildInfoAsset>(BuildInfoPath);
+            if (asset == null)
+            {
+                asset = ScriptableObject.CreateInstance<EvoBuildInfoAsset>();
+                AssetDatabase.CreateAsset(asset, BuildInfoPath);
+                result.AddMessage($"Created {BuildInfoPath}");
+            }
+            else
+            {
+                result.AddMessage($"Found {BuildInfoPath}");
+            }
+
+            return asset;
+        }
+
+        private static TStep EnsureStep<TStep>(string fileName, EvoBuildScaffoldResult result)
+            where TStep : EvoBuildStepAsset
+        {
+            var path = $"{StepsFolder}/{fileName}";
+            var step = AssetDatabase.LoadAssetAtPath<TStep>(path);
+            if (step == null)
+            {
+                step = ScriptableObject.CreateInstance<TStep>();
+                step.name = fileName.Replace(".asset", string.Empty);
+                AssetDatabase.CreateAsset(step, path);
+                EditorUtility.SetDirty(step);
+                result.AddMessage($"Created {path}");
+            }
+            else
+            {
+                result.AddMessage($"Found {path}");
+            }
+
+            return step;
+        }
+
+        private static void ConfigureStep(EvoBuildStepAsset step, EvoBuildStepPhase phase, int order)
+        {
+            if (step == null)
+            {
+                return;
+            }
+
+            var serialized = new SerializedObject(step);
+            var phaseProperty = serialized.FindProperty("phase");
+            var orderProperty = serialized.FindProperty("order");
+            if (phaseProperty != null)
+            {
+                phaseProperty.intValue = (int)phase;
+            }
+
+            if (orderProperty != null)
+            {
+                orderProperty.intValue = order;
+            }
+
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(step);
+        }
+
+        private static UpdateBuildInfoAssetStep EnsureBuildInfoStep(
+            string fileName,
+            EvoBuildInfoAsset buildInfo,
+            EvoBuildScaffoldResult result)
+        {
+            var step = EnsureStep<UpdateBuildInfoAssetStep>(fileName, result);
+            var serialized = new SerializedObject(step);
+            var property = serialized.FindProperty("buildInfoAsset");
+            if (property != null && property.objectReferenceValue == null)
+            {
+                property.objectReferenceValue = buildInfo;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(step);
+                result.AddMessage($"Assigned EvoBuildInfo asset to {fileName}");
+            }
+
+            return step;
+        }
+
+        private static void AddStepToProfiles(
+            IReadOnlyList<PlatformBuildProfile> profiles,
+            EvoBuildStepAsset step,
+            EvoBuildScaffoldResult result)
+        {
+            if (step == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < profiles.Count; i++)
+            {
+                var profile = profiles[i];
+                if (profile != null && profile.AddStepIfMissing(step))
+                {
+                    EditorUtility.SetDirty(profile);
+                    result.AddMessage($"Added step '{step.name}' to profile '{profile.name}'.");
+                }
+            }
         }
 
         private static PlatformBuildProfile EnsureProfile(

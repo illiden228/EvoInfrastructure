@@ -8,8 +8,9 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         Validate = 0,
         BeforeApply = 10,
         AfterApply = 20,
-        BeforeBuild = 30,
-        AfterBuild = 40
+        PrepareBuild = 30,
+        BeforeBuild = 40,
+        AfterBuild = 50
     }
 
     public sealed class EvoBuildContext

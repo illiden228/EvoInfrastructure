@@ -23,13 +23,32 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
 
             var report = EvoBuildPlanner.CreateDryRun(globalConfig, profile);
+            var prepareContext = new EvoBuildContext(globalConfig, profile, report, string.Empty, buildAndRun);
+            if (!EvoBuildStepRunner.Execute(prepareContext, EvoBuildStepPhase.PrepareBuild, result))
+            {
+                return result;
+            }
+
+            AssetDatabase.SaveAssets();
             var outputPath = ResolveOutputPath(globalConfig, profile);
+            if (!EditorUtility.DisplayDialog(
+                    "Evo Build",
+                    BuildConfirmationMessage(profile, outputPath, buildAndRun),
+                    buildAndRun ? "Build And Run" : "Build",
+                    "Cancel"))
+            {
+                result.AddMessage("Build cancelled.");
+                return result;
+            }
+
             var context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
             if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.BeforeBuild, result))
             {
                 return result;
             }
 
+            outputPath = ResolveOutputPath(globalConfig, profile);
+            context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
             EnsureOutputDirectory(outputPath);
             var options = profile.BuildOptions;
             if (buildAndRun)
@@ -56,6 +75,24 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             result.AddMessage($"Build size: {buildReport.summary.totalSize} bytes.");
             EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.AfterBuild, result);
             return result;
+        }
+
+        public static string BuildConfirmationMessage(PlatformBuildProfile profile, string outputPath, bool buildAndRun)
+        {
+            var androidVersionCode = profile.BuildTarget == BuildTarget.Android
+                ? $"\nAndroid versionCode: {PlayerSettings.Android.bundleVersionCode}"
+                : string.Empty;
+            var iosBuildNumber = profile.BuildTarget == BuildTarget.iOS
+                ? $"\niOS buildNumber: {PlayerSettings.iOS.buildNumber}"
+                : string.Empty;
+
+            return $"{(buildAndRun ? "Build and run" : "Build")} profile '{profile.DisplayName}'?" +
+                   $"\n\nVersion: {PlayerSettings.bundleVersion}" +
+                   androidVersionCode +
+                   iosBuildNumber +
+                   $"\nPlatform: {profile.PlatformId}" +
+                   $"\nTarget: {profile.BuildTargetGroup}/{profile.BuildTarget}" +
+                   $"\n\nOutput:\n{outputPath}";
         }
 
         public static string ResolveOutputPath(BuildGlobalConfig globalConfig, PlatformBuildProfile profile)

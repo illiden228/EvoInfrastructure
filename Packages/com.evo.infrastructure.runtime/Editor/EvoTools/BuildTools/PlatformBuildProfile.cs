@@ -66,6 +66,17 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             MigrateLegacyDefines();
         }
 
+        internal bool AddStepIfMissing(EvoBuildStepAsset step)
+        {
+            if (step == null || steps.Contains(step))
+            {
+                return false;
+            }
+
+            steps.Add(step);
+            return true;
+        }
+
         private void MigrateLegacyDefines()
         {
             AddLegacyDefines(platformDefines);

@@ -64,13 +64,6 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 return;
             }
 
-            var outputPath = EvoBuildExecutor.ResolveOutputPath(globalConfig, profile);
-            var title = buildAndRun ? "Build And Run" : "Build";
-            if (!EditorUtility.DisplayDialog("Evo Build", $"{title} profile '{profile.DisplayName}'?\n\nOutput:\n{outputPath}", title, "Cancel"))
-            {
-                return;
-            }
-
             var result = EvoBuildExecutor.Build(globalConfig, profile, platformCatalog, buildAndRun);
             var message = result.Success
                 ? string.Join("\n", result.Messages)

@@ -7,6 +7,9 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
     public sealed class EvoBuildWindow : EditorWindow
     {
         private const string MenuPath = "EvoTools/Build/Open Window";
+        private const string GlobalConfigGuidKey = "EvoTools.Build.LastGlobalConfigGuid";
+        private const string ProfileGuidKey = "EvoTools.Build.LastProfileGuid";
+        private const string PlatformCatalogGuidKey = "EvoTools.Build.LastPlatformCatalogGuid";
 
         private BuildGlobalConfig _globalConfig;
         private PlatformBuildProfile _profile;
@@ -26,12 +29,33 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             window.Show();
         }
 
+        private void OnEnable()
+        {
+            LoadLastSelection();
+            AutoAssignMissingAssets();
+        }
+
         private void OnGUI()
         {
             EditorGUILayout.LabelField("Build Config", EditorStyles.boldLabel);
-            _globalConfig = (BuildGlobalConfig)EditorGUILayout.ObjectField("Global Config", _globalConfig, typeof(BuildGlobalConfig), false);
+            var nextGlobalConfig = (BuildGlobalConfig)EditorGUILayout.ObjectField("Global Config", _globalConfig, typeof(BuildGlobalConfig), false);
+            if (nextGlobalConfig != _globalConfig)
+            {
+                _globalConfig = nextGlobalConfig;
+                _profile = null;
+                _selectedProfileIndex = -1;
+                AutoAssignMissingProfile();
+                SaveLastSelection();
+                ClearResults();
+            }
+
             DrawProfileSelector();
-            _platformCatalog = (PlatformCatalog)EditorGUILayout.ObjectField("Platform Catalog", _platformCatalog, typeof(PlatformCatalog), false);
+            var nextPlatformCatalog = (PlatformCatalog)EditorGUILayout.ObjectField("Platform Catalog", _platformCatalog, typeof(PlatformCatalog), false);
+            if (nextPlatformCatalog != _platformCatalog)
+            {
+                _platformCatalog = nextPlatformCatalog;
+                SaveLastSelection();
+            }
 
             EditorGUILayout.Space(8f);
             if (GUILayout.Button("Create Default Build Scaffold", GUILayout.Height(24f)))
@@ -83,7 +107,14 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
         private void DrawProfileSelector()
         {
-            _profile = (PlatformBuildProfile)EditorGUILayout.ObjectField("Profile", _profile, typeof(PlatformBuildProfile), false);
+            var nextProfile = (PlatformBuildProfile)EditorGUILayout.ObjectField("Profile", _profile, typeof(PlatformBuildProfile), false);
+            if (nextProfile != _profile)
+            {
+                _profile = nextProfile;
+                SaveLastSelection();
+                ClearResults();
+            }
+
             var profiles = _globalConfig?.Profiles;
             if (profiles == null || profiles.Count == 0)
             {
@@ -110,6 +141,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             {
                 _selectedProfileIndex = Mathf.Clamp(_selectedProfileIndex, 0, profiles.Count - 1);
                 _profile = profiles[_selectedProfileIndex];
+                SaveLastSelection();
             }
             else if (_selectedProfileIndex < 0 || _selectedProfileIndex >= profiles.Count)
             {
@@ -121,8 +153,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             {
                 _selectedProfileIndex = nextIndex;
                 _profile = profiles[_selectedProfileIndex];
-                _report = null;
-                _applyResult = null;
+                SaveLastSelection();
+                ClearResults();
             }
         }
 
@@ -139,8 +171,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 }
             }
 
-            _report = null;
-            _applyResult = null;
+            SaveLastSelection();
+            ClearResults();
         }
 
         private void ApplyPlatform()
@@ -180,13 +212,6 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 return;
             }
 
-            var outputPath = EvoBuildExecutor.ResolveOutputPath(_globalConfig, _profile);
-            var title = buildAndRun ? "Build And Run" : "Build";
-            if (!EditorUtility.DisplayDialog("Evo Build", $"{title} profile '{_profile.DisplayName}'?\n\nOutput:\n{outputPath}", title, "Cancel"))
-            {
-                return;
-            }
-
             _applyResult = EvoBuildExecutor.Build(_globalConfig, _profile, _platformCatalog, buildAndRun);
             _report = EvoBuildPlanner.CreateDryRun(_globalConfig, _profile);
         }
@@ -201,6 +226,98 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
             var path = EvoBuildMenuGenerator.Generate(_globalConfig, _platformCatalog);
             EditorUtility.DisplayDialog("Evo Build", $"Generated build menu:\n{path}", "OK");
+        }
+
+        private void LoadLastSelection()
+        {
+            _globalConfig = LoadAssetFromEditorPrefs<BuildGlobalConfig>(GlobalConfigGuidKey);
+            _profile = LoadAssetFromEditorPrefs<PlatformBuildProfile>(ProfileGuidKey);
+            _platformCatalog = LoadAssetFromEditorPrefs<PlatformCatalog>(PlatformCatalogGuidKey);
+        }
+
+        private void SaveLastSelection()
+        {
+            SaveAssetToEditorPrefs(GlobalConfigGuidKey, _globalConfig);
+            SaveAssetToEditorPrefs(ProfileGuidKey, _profile);
+            SaveAssetToEditorPrefs(PlatformCatalogGuidKey, _platformCatalog);
+        }
+
+        private void AutoAssignMissingAssets()
+        {
+            _globalConfig ??= FindFirstAsset<BuildGlobalConfig>();
+            _platformCatalog ??= FindFirstAsset<PlatformCatalog>();
+            AutoAssignMissingProfile();
+            SaveLastSelection();
+        }
+
+        private void AutoAssignMissingProfile()
+        {
+            var profiles = _globalConfig?.Profiles;
+            if (_profile != null || profiles == null || profiles.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < profiles.Count; i++)
+            {
+                if (profiles[i] == null)
+                {
+                    continue;
+                }
+
+                _selectedProfileIndex = i;
+                _profile = profiles[i];
+                return;
+            }
+        }
+
+        private void ClearResults()
+        {
+            _report = null;
+            _applyResult = null;
+        }
+
+        private static T LoadAssetFromEditorPrefs<T>(string key) where T : UnityEngine.Object
+        {
+            var guid = EditorPrefs.GetString(key, string.Empty);
+            if (string.IsNullOrWhiteSpace(guid))
+            {
+                return null;
+            }
+
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            return string.IsNullOrWhiteSpace(path) ? null : AssetDatabase.LoadAssetAtPath<T>(path);
+        }
+
+        private static void SaveAssetToEditorPrefs(string key, UnityEngine.Object asset)
+        {
+            if (asset == null)
+            {
+                EditorPrefs.DeleteKey(key);
+                return;
+            }
+
+            var path = AssetDatabase.GetAssetPath(asset);
+            var guid = string.IsNullOrWhiteSpace(path) ? string.Empty : AssetDatabase.AssetPathToGUID(path);
+            if (string.IsNullOrWhiteSpace(guid))
+            {
+                EditorPrefs.DeleteKey(key);
+                return;
+            }
+
+            EditorPrefs.SetString(key, guid);
+        }
+
+        private static T FindFirstAsset<T>() where T : UnityEngine.Object
+        {
+            var guids = AssetDatabase.FindAssets($"t:{typeof(T).Name}");
+            if (guids.Length == 0)
+            {
+                return null;
+            }
+
+            var path = AssetDatabase.GUIDToAssetPath(guids[0]);
+            return string.IsNullOrWhiteSpace(path) ? null : AssetDatabase.LoadAssetAtPath<T>(path);
         }
 
         private static bool ConfirmDefineRemoval(EvoBuildDryRunReport report)
