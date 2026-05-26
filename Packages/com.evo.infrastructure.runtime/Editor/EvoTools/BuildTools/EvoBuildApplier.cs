@@ -128,7 +128,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
             if (overrides.OverrideApplicationIdentifier)
             {
-                PlayerSettings.SetApplicationIdentifier(profile.BuildTargetGroup, overrides.ApplicationIdentifier ?? string.Empty);
+                PlayerSettings.SetApplicationIdentifier(ToNamedBuildTarget(profile.BuildTargetGroup), overrides.ApplicationIdentifier ?? string.Empty);
                 result.AddMessage("Applied PlayerSettings.applicationIdentifier.");
             }
 

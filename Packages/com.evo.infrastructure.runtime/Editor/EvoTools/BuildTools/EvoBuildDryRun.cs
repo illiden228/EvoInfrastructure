@@ -168,7 +168,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
             if (overrides.OverrideApplicationIdentifier)
             {
-                var current = PlayerSettings.GetApplicationIdentifier(profile.BuildTargetGroup);
+                var current = PlayerSettings.GetApplicationIdentifier(ToNamedBuildTarget(profile.BuildTargetGroup));
                 AddChangeIfDifferent(report, "PlayerSettings.applicationIdentifier", current, overrides.ApplicationIdentifier, "Profile");
             }
 

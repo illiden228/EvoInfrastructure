@@ -8,17 +8,39 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 {
     public static class EvoBuildMenuGenerator
     {
-        private const string GeneratedFolder = "Assets/_Project/Generated/EvoTools/BuildMenu";
+        private const string LegacyGeneratedFilePath = "Assets/_Project/Generated/EvoTools/BuildMenu/EvoGeneratedBuildMenu.cs";
+        private const string GeneratedFolder = "Assets/_Project/Generated/Editor/EvoTools/BuildMenu";
         private const string GeneratedFilePath = GeneratedFolder + "/EvoGeneratedBuildMenu.cs";
 
         public static string Generate(BuildGlobalConfig globalConfig, PlatformCatalog platformCatalog)
         {
+            DeleteLegacyGeneratedMenu();
             EnsureFolder(GeneratedFolder);
             var text = BuildSource(globalConfig, platformCatalog);
             File.WriteAllText(GeneratedFilePath, text, Encoding.UTF8);
             AssetDatabase.ImportAsset(GeneratedFilePath);
             AssetDatabase.Refresh();
             return GeneratedFilePath;
+        }
+
+        private static void DeleteLegacyGeneratedMenu()
+        {
+            if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(LegacyGeneratedFilePath) != null)
+            {
+                AssetDatabase.DeleteAsset(LegacyGeneratedFilePath);
+                return;
+            }
+
+            if (File.Exists(LegacyGeneratedFilePath))
+            {
+                File.Delete(LegacyGeneratedFilePath);
+            }
+
+            var metaPath = LegacyGeneratedFilePath + ".meta";
+            if (File.Exists(metaPath))
+            {
+                File.Delete(metaPath);
+            }
         }
 
         private static string BuildSource(BuildGlobalConfig globalConfig, PlatformCatalog platformCatalog)
