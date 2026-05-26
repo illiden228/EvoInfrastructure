@@ -28,6 +28,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
         public Func<UnityEngine.Object, bool> Contains;
         public Func<IList> GetMutableList;
         public Func<Type, string> BuildAssetBaseName;
+        public Func<string, Type, string> BuildSuggestedId;
         public Func<Type, IReadOnlyList<Type>> GetCreatableTypes;
         public ICatalogItemKeyProvider KeyProvider;
 

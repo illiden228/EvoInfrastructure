@@ -333,7 +333,13 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
             var assetPath = AssetDatabase.GenerateUniqueAssetPath($"{directory}/{baseName}.asset");
             var fileName = System.IO.Path.GetFileNameWithoutExtension(assetPath);
             item.name = fileName;
-            category.KeyProvider?.TrySetKey(item, DefaultCatalogEditorAdapter.NormalizeId(fileName));
+            var suggestedId = category.BuildSuggestedId?.Invoke(fileName, itemType);
+            if (string.IsNullOrWhiteSpace(suggestedId))
+            {
+                suggestedId = DefaultCatalogEditorAdapter.NormalizeId(fileName);
+            }
+
+            category.KeyProvider?.TrySetKey(item, suggestedId);
 
             AssetDatabase.CreateAsset(item, assetPath);
             category.GetMutableList?.Invoke()?.Add(item);

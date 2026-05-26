@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Evo.Infrastructure.Runtime.Config.Catalogs;
 using Evo.Infrastructure.Services.Config;
 #if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
@@ -34,20 +35,8 @@ namespace Evo.Infrastructure.Services.PlatformInfo.Config
         [ListDrawerSettings(ShowFoldout = true, DefaultExpandedState = false, ShowIndexLabels = true)]
         [AssetList(Path = ASSET_LIST_PATH, AutoPopulate = false)]
         [InlineEditor(InlineEditorObjectFieldModes.Hidden)]
-        [OnValueChanged(nameof(SyncEditorFromPlatforms), true)]
 #endif
         [SerializeField] private List<PlatformDefinition> platforms = new();
-
-#if ODIN_INSPECTOR
-        [Title("Platforms Editor")]
-        [PropertyOrder(-800)]
-        [LabelText("Platforms (Editor)")]
-        [Searchable]
-        [ListDrawerSettings(ShowFoldout = true, DefaultExpandedState = false, ShowIndexLabels = true, NumberOfItemsPerPage = 20, ListElementLabelName = "name")]
-        [InlineEditor(InlineEditorObjectFieldModes.Foldout)]
-        [OnValueChanged(nameof(SyncPlatformsFromEditor), true)]
-#endif
-        [SerializeField] private List<PlatformDefinition> platformsEditor = new();
 
 #if ODIN_INSPECTOR
         [Title("Selection")]
@@ -61,9 +50,6 @@ namespace Evo.Infrastructure.Services.PlatformInfo.Config
         public string DefaultPlatformId => defaultPlatformId;
         public string CurrentPlatformId => currentPlatformId;
         public IReadOnlyList<PlatformDefinition> Entries => platforms;
-
-        private bool isSyncing;
-
         private bool HasInvalidPlatforms => GetInvalidPlatformCount() > 0;
 
         private string InvalidPlatformsSummary
@@ -127,6 +113,62 @@ namespace Evo.Infrastructure.Services.PlatformInfo.Config
             return false;
         }
 
+        public CatalogValidationResult ValidateCatalog()
+        {
+            var result = new CatalogValidationResult();
+            if (platforms == null)
+            {
+                result.AddError("Platforms list is null.");
+                return result;
+            }
+
+            var ids = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < platforms.Count; i++)
+            {
+                var platform = platforms[i];
+                if (platform == null)
+                {
+                    result.AddError($"Null platform at index {i}.");
+                    continue;
+                }
+
+                var platformId = platform.PlatformId?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(platformId))
+                {
+                    result.AddError($"Empty platform id at index {i} ({platform.name}).");
+                    continue;
+                }
+
+                if (!ids.TryGetValue(platformId, out var indices))
+                {
+                    indices = new List<int>();
+                    ids[platformId] = indices;
+                }
+
+                indices.Add(i);
+            }
+
+            foreach (var pair in ids)
+            {
+                if (pair.Value.Count > 1)
+                {
+                    result.AddError($"Duplicate platform id '{pair.Key}' at indices: {string.Join(", ", pair.Value)}.");
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(currentPlatformId) && !ContainsPlatformId(currentPlatformId))
+            {
+                result.AddWarning($"Current platform id '{currentPlatformId}' is not present in platforms.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(defaultPlatformId) && !ContainsPlatformId(defaultPlatformId))
+            {
+                result.AddWarning($"Default platform id '{defaultPlatformId}' is not present in platforms.");
+            }
+
+            return result;
+        }
+
         private int GetInvalidPlatformCount()
         {
             if (platforms == null || platforms.Count == 0)
@@ -147,52 +189,30 @@ namespace Evo.Infrastructure.Services.PlatformInfo.Config
             return count;
         }
 
-        private void OnEnable()
+        private bool ContainsPlatformId(string platformId)
         {
-            SyncEditorFromPlatforms();
-        }
-
-        private void SyncEditorFromPlatforms()
-        {
-            if (isSyncing)
+            if (string.IsNullOrWhiteSpace(platformId) || platforms == null)
             {
-                return;
+                return false;
             }
 
-            isSyncing = true;
-            platformsEditor.Clear();
             for (var i = 0; i < platforms.Count; i++)
             {
-                platformsEditor.Add(platforms[i]);
-            }
-            isSyncing = false;
-        }
-
-        private void SyncPlatformsFromEditor()
-        {
-            if (isSyncing)
-            {
-                return;
+                var platform = platforms[i];
+                if (platform != null && string.Equals(platform.PlatformId, platformId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
             }
 
-            isSyncing = true;
-            platforms.Clear();
-            for (var i = 0; i < platformsEditor.Count; i++)
-            {
-                platforms.Add(platformsEditor[i]);
-            }
-            isSyncing = false;
+            return false;
         }
 
 #if UNITY_EDITOR
-#if ODIN_INSPECTOR
-        [Title("Platforms")]
-        [PropertyOrder(-1000)]
-        [Button(ButtonSizes.Medium, Name = "Create Platform")]
-#endif
-        private void CreatePlatform()
+        public void SetCurrentPlatformId(string platformId)
         {
-            PlatformDefinitionPromptWindow.Open(this);
+            currentPlatformId = platformId ?? string.Empty;
+            EditorUtility.SetDirty(this);
         }
 
         [ContextMenu("Sync From Defines")]
@@ -230,123 +250,6 @@ namespace Evo.Infrastructure.Services.PlatformInfo.Config
             var group = EditorUserBuildSettings.selectedBuildTargetGroup;
             var namedTarget = NamedBuildTarget.FromBuildTargetGroup(group);
             return PlayerSettings.GetScriptingDefineSymbols(namedTarget);
-        }
-
-        private sealed class PlatformDefinitionPromptWindow : EditorWindow
-        {
-            private PlatformCatalog _owner;
-            private string _assetName = string.Empty;
-
-            public static void Open(PlatformCatalog owner)
-            {
-                if (owner == null)
-                {
-                    return;
-                }
-
-                var window = CreateInstance<PlatformDefinitionPromptWindow>();
-                window._owner = owner;
-                window.titleContent = new GUIContent("Create Platform");
-                window.minSize = new Vector2(340f, 120f);
-                window.maxSize = new Vector2(520f, 160f);
-                window.ShowUtility();
-            }
-
-            private void OnGUI()
-            {
-                EditorGUILayout.LabelField("Asset Name", EditorStyles.boldLabel);
-                _assetName = EditorGUILayout.TextField(_assetName);
-                GUILayout.Space(10f);
-
-                EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button("Create"))
-                {
-                    _owner?.CreatePlatformWithName(_assetName, allowDefaultName: false);
-                    Close();
-                }
-
-                if (GUILayout.Button("Without Name"))
-                {
-                    _owner?.CreatePlatformWithName(_assetName, allowDefaultName: true);
-                    Close();
-                }
-
-                if (GUILayout.Button("Cancel"))
-                {
-                    Close();
-                }
-                EditorGUILayout.EndHorizontal();
-            }
-        }
-
-        private void CreatePlatformWithName(string typedName, bool allowDefaultName)
-        {
-            var baseName = typedName?.Trim();
-            if (string.IsNullOrEmpty(baseName))
-            {
-                if (!allowDefaultName)
-                {
-                    return;
-                }
-
-                baseName = "Platform";
-            }
-
-            var folder = platformAssetsFolder;
-            if (string.IsNullOrWhiteSpace(folder))
-            {
-                folder = DEFAULT_PLATFORM_ASSETS_FOLDER;
-            }
-
-            EnsureFolderExists(folder);
-
-            if (!AssetDatabase.IsValidFolder(folder))
-            {
-                folder = DEFAULT_PLATFORM_ASSETS_FOLDER;
-                EnsureFolderExists(folder);
-            }
-
-            if (!AssetDatabase.IsValidFolder(folder))
-            {
-                folder = "Assets/_Project/Configs";
-                EnsureFolderExists(folder);
-            }
-
-            var asset = CreateInstance<PlatformDefinition>();
-            var assetPath = AssetDatabase.GenerateUniqueAssetPath($"{folder}/{baseName}.asset");
-            AssetDatabase.CreateAsset(asset, assetPath);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-
-            if (!platforms.Contains(asset))
-            {
-                platforms.Add(asset);
-            }
-
-            SyncEditorFromPlatforms();
-            EditorUtility.SetDirty(this);
-        }
-
-        private static void EnsureFolderExists(string folder)
-        {
-            var normalized = folder.Replace('\\', '/').TrimEnd('/');
-            if (AssetDatabase.IsValidFolder(normalized))
-            {
-                return;
-            }
-
-            var segments = normalized.Split('/');
-            var current = segments[0];
-            for (var i = 1; i < segments.Length; i++)
-            {
-                var next = $"{current}/{segments[i]}";
-                if (!AssetDatabase.IsValidFolder(next))
-                {
-                    AssetDatabase.CreateFolder(current, segments[i]);
-                }
-
-                current = next;
-            }
         }
 #endif
 

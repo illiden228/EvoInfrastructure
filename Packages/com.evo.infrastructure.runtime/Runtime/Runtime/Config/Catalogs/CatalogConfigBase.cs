@@ -16,6 +16,16 @@ namespace Evo.Infrastructure.Runtime.Config.Catalogs
         IReadOnlyList<TItem> Items { get; }
     }
 
+    public interface ICatalogEditorMetadata
+    {
+        Type ItemType { get; }
+        IReadOnlyList<Type> GetCreatableItemTypes();
+        string CreateAssetDirectory { get; }
+        string BuildAssetBaseName(Type itemType);
+        string BuildSuggestedId(string assetName, Type itemType);
+        CatalogValidationResult ValidateCatalog();
+    }
+
     public sealed class CatalogValidationResult
     {
         private readonly List<string> _errors = new();
@@ -43,7 +53,7 @@ namespace Evo.Infrastructure.Runtime.Config.Catalogs
         }
     }
 
-    public abstract class CatalogConfigBase<TItem> : ScriptableObject, IGameConfig, IConfigCatalog<TItem>
+    public abstract class CatalogConfigBase<TItem> : ScriptableObject, IGameConfig, IConfigCatalog<TItem>, ICatalogEditorMetadata
         where TItem : UnityEngine.Object
     {
         [NonSerialized] private CatalogValidationResult _lastValidation;
@@ -53,6 +63,9 @@ namespace Evo.Infrastructure.Runtime.Config.Catalogs
 
         public IReadOnlyList<TItem> Items => MutableItems;
         public Type ItemType => typeof(TItem);
+        public virtual string CreateAssetDirectory => "Assets/_Project/Configs";
+
+        protected virtual string DefaultAssetBaseName => $"new_{NormalizeId(typeof(TItem).Name)}";
 
         public CatalogValidationResult ValidateCatalog()
         {
@@ -113,6 +126,26 @@ namespace Evo.Infrastructure.Runtime.Config.Catalogs
             MutableItems = valueItems == null
                 ? new List<TItem>()
                 : valueItems.FindAll(item => item != null);
+        }
+
+        public virtual IReadOnlyList<Type> GetCreatableItemTypes()
+        {
+            if (!typeof(TItem).IsAbstract && typeof(ScriptableObject).IsAssignableFrom(typeof(TItem)))
+            {
+                return new[] { typeof(TItem) };
+            }
+
+            return Array.Empty<Type>();
+        }
+
+        public virtual string BuildAssetBaseName(Type itemType)
+        {
+            return DefaultAssetBaseName;
+        }
+
+        public virtual string BuildSuggestedId(string assetName, Type itemType)
+        {
+            return NormalizeId(assetName);
         }
 
         protected virtual string GetItemId(TItem item)
