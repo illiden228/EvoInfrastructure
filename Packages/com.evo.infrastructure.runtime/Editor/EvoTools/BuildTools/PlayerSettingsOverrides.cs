@@ -32,5 +32,10 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         public bool AutorotateToPortraitUpsideDown => autorotateToPortraitUpsideDown;
         public bool AutorotateToLandscapeLeft => autorotateToLandscapeLeft;
         public bool AutorotateToLandscapeRight => autorotateToLandscapeRight;
+
+        internal void SetBundleVersion(string value)
+        {
+            bundleVersion = value ?? string.Empty;
+        }
     }
 }

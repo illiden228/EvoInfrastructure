@@ -82,6 +82,17 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             return true;
         }
 
+        internal bool SyncBundleVersionOverride(string value)
+        {
+            if (playerSettings == null || !playerSettings.OverrideBundleVersion)
+            {
+                return false;
+            }
+
+            playerSettings.SetBundleVersion(value);
+            return true;
+        }
+
         private void MigrateLegacyDefines()
         {
             AddLegacyDefines(platformDefines);

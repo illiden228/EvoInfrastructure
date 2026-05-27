@@ -35,7 +35,14 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             var current = PlayerSettings.bundleVersion;
             var next = BumpVersion(current, bumpMode);
             PlayerSettings.bundleVersion = next;
+            if (context?.Profile != null && context.Profile.SyncBundleVersionOverride(next))
+            {
+                EditorUtility.SetDirty(context.Profile);
+                result.AddMessage($"Profile bundle version override updated: {next}");
+            }
+
             result.AddMessage($"Bundle version: {current} -> {next}");
+            AssetDatabase.SaveAssets();
             return true;
         }
 

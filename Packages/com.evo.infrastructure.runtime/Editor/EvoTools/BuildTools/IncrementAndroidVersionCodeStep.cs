@@ -25,6 +25,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             var current = PlayerSettings.Android.bundleVersionCode;
             PlayerSettings.Android.bundleVersionCode = current + 1;
             result.AddMessage($"Android versionCode: {current} -> {PlayerSettings.Android.bundleVersionCode}");
+            AssetDatabase.SaveAssets();
             return true;
         }
     }

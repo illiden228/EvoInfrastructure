@@ -28,6 +28,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             var next = (numeric + 1).ToString();
             PlayerSettings.iOS.buildNumber = next;
             result.AddMessage($"iOS buildNumber: {current} -> {next}");
+            AssetDatabase.SaveAssets();
             return true;
         }
     }
