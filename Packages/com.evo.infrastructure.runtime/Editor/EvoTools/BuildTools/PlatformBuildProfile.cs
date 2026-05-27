@@ -21,6 +21,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         [SerializeField, HideInInspector] private List<string> platformDefines = new();
         [SerializeField, HideInInspector] private List<string> profileDefines = new();
         [SerializeField] private PlayerSettingsOverrides playerSettings = new();
+        [SerializeField] private AndroidSigningSettings androidSigning = new();
         [SerializeField] private string outputPathTemplate;
         [SerializeField] private BuildOptions buildOptions;
         [SerializeField] private List<EvoBuildStepAsset> steps = new();
@@ -41,6 +42,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         }
         public IReadOnlyList<string> Defines => defines;
         public PlayerSettingsOverrides PlayerSettings => playerSettings;
+        public AndroidSigningSettings AndroidSigning => androidSigning;
         public string OutputPathTemplate => outputPathTemplate;
         public BuildOptions BuildOptions => buildOptions;
         public IReadOnlyList<EvoBuildStepAsset> Steps => steps;

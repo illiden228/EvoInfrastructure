@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Evo.Infrastructure.Services.PlatformInfo.Config;
 using UnityEditor;
 using UnityEditorInternal;
@@ -11,6 +12,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
     {
         private ReorderableList _definesList;
         private ReorderableList _stepsList;
+        private static List<EvoBuildStepAsset> _cachedStepAssets;
+        private static double _lastStepAssetsRefreshTime;
 
         private void OnEnable()
         {
@@ -25,6 +28,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             DrawPlatformIdSelector();
             _definesList?.DoLayoutList();
             EditorGUILayout.PropertyField(serializedObject.FindProperty("playerSettings"), includeChildren: true);
+            DrawAndroidSigningSettings();
             EditorGUILayout.PropertyField(serializedObject.FindProperty("outputPathTemplate"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("buildOptions"));
             DrawStepsHelp();
@@ -60,10 +64,21 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             EditorGUILayout.PropertyField(serializedObject.FindProperty("buildTarget"));
         }
 
+        private void DrawAndroidSigningSettings()
+        {
+            var profile = (PlatformBuildProfile)target;
+            if (profile == null || profile.BuildTarget != BuildTarget.Android)
+            {
+                return;
+            }
+
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("androidSigning"), includeChildren: true);
+        }
+
         private static void DrawStepsHelp()
         {
             EditorGUILayout.HelpBox(
-                "Steps are executed in phase/order. Version bump steps should use PrepareBuild. Android signing password step should use BeforeBuild.",
+                "Steps are executed in phase/order. Step assets describe behavior; profile-specific values such as Android signing passwords live on the build profile.",
                 MessageType.Info);
         }
 
@@ -85,17 +100,15 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                     var element = property.GetArrayElementAtIndex(index);
                     rect.y += 2f;
                     rect.height = EditorGUIUtility.singleLineHeight;
-                    if (isStepsList)
-                    {
-                        DrawStepPopup(rect, element);
-                    }
-                    else
-                    {
-                        EditorGUI.PropertyField(rect, element, GUIContent.none);
-                    }
+                    EditorGUI.PropertyField(rect, element, GUIContent.none);
                 },
                 onAddCallback = _ => AddEmptyElement(property)
             };
+
+            if (isStepsList)
+            {
+                list.onAddDropdownCallback = (buttonRect, _) => ShowStepAddMenu(buttonRect, property);
+            }
 
             return list;
         }
@@ -116,41 +129,105 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
         }
 
-        private static void DrawStepPopup(Rect rect, SerializedProperty element)
+        private static void ShowStepAddMenu(Rect buttonRect, SerializedProperty property)
         {
-            var steps = CollectBuildStepAssets();
-            var names = new string[steps.Count + 1];
-            names[0] = "<None>";
-            var selectedIndex = 0;
-            for (var i = 0; i < steps.Count; i++)
+            var targetObject = property.serializedObject.targetObject;
+            var propertyPath = property.propertyPath;
+            var menu = new GenericMenu();
+            menu.AddItem(new GUIContent("Empty"), false, () =>
             {
-                var step = steps[i];
-                names[i + 1] = step == null ? "<missing>" : $"{step.name} ({step.GetType().Name})";
-                if (step == element.objectReferenceValue)
+                AddStepToSerializedList(targetObject, propertyPath, null);
+            });
+
+            menu.AddSeparator(string.Empty);
+            var steps = CollectBuildStepAssets();
+            if (steps.Count == 0)
+            {
+                menu.AddDisabledItem(new GUIContent("No EvoBuildStepAsset assets found"));
+            }
+            else
+            {
+                for (var i = 0; i < steps.Count; i++)
                 {
-                    selectedIndex = i + 1;
+                    var step = steps[i];
+                    var label = step == null ? "<missing>" : $"{step.GetType().Name}/{step.name}";
+                    menu.AddItem(new GUIContent(label), false, () =>
+                    {
+                        AddStepToSerializedList(targetObject, propertyPath, step);
+                    });
                 }
             }
 
-            var nextIndex = EditorGUI.Popup(rect, selectedIndex, names);
-            element.objectReferenceValue = nextIndex <= 0 ? null : steps[nextIndex - 1];
+            menu.AddSeparator(string.Empty);
+            menu.AddItem(new GUIContent("Refresh Step List"), false, () =>
+            {
+                _cachedStepAssets = null;
+                _lastStepAssetsRefreshTime = 0;
+            });
+            menu.DropDown(buttonRect);
+        }
+
+        private static void AddStepToSerializedList(Object targetObject, string propertyPath, EvoBuildStepAsset step)
+        {
+            if (targetObject == null || string.IsNullOrWhiteSpace(propertyPath))
+            {
+                return;
+            }
+
+            var serialized = new SerializedObject(targetObject);
+            serialized.Update();
+            var property = serialized.FindProperty(propertyPath);
+            if (property == null || !property.isArray)
+            {
+                return;
+            }
+
+            var index = property.arraySize;
+            property.InsertArrayElementAtIndex(index);
+            var element = property.GetArrayElementAtIndex(index);
+            if (element.propertyType == SerializedPropertyType.ObjectReference)
+            {
+                element.objectReferenceValue = step;
+            }
+
+            serialized.ApplyModifiedProperties();
         }
 
         private static List<EvoBuildStepAsset> CollectBuildStepAssets()
         {
-            var result = new List<EvoBuildStepAsset>();
-            var guids = AssetDatabase.FindAssets("t:ScriptableObject");
-            for (var i = 0; i < guids.Length; i++)
+            if (_cachedStepAssets != null && EditorApplication.timeSinceStartup - _lastStepAssetsRefreshTime < 10)
             {
-                var path = AssetDatabase.GUIDToAssetPath(guids[i]);
-                var step = AssetDatabase.LoadAssetAtPath<EvoBuildStepAsset>(path);
-                if (step != null && !result.Contains(step))
+                return _cachedStepAssets;
+            }
+
+            var result = new List<EvoBuildStepAsset>();
+            var seen = new HashSet<EvoBuildStepAsset>();
+            var types = TypeCache.GetTypesDerivedFrom<EvoBuildStepAsset>()
+                .Where(type => !type.IsAbstract && !type.IsGenericType)
+                .OrderBy(type => type.Name);
+
+            foreach (var type in types)
+            {
+                var guids = AssetDatabase.FindAssets($"t:{type.Name}");
+                for (var i = 0; i < guids.Length; i++)
                 {
-                    result.Add(step);
+                    var path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                    var step = AssetDatabase.LoadAssetAtPath<EvoBuildStepAsset>(path);
+                    if (step != null && seen.Add(step))
+                    {
+                        result.Add(step);
+                    }
                 }
             }
 
-            result.Sort((left, right) => string.CompareOrdinal(left.name, right.name));
+            result.Sort((left, right) =>
+            {
+                var typeCompare = string.CompareOrdinal(left.GetType().Name, right.GetType().Name);
+                return typeCompare != 0 ? typeCompare : string.CompareOrdinal(left.name, right.name);
+            });
+
+            _cachedStepAssets = result;
+            _lastStepAssetsRefreshTime = EditorApplication.timeSinceStartup;
             return result;
         }
 

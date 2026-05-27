@@ -20,12 +20,12 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 return;
             }
 
-            if (string.IsNullOrEmpty(ResolveKeystorePassword()))
+            if (string.IsNullOrEmpty(ResolveKeystorePassword(context.Profile)))
             {
                 report.AddWarning($"{name}: Android keystore password is not configured.");
             }
 
-            if (string.IsNullOrEmpty(ResolveKeyAliasPassword()))
+            if (string.IsNullOrEmpty(ResolveKeyAliasPassword(context.Profile)))
             {
                 report.AddWarning($"{name}: Android key alias password is not configured.");
             }
@@ -39,8 +39,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 return true;
             }
 
-            var keystorePassword = ResolveKeystorePassword();
-            var keyAliasPassword = ResolveKeyAliasPassword();
+            var keystorePassword = ResolveKeystorePassword(context.Profile);
+            var keyAliasPassword = ResolveKeyAliasPassword(context.Profile);
             if (string.IsNullOrEmpty(keystorePassword))
             {
                 result.AddError("Android keystore password is missing.");
@@ -59,13 +59,23 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             return true;
         }
 
-        private string ResolveKeystorePassword()
+        private string ResolveKeystorePassword(PlatformBuildProfile profile)
         {
+            if (profile?.AndroidSigning != null && profile.AndroidSigning.OverridePasswords)
+            {
+                return profile.AndroidSigning.ResolveKeystorePassword();
+            }
+
             return ResolveSecret(keystorePasswordEnvironmentVariable, serializedKeystorePassword);
         }
 
-        private string ResolveKeyAliasPassword()
+        private string ResolveKeyAliasPassword(PlatformBuildProfile profile)
         {
+            if (profile?.AndroidSigning != null && profile.AndroidSigning.OverridePasswords)
+            {
+                return profile.AndroidSigning.ResolveKeyAliasPassword();
+            }
+
             return ResolveSecret(keyAliasPasswordEnvironmentVariable, serializedKeyAliasPassword);
         }
 
