@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using Evo.Infrastructure.Services.PlatformInfo.Config;
@@ -107,55 +108,111 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
         private void DrawProfileSelector()
         {
-            var nextProfile = (PlatformBuildProfile)EditorGUILayout.ObjectField("Profile", _profile, typeof(PlatformBuildProfile), false);
-            if (nextProfile != _profile)
+            var profiles = CollectSelectableProfiles();
+            if (profiles.Count > 0)
             {
-                _profile = nextProfile;
-                SaveLastSelection();
-                ClearResults();
-            }
-
-            var profiles = _globalConfig?.Profiles;
-            if (profiles == null || profiles.Count == 0)
-            {
-                return;
-            }
-
-            var names = new string[profiles.Count];
-            var currentIndex = -1;
-            for (var i = 0; i < profiles.Count; i++)
-            {
-                var profile = profiles[i];
-                names[i] = profile == null ? "<missing>" : profile.DisplayName;
-                if (profile == _profile)
+                var names = new string[profiles.Count];
+                var currentIndex = -1;
+                for (var i = 0; i < profiles.Count; i++)
                 {
-                    currentIndex = i;
+                    var profile = profiles[i];
+                    names[i] = BuildProfileLabel(profile);
+                    if (profile == _profile)
+                    {
+                        currentIndex = i;
+                    }
+                }
+
+                if (currentIndex >= 0)
+                {
+                    _selectedProfileIndex = currentIndex;
+                }
+                else if (_profile == null)
+                {
+                    _selectedProfileIndex = Mathf.Clamp(_selectedProfileIndex, 0, profiles.Count - 1);
+                    _profile = profiles[_selectedProfileIndex];
+                    SaveLastSelection();
+                }
+                else if (_selectedProfileIndex < 0 || _selectedProfileIndex >= profiles.Count)
+                {
+                    _selectedProfileIndex = 0;
+                }
+
+                var nextIndex = EditorGUILayout.Popup(_globalConfig == null ? "Profile" : "Profile From Config", _selectedProfileIndex, names);
+                if (nextIndex != _selectedProfileIndex)
+                {
+                    _selectedProfileIndex = nextIndex;
+                    _profile = profiles[_selectedProfileIndex];
+                    SaveLastSelection();
+                    ClearResults();
                 }
             }
 
-            if (currentIndex >= 0)
+            if (_globalConfig == null || profiles.Count == 0)
             {
-                _selectedProfileIndex = currentIndex;
-            }
-            else if (_profile == null && profiles.Count > 0)
-            {
-                _selectedProfileIndex = Mathf.Clamp(_selectedProfileIndex, 0, profiles.Count - 1);
-                _profile = profiles[_selectedProfileIndex];
-                SaveLastSelection();
-            }
-            else if (_selectedProfileIndex < 0 || _selectedProfileIndex >= profiles.Count)
-            {
-                _selectedProfileIndex = 0;
+                var nextProfile = (PlatformBuildProfile)EditorGUILayout.ObjectField("Profile Asset", _profile, typeof(PlatformBuildProfile), false);
+                if (nextProfile != _profile)
+                {
+                    _profile = nextProfile;
+                    SaveLastSelection();
+                    ClearResults();
+                }
             }
 
-            var nextIndex = EditorGUILayout.Popup("Profile From Config", _selectedProfileIndex, names);
-            if (nextIndex != _selectedProfileIndex)
+            using (new EditorGUI.DisabledScope(_profile == null))
             {
-                _selectedProfileIndex = nextIndex;
-                _profile = profiles[_selectedProfileIndex];
-                SaveLastSelection();
-                ClearResults();
+                if (GUILayout.Button("Ping Selected Profile", GUILayout.Height(22f)))
+                {
+                    EditorGUIUtility.PingObject(_profile);
+                    Selection.activeObject = _profile;
+                }
             }
+        }
+
+        private List<PlatformBuildProfile> CollectSelectableProfiles()
+        {
+            var result = new List<PlatformBuildProfile>();
+            var configProfiles = _globalConfig?.Profiles;
+            if (configProfiles != null)
+            {
+                for (var i = 0; i < configProfiles.Count; i++)
+                {
+                    AddProfile(result, configProfiles[i]);
+                }
+            }
+
+            if (result.Count > 0)
+            {
+                return result;
+            }
+
+            var guids = AssetDatabase.FindAssets("t:PlatformBuildProfile");
+            for (var i = 0; i < guids.Length; i++)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                AddProfile(result, AssetDatabase.LoadAssetAtPath<PlatformBuildProfile>(path));
+            }
+
+            result.Sort((left, right) => string.CompareOrdinal(BuildProfileLabel(left), BuildProfileLabel(right)));
+            return result;
+        }
+
+        private static void AddProfile(List<PlatformBuildProfile> profiles, PlatformBuildProfile profile)
+        {
+            if (profile != null && !profiles.Contains(profile))
+            {
+                profiles.Add(profile);
+            }
+        }
+
+        private static string BuildProfileLabel(PlatformBuildProfile profile)
+        {
+            if (profile == null)
+            {
+                return "<missing>";
+            }
+
+            return $"{profile.DisplayName} | {profile.PlatformId} | {profile.BuildTarget}";
         }
 
         private void CreateDefaultScaffold()

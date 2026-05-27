@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace Evo.Infrastructure.Services.PlatformInfo.Config
@@ -8,11 +7,8 @@ namespace Evo.Infrastructure.Services.PlatformInfo.Config
     {
         [SerializeField] private string platformId;
         [SerializeField] private string displayName;
-        [Tooltip("Legacy/runtime detection defines. Do not put build defines here; use EvoTools/Build PlatformBuildProfile Build Defines.")]
-        [SerializeField] private List<string> defines = new();
 
         public string PlatformId => platformId;
         public string DisplayName => displayName;
-        public IReadOnlyList<string> Defines => defines;
     }
 }

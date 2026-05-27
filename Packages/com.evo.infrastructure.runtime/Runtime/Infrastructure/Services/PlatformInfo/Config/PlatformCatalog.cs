@@ -10,7 +10,6 @@ using UnityEngine;
 
 #if UNITY_EDITOR
 using UnityEditor;
-using UnityEditor.Build;
 #endif
 
 namespace Evo.Infrastructure.Services.PlatformInfo.Config
@@ -84,33 +83,6 @@ namespace Evo.Infrastructure.Services.PlatformInfo.Config
                 builder.Append(". Assign PlatformId in each platform asset.");
                 return builder.ToString();
             }
-        }
-
-        public bool TryGetByDefine(string define, out PlatformDefinition entry)
-        {
-            if (string.IsNullOrWhiteSpace(define))
-            {
-                entry = null;
-                return false;
-            }
-
-            for (var i = 0; i < platforms.Count; i++)
-            {
-                var platform = platforms[i];
-                if (platform == null || platform.Defines == null || platform.Defines.Count == 0)
-                {
-                    continue;
-                }
-
-                if (ContainsDefine(platform.Defines, define))
-                {
-                    entry = platform;
-                    return true;
-                }
-            }
-
-            entry = null;
-            return false;
         }
 
         public CatalogValidationResult ValidateCatalog()
@@ -215,100 +187,6 @@ namespace Evo.Infrastructure.Services.PlatformInfo.Config
             EditorUtility.SetDirty(this);
         }
 
-        [ContextMenu("Sync From Defines")]
-        public void SyncFromDefines()
-        {
-            var defines = GetActiveDefines();
-            ApplyDefines(defines);
-        }
-
-        public void ApplyDefines(string defineSymbols)
-        {
-            var defineSet = SplitDefines(defineSymbols);
-            for (var i = 0; i < platforms.Count; i++)
-            {
-                var platform = platforms[i];
-                if (platform == null || platform.Defines == null || platform.Defines.Count == 0)
-                {
-                    continue;
-                }
-
-                if (ContainsAnyDefine(platform.Defines, defineSet))
-                {
-                    currentPlatformId = platform.PlatformId;
-                    EditorUtility.SetDirty(this);
-                    return;
-                }
-            }
-
-            currentPlatformId = defaultPlatformId;
-            EditorUtility.SetDirty(this);
-        }
-
-        private static string GetActiveDefines()
-        {
-            var group = EditorUserBuildSettings.selectedBuildTargetGroup;
-            var namedTarget = NamedBuildTarget.FromBuildTargetGroup(group);
-            return PlayerSettings.GetScriptingDefineSymbols(namedTarget);
-        }
 #endif
-
-        private static HashSet<string> SplitDefines(string defineSymbols)
-        {
-            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (string.IsNullOrWhiteSpace(defineSymbols))
-            {
-                return set;
-            }
-
-            var parts = defineSymbols.Split(';');
-            for (var i = 0; i < parts.Length; i++)
-            {
-                var define = parts[i]?.Trim();
-                if (!string.IsNullOrEmpty(define))
-                {
-                    set.Add(define);
-                }
-            }
-
-            return set;
-        }
-
-        private static bool ContainsDefine(IReadOnlyList<string> defines, string define)
-        {
-            if (defines == null || defines.Count == 0 || string.IsNullOrWhiteSpace(define))
-            {
-                return false;
-            }
-
-            for (var i = 0; i < defines.Count; i++)
-            {
-                if (string.Equals(defines[i], define, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static bool ContainsAnyDefine(IReadOnlyList<string> defines, HashSet<string> defineSet)
-        {
-            if (defines == null || defines.Count == 0 || defineSet == null || defineSet.Count == 0)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < defines.Count; i++)
-            {
-                var define = defines[i];
-                if (!string.IsNullOrWhiteSpace(define) && defineSet.Contains(define))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
     }
 }
