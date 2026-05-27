@@ -77,6 +77,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 result.AddMessage($"Build succeeded: {outputPath}");
                 result.AddMessage($"Build size: {buildReport.summary.totalSize} bytes.");
                 EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.AfterBuild, result);
+                RevealBuildOutput(outputPath, result);
                 return result;
             }
             finally
@@ -160,6 +161,28 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             {
                 Directory.CreateDirectory(directory);
             }
+        }
+
+        private static void RevealBuildOutput(string outputPath, EvoBuildApplyResult result)
+        {
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                return;
+            }
+
+            var normalizedPath = outputPath.Replace('\\', '/');
+            var revealPath = File.Exists(normalizedPath) || Directory.Exists(normalizedPath)
+                ? normalizedPath
+                : Path.GetDirectoryName(normalizedPath);
+
+            if (string.IsNullOrWhiteSpace(revealPath) || !Directory.Exists(revealPath) && !File.Exists(revealPath))
+            {
+                result.AddMessage($"Build output reveal skipped: path was not found ({outputPath}).");
+                return;
+            }
+
+            EditorUtility.RevealInFinder(revealPath);
+            result.AddMessage($"Revealed build output: {revealPath.Replace('\\', '/')}");
         }
 
         private static string SanitizePathPart(string value)
