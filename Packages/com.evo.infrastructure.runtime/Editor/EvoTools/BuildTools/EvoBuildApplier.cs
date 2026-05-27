@@ -70,6 +70,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
             ApplyDefines(report, result);
             ApplyPlayerSettings(profile, result);
+            ApplyAndroidBuildSettings(profile, result);
             ApplyPlatformCatalog(profile, platformCatalog, result);
             if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.AfterApply, result))
             {
@@ -141,6 +142,18 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 PlayerSettings.allowedAutorotateToLandscapeRight = overrides.AutorotateToLandscapeRight;
                 result.AddMessage("Applied PlayerSettings orientation settings.");
             }
+        }
+
+        private static void ApplyAndroidBuildSettings(PlatformBuildProfile profile, EvoBuildApplyResult result)
+        {
+            var androidBuild = profile.AndroidBuild;
+            if (profile.BuildTarget != BuildTarget.Android || androidBuild == null || !androidBuild.OverrideBuildAppBundle)
+            {
+                return;
+            }
+
+            EditorUserBuildSettings.buildAppBundle = androidBuild.BuildAppBundle;
+            result.AddMessage($"Applied Android package format: {(androidBuild.BuildAppBundle ? "AAB" : "APK")}.");
         }
 
         private static void ApplyPlatformCatalog(

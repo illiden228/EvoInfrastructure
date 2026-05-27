@@ -28,7 +28,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             DrawPlatformIdSelector();
             _definesList?.DoLayoutList();
             EditorGUILayout.PropertyField(serializedObject.FindProperty("playerSettings"), includeChildren: true);
-            DrawAndroidSigningSettings();
+            DrawAndroidSettings();
             EditorGUILayout.PropertyField(serializedObject.FindProperty("outputPathTemplate"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("buildOptions"));
             DrawStepsHelp();
@@ -64,7 +64,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             EditorGUILayout.PropertyField(serializedObject.FindProperty("buildTarget"));
         }
 
-        private void DrawAndroidSigningSettings()
+        private void DrawAndroidSettings()
         {
             var profile = (PlatformBuildProfile)target;
             if (profile == null || profile.BuildTarget != BuildTarget.Android)
@@ -72,6 +72,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 return;
             }
 
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("androidBuild"), includeChildren: true);
             EditorGUILayout.PropertyField(serializedObject.FindProperty("androidSigning"), includeChildren: true);
         }
 

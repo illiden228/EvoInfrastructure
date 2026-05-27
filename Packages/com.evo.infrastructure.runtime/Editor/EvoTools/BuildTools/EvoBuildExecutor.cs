@@ -91,6 +91,9 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             var androidVersionCode = profile.BuildTarget == BuildTarget.Android
                 ? $"\nAndroid versionCode: {PlayerSettings.Android.bundleVersionCode}"
                 : string.Empty;
+            var androidPackageFormat = profile.BuildTarget == BuildTarget.Android
+                ? $"\nAndroid package: {(EditorUserBuildSettings.buildAppBundle ? "AAB" : "APK")}"
+                : string.Empty;
             var iosBuildNumber = profile.BuildTarget == BuildTarget.iOS
                 ? $"\niOS buildNumber: {PlayerSettings.iOS.buildNumber}"
                 : string.Empty;
@@ -98,6 +101,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             return $"{(buildAndRun ? "Build and run" : "Build")} profile '{profile.DisplayName}'?" +
                    $"\n\nVersion: {PlayerSettings.bundleVersion}" +
                    androidVersionCode +
+                   androidPackageFormat +
                    iosBuildNumber +
                    $"\nPlatform: {profile.PlatformId}" +
                    $"\nTarget: {profile.BuildTargetGroup}/{profile.BuildTarget}" +
@@ -120,9 +124,9 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 .Replace("{productName}", SanitizePathPart(PlayerSettings.productName))
                 .Replace("{version}", SanitizePathPart(PlayerSettings.bundleVersion));
 
-            if (profile.BuildTarget == BuildTarget.Android && !Path.HasExtension(result))
+            if (profile.BuildTarget == BuildTarget.Android)
             {
-                result += EditorUserBuildSettings.buildAppBundle ? ".aab" : ".apk";
+                result = EnsureAndroidPackageExtension(result, ResolveAndroidBuildAppBundle(profile));
             }
 
             if (profile.BuildTarget == BuildTarget.StandaloneWindows || profile.BuildTarget == BuildTarget.StandaloneWindows64)
@@ -134,6 +138,40 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
 
             return result.Replace('\\', '/');
+        }
+
+        private static bool ResolveAndroidBuildAppBundle(PlatformBuildProfile profile)
+        {
+            var androidBuild = profile?.AndroidBuild;
+            if (androidBuild != null && androidBuild.OverrideBuildAppBundle)
+            {
+                return androidBuild.BuildAppBundle;
+            }
+
+            return EditorUserBuildSettings.buildAppBundle;
+        }
+
+        private static string EnsureAndroidPackageExtension(string path, bool buildAppBundle)
+        {
+            var expectedExtension = buildAppBundle ? ".aab" : ".apk";
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return $"Build{expectedExtension}";
+            }
+
+            var extension = Path.GetExtension(path);
+            if (string.Equals(extension, expectedExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                return path;
+            }
+
+            if (string.Equals(extension, ".apk", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(extension, ".aab", StringComparison.OrdinalIgnoreCase))
+            {
+                return path.Substring(0, path.Length - extension.Length) + expectedExtension;
+            }
+
+            return path + expectedExtension;
         }
 
         private static string[] GetEnabledScenes()

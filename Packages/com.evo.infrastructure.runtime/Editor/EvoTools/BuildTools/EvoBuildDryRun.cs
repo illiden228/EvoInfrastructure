@@ -172,6 +172,18 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 AddChangeIfDifferent(report, "PlayerSettings.applicationIdentifier", current, overrides.ApplicationIdentifier, "Profile");
             }
 
+            if (profile.BuildTarget == BuildTarget.Android &&
+                profile.AndroidBuild != null &&
+                profile.AndroidBuild.OverrideBuildAppBundle)
+            {
+                AddChangeIfDifferent(
+                    report,
+                    "EditorUserBuildSettings.buildAppBundle",
+                    EditorUserBuildSettings.buildAppBundle.ToString(),
+                    profile.AndroidBuild.BuildAppBundle.ToString(),
+                    "Profile");
+            }
+
             if (overrides.OverrideOrientation)
             {
                 AddChangeIfDifferent(report, "PlayerSettings.defaultInterfaceOrientation", PlayerSettings.defaultInterfaceOrientation.ToString(), overrides.DefaultOrientation.ToString(), "Profile");
