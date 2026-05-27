@@ -16,6 +16,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         [SerializeField] private EvoBuildMode buildMode = EvoBuildMode.Release;
         [SerializeField] private BuildTarget buildTarget = BuildTarget.StandaloneWindows64;
         [SerializeField, HideInInspector] private BuildTargetGroup buildTargetGroup = BuildTargetGroup.Standalone;
+        [Tooltip("Build profile defines. This is the source of truth for build-specific defines. PlatformDefinition.Defines is only legacy/runtime detection.")]
         [SerializeField] private List<string> defines = new();
         [SerializeField, HideInInspector] private List<string> platformDefines = new();
         [SerializeField, HideInInspector] private List<string> profileDefines = new();

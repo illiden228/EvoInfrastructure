@@ -8,6 +8,7 @@ namespace Evo.Infrastructure.Services.PlatformInfo.Config
     {
         [SerializeField] private string platformId;
         [SerializeField] private string displayName;
+        [Tooltip("Legacy/runtime detection defines. Do not put build defines here; use EvoTools/Build PlatformBuildProfile Build Defines.")]
         [SerializeField] private List<string> defines = new();
 
         public string PlatformId => platformId;

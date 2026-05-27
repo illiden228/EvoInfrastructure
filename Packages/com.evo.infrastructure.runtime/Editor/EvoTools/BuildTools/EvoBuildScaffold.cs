@@ -80,7 +80,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             AddStepToProfiles(profiles, bundleVersionStep, result);
             AddStepToProfiles(profiles, androidVersionCodeStep, result);
             AddStepToProfiles(profiles, iosBuildNumberStep, result);
-            AddStepToProfiles(profiles, androidSigningPasswordsStep, result);
+            AddStepToProfiles(profiles, androidSigningPasswordsStep, result, BuildTarget.Android);
             AddStepToProfiles(profiles, buildInfoStep, result);
             EditorUtility.SetDirty(globalConfig);
             AssetDatabase.SaveAssets();
@@ -172,7 +172,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         private static void AddStepToProfiles(
             IReadOnlyList<PlatformBuildProfile> profiles,
             EvoBuildStepAsset step,
-            EvoBuildScaffoldResult result)
+            EvoBuildScaffoldResult result,
+            BuildTarget? targetFilter = null)
         {
             if (step == null)
             {
@@ -182,6 +183,11 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             for (var i = 0; i < profiles.Count; i++)
             {
                 var profile = profiles[i];
+                if (targetFilter.HasValue && profile != null && profile.BuildTarget != targetFilter.Value)
+                {
+                    continue;
+                }
+
                 if (profile != null && profile.AddStepIfMissing(step))
                 {
                     EditorUtility.SetDirty(profile);

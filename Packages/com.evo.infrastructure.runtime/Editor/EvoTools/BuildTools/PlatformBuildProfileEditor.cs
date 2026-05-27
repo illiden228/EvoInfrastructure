@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Evo.Infrastructure.Services.PlatformInfo.Config;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 
 namespace Evo.Infrastructure.Editor.EvoTools.Build
@@ -8,11 +9,26 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
     [CustomEditor(typeof(PlatformBuildProfile))]
     internal sealed class PlatformBuildProfileEditor : UnityEditor.Editor
     {
+        private ReorderableList _definesList;
+        private ReorderableList _stepsList;
+
+        private void OnEnable()
+        {
+            _definesList = CreateList("defines", "Build Defines");
+            _stepsList = CreateList("steps", "Build Steps");
+        }
+
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
-            DrawDefaultInspector();
+            DrawMainFields();
             DrawPlatformIdSelector();
+            _definesList?.DoLayoutList();
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("playerSettings"), includeChildren: true);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("outputPathTemplate"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("buildOptions"));
+            DrawStepsHelp();
+            _stepsList?.DoLayoutList();
             serializedObject.ApplyModifiedProperties();
 
             EditorGUILayout.Space(8f);
@@ -32,6 +48,110 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                     Apply(profile);
                 }
             }
+        }
+
+        private void DrawMainFields()
+        {
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("profileId"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("platformId"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("displayName"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("showInGeneratedMenu"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("buildMode"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("buildTarget"));
+        }
+
+        private static void DrawStepsHelp()
+        {
+            EditorGUILayout.HelpBox(
+                "Steps are executed in phase/order. Version bump steps should use PrepareBuild. Android signing password step should use BeforeBuild.",
+                MessageType.Info);
+        }
+
+        private ReorderableList CreateList(string propertyName, string label)
+        {
+            var property = serializedObject.FindProperty(propertyName);
+            if (property == null)
+            {
+                return null;
+            }
+
+            var isStepsList = propertyName == "steps";
+            var list = new ReorderableList(serializedObject, property, draggable: true, displayHeader: true, displayAddButton: true, displayRemoveButton: true)
+            {
+                drawHeaderCallback = rect => EditorGUI.LabelField(rect, label),
+                elementHeightCallback = _ => EditorGUIUtility.singleLineHeight + 4f,
+                drawElementCallback = (rect, index, _, _) =>
+                {
+                    var element = property.GetArrayElementAtIndex(index);
+                    rect.y += 2f;
+                    rect.height = EditorGUIUtility.singleLineHeight;
+                    if (isStepsList)
+                    {
+                        DrawStepPopup(rect, element);
+                    }
+                    else
+                    {
+                        EditorGUI.PropertyField(rect, element, GUIContent.none);
+                    }
+                },
+                onAddCallback = _ => AddEmptyElement(property)
+            };
+
+            return list;
+        }
+
+        private static void AddEmptyElement(SerializedProperty property)
+        {
+            var index = property.arraySize;
+            property.InsertArrayElementAtIndex(index);
+            var element = property.GetArrayElementAtIndex(index);
+            switch (element.propertyType)
+            {
+                case SerializedPropertyType.ObjectReference:
+                    element.objectReferenceValue = null;
+                    break;
+                case SerializedPropertyType.String:
+                    element.stringValue = string.Empty;
+                    break;
+            }
+        }
+
+        private static void DrawStepPopup(Rect rect, SerializedProperty element)
+        {
+            var steps = CollectBuildStepAssets();
+            var names = new string[steps.Count + 1];
+            names[0] = "<None>";
+            var selectedIndex = 0;
+            for (var i = 0; i < steps.Count; i++)
+            {
+                var step = steps[i];
+                names[i + 1] = step == null ? "<missing>" : $"{step.name} ({step.GetType().Name})";
+                if (step == element.objectReferenceValue)
+                {
+                    selectedIndex = i + 1;
+                }
+            }
+
+            var nextIndex = EditorGUI.Popup(rect, selectedIndex, names);
+            element.objectReferenceValue = nextIndex <= 0 ? null : steps[nextIndex - 1];
+        }
+
+        private static List<EvoBuildStepAsset> CollectBuildStepAssets()
+        {
+            var result = new List<EvoBuildStepAsset>();
+            var guids = AssetDatabase.FindAssets("t:ScriptableObject");
+            for (var i = 0; i < guids.Length; i++)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                var step = AssetDatabase.LoadAssetAtPath<EvoBuildStepAsset>(path);
+                if (step != null && !result.Contains(step))
+                {
+                    result.Add(step);
+                }
+            }
+
+            result.Sort((left, right) => string.CompareOrdinal(left.name, right.name));
+            return result;
         }
 
         private void DrawPlatformIdSelector()
