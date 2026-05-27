@@ -10,6 +10,7 @@ using Evo.Infrastructure.Services.Config;
 using Evo.Infrastructure.Services.Debug;
 using Evo.Infrastructure.Services.PlatformInfo.Config;
 using Cysharp.Threading.Tasks;
+using R3;
 
 namespace Evo.Infrastructure.Services.Ads
 {
@@ -21,6 +22,12 @@ namespace Evo.Infrastructure.Services.Ads
         private readonly AdsServiceOptions _options;
         private readonly AdsConfig _adsConfig;
         private readonly IAnalyticsService _analyticsService;
+        private readonly Dictionary<AvailabilityKey, ReactiveProperty<AdsAvailability>> _availabilityStreams = new();
+        private readonly HashSet<IAdsAdapter> _availabilitySubscribedAdapters = new();
+        private readonly SemaphoreSlim _showGate = new(1, 1);
+        private bool _isShowing;
+        private AdType _showingAdType;
+        private string _showingPlacementId;
 
         public AdsService(
             IEnumerable<IAdsAdapterFactory> adapterFactories,
@@ -50,12 +57,112 @@ namespace Evo.Infrastructure.Services.Ads
 
         public bool CanShow(AdType adType, string placementId = null)
         {
-            return _adapterSelector.TryGetReady(adType, placementId, null, out _);
+            return GetAvailability(adType, placementId).CanShow;
+        }
+
+        public AdsAvailability GetAvailability(AdType adType, string placementId = null)
+        {
+            var adapters = EnumerateAdaptersWithEventSubscriptions();
+            if (adapters.Count == 0)
+            {
+                return new AdsAvailability(
+                    adType,
+                    placementId,
+                    false,
+                    false,
+                    false,
+                    IsShowing(adType, placementId),
+                    null,
+                    "No ads adapters registered.");
+            }
+
+            IAdsAdapter firstConfigured = null;
+            IAdsAdapter firstLoading = null;
+            for (var i = 0; i < adapters.Count; i++)
+            {
+                var adapter = adapters[i];
+                firstConfigured ??= adapter;
+
+                if (adapter is IAdsAvailabilityAdapter availabilityAdapter &&
+                    availabilityAdapter.IsLoading(adType, placementId))
+                {
+                    firstLoading ??= adapter;
+                }
+
+                if (adapter.IsReady(adType, placementId))
+                {
+                    return new AdsAvailability(
+                        adType,
+                        placementId,
+                        true,
+                        true,
+                        firstLoading != null,
+                        IsShowing(adType, placementId),
+                        adapter.AdapterId);
+                }
+            }
+
+            return new AdsAvailability(
+                adType,
+                placementId,
+                true,
+                false,
+                firstLoading != null,
+                IsShowing(adType, placementId),
+                firstLoading?.AdapterId ?? firstConfigured?.AdapterId,
+                firstLoading != null ? null : "No ready adapter found.");
+        }
+
+        public Observable<AdsAvailability> ObserveAvailability(AdType adType, string placementId = null)
+        {
+            var stream = GetAvailabilityStream(adType, placementId);
+            stream.Value = GetAvailability(adType, placementId);
+            return stream;
+        }
+
+        public void Preload(AdType adType, string placementId = null)
+        {
+            var adapters = EnumerateAdaptersWithEventSubscriptions();
+            for (var i = 0; i < adapters.Count; i++)
+            {
+                if (adapters[i] is IAdsPreloadAdapter preloadAdapter)
+                {
+                    try
+                    {
+                        preloadAdapter.Preload(adType, placementId);
+                    }
+                    catch (Exception ex)
+                    {
+                        EvoDebug.LogError(
+                            $"Adapter '{adapters[i].AdapterId}' preload failed: {ex.Message}",
+                            ADS_SERVICE_SOURCE);
+                    }
+                }
+            }
+
+            NotifyAvailabilityChanged(adType, placementId);
         }
 
         public async UniTask<AdsShowResult> ShowAsync(
             AdsShowRequest request,
             CancellationToken cancellationToken = default)
+        {
+            await _showGate.WaitAsync(cancellationToken);
+            SetShowing(request.AdType, request.PlacementId, true);
+            try
+            {
+                return await ShowInternalAsync(request, cancellationToken);
+            }
+            finally
+            {
+                SetShowing(request.AdType, request.PlacementId, false);
+                _showGate.Release();
+            }
+        }
+
+        private async UniTask<AdsShowResult> ShowInternalAsync(
+            AdsShowRequest request,
+            CancellationToken cancellationToken)
         {
             EvoDebug.Log(
                 $"Ads show requested: type={request.AdType}, placement='{request.PlacementId ?? "none"}'.",
@@ -132,6 +239,7 @@ namespace Evo.Infrastructure.Services.Ads
 
         public void ShowBanner(string placementId = null)
         {
+            NotifyAvailabilityChanged(AdType.Banner, placementId);
             if (_adapterSelector.TryGetReady(AdType.Banner, placementId, null, out var adapter))
             {
                 adapter.ShowBanner(placementId);
@@ -149,6 +257,7 @@ namespace Evo.Infrastructure.Services.Ads
             {
                 adapters[i].HideBanner(placementId);
             }
+            NotifyAvailabilityChanged(AdType.Banner, placementId);
         }
 
         private async UniTask<AdsShowResult> ExecuteWithTimeout(
@@ -370,10 +479,135 @@ namespace Evo.Infrastructure.Services.Ads
         private AdsShowResult Finalize(AdsShowRequest request, AdsShowResult result)
         {
             TrackShowResult(request, result);
+            NotifyAvailabilityChanged(request.AdType, request.PlacementId);
             EvoDebug.Log(
                 $"Ads show result: type={result.AdType}, status={result.Status}, adapter='{result.AdapterId ?? "none"}', placement='{request.PlacementId ?? "none"}', fallback={result.IsFallbackUsed}, durationMs={result.DurationMs}, error='{result.Error ?? "none"}'.",
                 ADS_SERVICE_SOURCE);
             return result;
+        }
+
+        private IReadOnlyList<IAdsAdapter> EnumerateAdaptersWithEventSubscriptions()
+        {
+            var adapters = _adapterSelector.EnumerateOrderedAdapters();
+            for (var i = 0; i < adapters.Count; i++)
+            {
+                SubscribeAvailabilityEvents(adapters[i]);
+            }
+
+            return adapters;
+        }
+
+        private void SubscribeAvailabilityEvents(IAdsAdapter adapter)
+        {
+            if (adapter == null || _availabilitySubscribedAdapters.Contains(adapter))
+            {
+                return;
+            }
+
+            _availabilitySubscribedAdapters.Add(adapter);
+            if (adapter is IAdsAvailabilityEvents events)
+            {
+                events.AvailabilityChanged += NotifyAvailabilityChanged;
+            }
+        }
+
+        private ReactiveProperty<AdsAvailability> GetAvailabilityStream(AdType adType, string placementId)
+        {
+            var key = new AvailabilityKey(adType, placementId);
+            if (_availabilityStreams.TryGetValue(key, out var stream))
+            {
+                return stream;
+            }
+
+            stream = new ReactiveProperty<AdsAvailability>(GetAvailability(adType, placementId));
+            _availabilityStreams[key] = stream;
+            return stream;
+        }
+
+        private void NotifyAvailabilityChanged(AdType adType, string placementId)
+        {
+            foreach (var pair in _availabilityStreams.ToArray())
+            {
+                if (pair.Key.Matches(adType, placementId))
+                {
+                    pair.Value.Value = GetAvailability(pair.Key.AdType, pair.Key.PlacementId);
+                }
+            }
+        }
+
+        private bool IsShowing(AdType adType, string placementId)
+        {
+            if (!_isShowing || _showingAdType != adType)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(placementId))
+            {
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(_showingPlacementId))
+            {
+                return true;
+            }
+
+            return string.Equals(_showingPlacementId ?? string.Empty, placementId, StringComparison.Ordinal);
+        }
+
+        private void SetShowing(AdType adType, string placementId, bool isShowing)
+        {
+            _showingAdType = adType;
+            _showingPlacementId = placementId;
+            _isShowing = isShowing;
+            NotifyAvailabilityChanged(adType, placementId);
+        }
+
+        private readonly struct AvailabilityKey : IEquatable<AvailabilityKey>
+        {
+            public AdType AdType { get; }
+            public string PlacementId { get; }
+
+            public AvailabilityKey(AdType adType, string placementId)
+            {
+                AdType = adType;
+                PlacementId = placementId ?? string.Empty;
+            }
+
+            public bool Equals(AvailabilityKey other)
+            {
+                return AdType == other.AdType &&
+                       string.Equals(PlacementId, other.PlacementId, StringComparison.Ordinal);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is AvailabilityKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return ((int)AdType * 397) ^ StringComparer.Ordinal.GetHashCode(PlacementId);
+                }
+            }
+
+            public bool Matches(AdType adType, string placementId)
+            {
+                if (AdType != adType)
+                {
+                    return false;
+                }
+
+                if (string.IsNullOrWhiteSpace(placementId))
+                {
+                    return true;
+                }
+
+                return string.Equals(PlacementId, placementId, StringComparison.Ordinal) ||
+                       string.IsNullOrWhiteSpace(PlacementId);
+            }
         }
     }
 }

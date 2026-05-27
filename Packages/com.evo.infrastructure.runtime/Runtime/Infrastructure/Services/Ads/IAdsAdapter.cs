@@ -13,4 +13,19 @@ namespace Evo.Infrastructure.Services.Ads
         void ShowBanner(string placementId = null);
         void HideBanner(string placementId = null);
     }
+
+    public interface IAdsPreloadAdapter
+    {
+        void Preload(AdType adType, string placementId = null);
+    }
+
+    public interface IAdsAvailabilityAdapter
+    {
+        bool IsLoading(AdType adType, string placementId = null);
+    }
+
+    public interface IAdsAvailabilityEvents
+    {
+        event System.Action<AdType, string> AvailabilityChanged;
+    }
 }
