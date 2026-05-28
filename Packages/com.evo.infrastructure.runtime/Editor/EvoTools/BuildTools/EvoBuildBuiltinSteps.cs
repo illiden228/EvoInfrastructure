@@ -46,7 +46,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             return true;
         }
 
-        private static string BumpVersion(string version, EvoVersionBumpMode mode)
+        internal static string BumpVersion(string version, EvoVersionBumpMode mode)
         {
             var parts = (version ?? "0.0.0").Split('.');
             var major = ParsePart(parts, 0);

@@ -7,8 +7,15 @@ namespace Evo.Infrastructure.Services.UI
 {
     public interface IUiService
     {
+        UiOpenBuilder<TViewModel> Open<TViewModel>(string viewId = null, UiOpenOptions options = null)
+            where TViewModel : class, IUiViewModel;
         UniTask<UiHandle> OpenAsync<TViewModel>(string viewId = null, UiOpenOptions options = null)
             where TViewModel : class, IUiViewModel;
+        UniTask<UiHandle> OpenAsync<TViewModel, TContext>(
+            TContext context,
+            string viewId = null,
+            UiOpenOptions options = null)
+            where TViewModel : class, IUiViewModel, IUiContextReceiver<TContext>;
         UniTask<UiHandle> OpenAsync(Type viewModelType, string viewId = null, UiOpenOptions options = null);
         UniTask<UiHandle> OpenAsync(UiViewBase view, UiOpenOptions options = null);
         void RegisterSceneView(UiViewBase view);

@@ -64,6 +64,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 CreateDefaultScaffold();
             }
 
+            DrawVersionControls();
+
             using (new EditorGUI.DisabledScope(_profile == null))
             {
                 EditorGUILayout.BeginHorizontal();
@@ -165,6 +167,55 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 {
                     EditorGUIUtility.PingObject(_profile);
                     Selection.activeObject = _profile;
+                }
+            }
+        }
+
+        private void DrawVersionControls()
+        {
+            EditorGUILayout.Space(8f);
+            EditorGUILayout.LabelField("Version", EditorStyles.boldLabel);
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField("Bundle Version", PlayerSettings.bundleVersion);
+                    using (new EditorGUI.DisabledScope(_profile == null))
+                    {
+                        if (GUILayout.Button("+ Patch", GUILayout.Width(72f)))
+                        {
+                            BumpBundleVersion(EvoVersionBumpMode.Patch);
+                        }
+
+                        if (GUILayout.Button("+ Minor", GUILayout.Width(72f)))
+                        {
+                            BumpBundleVersion(EvoVersionBumpMode.Minor);
+                        }
+
+                        if (GUILayout.Button("+ Major", GUILayout.Width(72f)))
+                        {
+                            BumpBundleVersion(EvoVersionBumpMode.Major);
+                        }
+                    }
+                }
+
+                if (_profile != null && _profile.PlayerSettings != null && !_profile.PlayerSettings.OverrideBundleVersion)
+                {
+                    EditorGUILayout.HelpBox(
+                        "Selected profile does not override bundleVersion. Manual bump changes PlayerSettings only.",
+                        MessageType.Info);
+                }
+
+                if (_profile != null && _profile.BuildTarget == BuildTarget.Android)
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        EditorGUILayout.LabelField("Android Version Code", PlayerSettings.Android.bundleVersionCode.ToString());
+                        if (GUILayout.Button("+1", GUILayout.Width(72f)))
+                        {
+                            IncrementAndroidVersionCode();
+                        }
+                    }
                 }
             }
         }
@@ -283,6 +334,32 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
             var path = EvoBuildMenuGenerator.Generate(_globalConfig, _platformCatalog);
             EditorUtility.DisplayDialog("Evo Build", $"Generated build menu:\n{path}", "OK");
+        }
+
+        private void BumpBundleVersion(EvoVersionBumpMode mode)
+        {
+            var current = PlayerSettings.bundleVersion;
+            var next = IncrementBundleVersionStep.BumpVersion(current, mode);
+            PlayerSettings.bundleVersion = next;
+            if (_profile != null && _profile.SyncBundleVersionOverride(next))
+            {
+                EditorUtility.SetDirty(_profile);
+            }
+
+            AssetDatabase.SaveAssets();
+            _report = EvoBuildPlanner.CreateDryRun(_globalConfig, _profile);
+            _applyResult = new EvoBuildApplyResult();
+            _applyResult.AddMessage($"Bundle version: {current} -> {next}");
+        }
+
+        private void IncrementAndroidVersionCode()
+        {
+            var current = PlayerSettings.Android.bundleVersionCode;
+            PlayerSettings.Android.bundleVersionCode = current + 1;
+            AssetDatabase.SaveAssets();
+            _report = EvoBuildPlanner.CreateDryRun(_globalConfig, _profile);
+            _applyResult = new EvoBuildApplyResult();
+            _applyResult.AddMessage($"Android versionCode: {current} -> {PlayerSettings.Android.bundleVersionCode}");
         }
 
         private void LoadLastSelection()

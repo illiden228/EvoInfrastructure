@@ -27,6 +27,67 @@ namespace Evo.Infrastructure.Services.UI
             public bool ProcessingQueue;
         }
 
+        private readonly struct ContextReceiverKey : IEquatable<ContextReceiverKey>
+        {
+            private readonly Type _viewModelType;
+            private readonly Type _contextType;
+
+            public ContextReceiverKey(Type viewModelType, Type contextType)
+            {
+                _viewModelType = viewModelType;
+                _contextType = contextType;
+            }
+
+            public bool Equals(ContextReceiverKey other)
+            {
+                return _viewModelType == other._viewModelType &&
+                       _contextType == other._contextType;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is ContextReceiverKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return ((_viewModelType != null ? _viewModelType.GetHashCode() : 0) * 397) ^
+                           (_contextType != null ? _contextType.GetHashCode() : 0);
+                }
+            }
+        }
+
+        private interface IContextApplier
+        {
+            void Apply(IUiViewModel viewModel, object context);
+        }
+
+        private sealed class ContextApplier<TContext> : IContextApplier
+        {
+            public void Apply(IUiViewModel viewModel, object context)
+            {
+                if (context == null &&
+                    typeof(TContext).IsValueType &&
+                    Nullable.GetUnderlyingType(typeof(TContext)) == null)
+                {
+                    return;
+                }
+
+                ((IUiContextReceiver<TContext>)viewModel).SetContext((TContext)context);
+            }
+        }
+
+        private sealed class NullContextApplier : IContextApplier
+        {
+            public static readonly NullContextApplier Instance = new();
+
+            public void Apply(IUiViewModel viewModel, object context)
+            {
+            }
+        }
+
         private readonly struct OpenRequest
         {
             public readonly Type ViewModelType;
@@ -62,6 +123,7 @@ namespace Evo.Infrastructure.Services.UI
         private readonly Dictionary<Type, UiViewBase> _sceneViewsByType = new();
         private readonly Dictionary<Type, UiViewEntry> _entryByViewType = new();
         private readonly Dictionary<UiLayer, LayerState> _layers = new();
+        private static readonly Dictionary<ContextReceiverKey, IContextApplier> ContextApplierCache = new();
         private GameObject _root;
 
         public UiService(UiSystemConfig config, IResourceProviderService resources, IObjectResolver resolver)
@@ -147,7 +209,7 @@ namespace Evo.Infrastructure.Services.UI
                 }
             }
 
-            return OpenInstanceInternal(view, viewModelType, layer, mode, keepAlive, keepHistory);
+            return OpenInstanceInternal(view, viewModelType, layer, mode, keepAlive, keepHistory, options?.Context, options?.ContextType, options?.ContextPayload);
         }
 
         public async UniTask HideAsync(UiViewBase view)
@@ -181,6 +243,21 @@ namespace Evo.Infrastructure.Services.UI
             where TViewModel : class, IUiViewModel
         {
             return OpenAsync(typeof(TViewModel), viewId, options);
+        }
+
+        public UiOpenBuilder<TViewModel> Open<TViewModel>(string viewId = null, UiOpenOptions options = null)
+            where TViewModel : class, IUiViewModel
+        {
+            return new UiOpenBuilder<TViewModel>(this, viewId, options);
+        }
+
+        public UniTask<UiHandle> OpenAsync<TViewModel, TContext>(
+            TContext context,
+            string viewId = null,
+            UiOpenOptions options = null)
+            where TViewModel : class, IUiViewModel, IUiContextReceiver<TContext>
+        {
+            return OpenAsync<TViewModel>(viewId, WithContext(options, context));
         }
 
         public UniTask<UiHandle> OpenAsync(Type viewModelType, string viewId = null, UiOpenOptions options = null)
@@ -224,7 +301,7 @@ namespace Evo.Infrastructure.Services.UI
                 return tcs.Task;
             }
 
-            return OpenInternal(entry, viewId, layer, mode, keepAlive, keepHistory);
+            return OpenInternal(entry, viewId, layer, mode, keepAlive, keepHistory, options?.Context, options?.ContextType, options?.ContextPayload);
         }
 
         internal async UniTask CloseAsync(UiHandle handle)
@@ -267,7 +344,10 @@ namespace Evo.Infrastructure.Services.UI
             UiLayer layer,
             UiOpenMode mode,
             bool keepAlive,
-            bool keepHistory)
+            bool keepHistory,
+            object context,
+            Type contextType,
+            IUiContextPayload contextPayload)
         {
             var state = GetLayerState(layer);
             if (state == null)
@@ -306,6 +386,7 @@ namespace Evo.Infrastructure.Services.UI
                 return null;
             }
 
+            ApplyContext(viewModel, context, contextType, contextPayload);
             view.Bind(viewModel);
             viewModel.OnShow();
 
@@ -328,7 +409,10 @@ namespace Evo.Infrastructure.Services.UI
             UiLayer layer,
             UiOpenMode mode,
             bool keepAlive,
-            bool keepHistory)
+            bool keepHistory,
+            object context,
+            Type contextType,
+            IUiContextPayload contextPayload)
         {
             var state = GetLayerState(layer);
             if (state == null)
@@ -360,6 +444,7 @@ namespace Evo.Infrastructure.Services.UI
                 return null;
             }
 
+            ApplyContext(viewModel, context, contextType, contextPayload);
             view.Bind(viewModel);
             viewModel.OnShow();
 
@@ -527,7 +612,7 @@ namespace Evo.Infrastructure.Services.UI
                     var mode = options.OpenModeOverride ?? UiOpenMode.Queue;
                     var keepHistory = options.KeepHistory;
                     var keepAlive = options.KeepAliveOverride ?? true;
-                    handle = await OpenInstanceInternal(request.View, viewModelType, layer, mode, keepAlive, keepHistory);
+                    handle = await OpenInstanceInternal(request.View, viewModelType, layer, mode, keepAlive, keepHistory, options.Context, options.ContextType, options.ContextPayload);
                 }
                 else
                 {
@@ -535,7 +620,7 @@ namespace Evo.Infrastructure.Services.UI
                     var mode = options.OpenModeOverride ?? entry.OpenMode;
                     var keepAlive = options.KeepAliveOverride ?? entry.KeepAlive;
                     var keepHistory = options.KeepHistory || entry.KeepHistory;
-                    handle = await OpenInternal(entry, request.ViewId, layer, mode, keepAlive, keepHistory);
+                    handle = await OpenInternal(entry, request.ViewId, layer, mode, keepAlive, keepHistory, options.Context, options.ContextType, options.ContextPayload);
                 }
                 request.Tcs.TrySetResult(handle);
             }
@@ -703,6 +788,73 @@ namespace Evo.Infrastructure.Services.UI
                     nameof(UiService));
                 return null;
             }
+        }
+
+        private static void ApplyContext(IUiViewModel viewModel, object context, Type explicitContextType, IUiContextPayload contextPayload)
+        {
+            if (viewModel == null)
+            {
+                return;
+            }
+
+            if (contextPayload != null)
+            {
+                contextPayload.Apply(viewModel);
+                return;
+            }
+
+            var contextType = explicitContextType ?? context?.GetType();
+            if (contextType == null)
+            {
+                return;
+            }
+
+            var viewModelType = viewModel.GetType();
+            var key = new ContextReceiverKey(viewModelType, contextType);
+            if (!ContextApplierCache.TryGetValue(key, out var applier))
+            {
+                applier = CreateContextApplier(viewModelType, contextType);
+                ContextApplierCache[key] = applier;
+            }
+
+            applier.Apply(viewModel, context);
+        }
+
+        private static IContextApplier CreateContextApplier(Type viewModelType, Type contextType)
+        {
+            var interfaces = viewModelType.GetInterfaces();
+            for (var i = 0; i < interfaces.Length; i++)
+            {
+                var candidate = interfaces[i];
+                if (!candidate.IsGenericType ||
+                    candidate.GetGenericTypeDefinition() != typeof(IUiContextReceiver<>))
+                {
+                    continue;
+                }
+
+                var acceptedType = candidate.GetGenericArguments()[0];
+                if (!acceptedType.IsAssignableFrom(contextType))
+                {
+                    continue;
+                }
+
+                return (IContextApplier)Activator.CreateInstance(typeof(ContextApplier<>).MakeGenericType(acceptedType));
+            }
+
+            return NullContextApplier.Instance;
+        }
+
+        private static UiOpenOptions WithContext<TContext>(UiOpenOptions options, TContext context)
+        {
+            return new UiOpenOptions
+            {
+                LayerOverride = options?.LayerOverride,
+                OpenModeOverride = options?.OpenModeOverride,
+                KeepAliveOverride = options?.KeepAliveOverride,
+                KeepHistory = options?.KeepHistory ?? false,
+                ContextType = typeof(TContext),
+                ContextPayload = new UiContextPayload<TContext>(context)
+            };
         }
 
         private static string GetCacheKey(UiViewEntry entry, string viewId)
