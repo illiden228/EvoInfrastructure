@@ -732,7 +732,7 @@ namespace Evo.Infrastructure.Services.UI
             {
                 foreach (var pair in _layers)
                 {
-                    await CloseSceneBoundViews(pair.Value, activeScene);
+                    await CloseSceneBoundViews(pair.Value, activeScene, false);
                 }
 
                 RemoveDestroyedSceneViews();
@@ -743,7 +743,7 @@ namespace Evo.Infrastructure.Services.UI
             }
         }
 
-        private async UniTask CloseSceneBoundViews(LayerState state, Scene activeScene)
+        private async UniTask CloseSceneBoundViews(LayerState state, Scene activeScene, bool processQueueAfter)
         {
             if (state == null)
             {
@@ -766,13 +766,12 @@ namespace Evo.Infrastructure.Services.UI
                 }
 
                 state.Stack.RemoveAt(i);
-                await HideAndDispose(handle, true, true);
-                handle.MarkClosed();
+                await CloseSceneBoundHandle(handle);
             }
 
             if (state.History.Count == 0)
             {
-                if (state.Stack.Count == 0)
+                if (processQueueAfter && state.Stack.Count == 0)
                 {
                     ProcessQueue(state).Forget();
                 }
@@ -795,8 +794,7 @@ namespace Evo.Infrastructure.Services.UI
                     continue;
                 }
 
-                await HideAndDispose(handle, true, true);
-                handle.MarkClosed();
+                await CloseSceneBoundHandle(handle);
             }
 
             while (keptHistory.Count > 0)
@@ -804,9 +802,27 @@ namespace Evo.Infrastructure.Services.UI
                 state.History.Push(keptHistory.Pop());
             }
 
-            if (state.Stack.Count == 0)
+            if (processQueueAfter && state.Stack.Count == 0)
             {
                 ProcessQueue(state).Forget();
+            }
+        }
+
+        private async UniTask CloseSceneBoundHandle(UiHandle handle)
+        {
+            try
+            {
+                await HideAndDispose(handle, true, true);
+            }
+            catch (Exception ex)
+            {
+                EvoDebug.LogWarning(
+                    $"Failed to close scene-bound UI '{handle?.ViewModel?.GetType().Name ?? "unknown"}'. {ex.GetType().Name}: {ex.Message}",
+                    nameof(UiService));
+            }
+            finally
+            {
+                handle?.MarkClosed();
             }
         }
 
