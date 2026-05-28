@@ -573,7 +573,7 @@ namespace Evo.Infrastructure.Services.UI
                 await transition.HideAsync(view);
             }
 
-            if (handle.KeepAlive && !forceDestroyView)
+            if ((handle.KeepAlive && !forceDestroyView) || !IsServiceOwnedView(view))
             {
                 view.gameObject.SetActive(false);
             }
@@ -655,10 +655,10 @@ namespace Evo.Infrastructure.Services.UI
 
         private void OnActiveSceneChanged(Scene previousScene, Scene nextScene)
         {
-            CloseSceneBoundViewsAsync().Forget();
+            CloseSceneBoundViewsAsync(nextScene).Forget();
         }
 
-        private async UniTaskVoid CloseSceneBoundViewsAsync()
+        private async UniTaskVoid CloseSceneBoundViewsAsync(Scene activeScene)
         {
             if (_closingSceneBoundViews)
             {
@@ -670,7 +670,7 @@ namespace Evo.Infrastructure.Services.UI
             {
                 foreach (var pair in _layers)
                 {
-                    await CloseSceneBoundViews(pair.Value);
+                    await CloseSceneBoundViews(pair.Value, activeScene);
                 }
 
                 RemoveDestroyedSceneViews();
@@ -681,7 +681,7 @@ namespace Evo.Infrastructure.Services.UI
             }
         }
 
-        private async UniTask CloseSceneBoundViews(LayerState state)
+        private async UniTask CloseSceneBoundViews(LayerState state, Scene activeScene)
         {
             if (state == null)
             {
@@ -698,7 +698,7 @@ namespace Evo.Infrastructure.Services.UI
                     continue;
                 }
 
-                if (handle.KeepAcrossSceneLoads && handle.View != null)
+                if (ShouldKeepHandleAcrossSceneChange(handle, activeScene))
                 {
                     continue;
                 }
@@ -727,7 +727,7 @@ namespace Evo.Infrastructure.Services.UI
                     continue;
                 }
 
-                if (handle.KeepAcrossSceneLoads && handle.View != null)
+                if (ShouldKeepHandleAcrossSceneChange(handle, activeScene))
                 {
                     keptHistory.Push(handle);
                     continue;
@@ -746,6 +746,29 @@ namespace Evo.Infrastructure.Services.UI
             {
                 ProcessQueue(state).Forget();
             }
+        }
+
+        private static bool ShouldKeepHandleAcrossSceneChange(UiHandle handle, Scene activeScene)
+        {
+            if (handle == null || handle.View == null)
+            {
+                return false;
+            }
+
+            if (handle.KeepAcrossSceneLoads)
+            {
+                return true;
+            }
+
+            return IsViewInScene(handle.View, activeScene);
+        }
+
+        private static bool IsViewInScene(UiViewBase view, Scene scene)
+        {
+            return view != null &&
+                   scene.IsValid() &&
+                   view.gameObject.scene.IsValid() &&
+                   view.gameObject.scene == scene;
         }
 
         private void ClearSceneBoundQueue(LayerState state)
@@ -1264,6 +1287,13 @@ namespace Evo.Infrastructure.Services.UI
             }
 
             return _sceneViewsByType.TryGetValue(view.GetType(), out var registered) && registered == view;
+        }
+
+        private bool IsServiceOwnedView(UiViewBase view)
+        {
+            return view != null &&
+                   _root != null &&
+                   view.transform.IsChildOf(_root.transform);
         }
 
         private static Type GetViewModelTypeFromView(Type viewType)
