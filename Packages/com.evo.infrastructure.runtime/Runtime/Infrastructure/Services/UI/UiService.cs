@@ -6,6 +6,7 @@ using Evo.Infrastructure.Runtime.UI.Transitions;
 using Evo.Infrastructure.Runtime.UI.Views;
 using Evo.Infrastructure.Services.Debug;
 using Evo.Infrastructure.Services.ResourceProvider;
+using Evo.Infrastructure.Services.SceneLoader;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -119,6 +120,7 @@ namespace Evo.Infrastructure.Services.UI
         private readonly UiSystemConfig _config;
         private readonly IResourceProviderService _resources;
         private readonly IObjectResolver _resolver;
+        private readonly ISceneLoaderService _sceneLoader;
         private readonly Dictionary<Type, List<UiViewEntry>> _entriesByViewModel = new();
         private readonly Dictionary<string, UiViewBase> _cachedViews = new();
         private readonly Dictionary<Type, UiViewBase> _sceneViewsByType = new();
@@ -133,9 +135,16 @@ namespace Evo.Infrastructure.Services.UI
             _config = config;
             _resources = resources;
             _resolver = resolver;
+            _sceneLoader = TryResolveSceneLoader(resolver);
 
             Reload();
+            if (_sceneLoader != null)
+            {
+                _sceneLoader.SceneLoadStarted += OnSceneLoadStarted;
+            }
+
             SceneManager.activeSceneChanged += OnActiveSceneChanged;
+            SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
         public void Reload()
@@ -146,7 +155,13 @@ namespace Evo.Infrastructure.Services.UI
 
         public void Dispose()
         {
+            if (_sceneLoader != null)
+            {
+                _sceneLoader.SceneLoadStarted -= OnSceneLoadStarted;
+            }
+
             SceneManager.activeSceneChanged -= OnActiveSceneChanged;
+            SceneManager.sceneLoaded -= OnSceneLoaded;
         }
 
         public void RegisterSceneView(UiViewBase view)
@@ -658,6 +673,16 @@ namespace Evo.Infrastructure.Services.UI
             CloseSceneBoundViewsAsync(nextScene).Forget();
         }
 
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            CloseSceneBoundViewsAsync(scene).Forget();
+        }
+
+        private void OnSceneLoadStarted(SceneLoadInfo info)
+        {
+            CloseSceneBoundViewsAsync(default).Forget();
+        }
+
         private async UniTaskVoid CloseSceneBoundViewsAsync(Scene activeScene)
         {
             if (_closingSceneBoundViews)
@@ -975,6 +1000,25 @@ namespace Evo.Infrastructure.Services.UI
                 EvoDebug.LogWarning(
                     $"Failed to resolve ViewModel '{viewModelType.Name}'. {ex.Message}",
                     nameof(UiService));
+                return null;
+            }
+        }
+
+        private static ISceneLoaderService TryResolveSceneLoader(IObjectResolver resolver)
+        {
+            if (resolver == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                return resolver.TryResolve(typeof(ISceneLoaderService), out var resolved)
+                    ? resolved as ISceneLoaderService
+                    : null;
+            }
+            catch
+            {
                 return null;
             }
         }
