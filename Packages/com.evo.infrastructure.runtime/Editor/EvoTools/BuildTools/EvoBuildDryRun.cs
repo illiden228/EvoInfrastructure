@@ -90,6 +90,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 : EvoDefineCleanupPolicy.WarnBeforeRemove;
 
             ValidateProfile(report, profile);
+            ValidateBuildSteps(report, profile);
 
             var currentDefines = SplitDefines(PlayerSettings.GetScriptingDefineSymbols(ToNamedBuildTarget(profile.BuildTargetGroup)));
             var targetDefines = BuildTargetDefines(globalConfig, profile);
@@ -209,6 +210,82 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             if (profile.BuildTargetGroup == BuildTargetGroup.Unknown)
             {
                 report.AddError($"Build target group could not be resolved for {profile.BuildTarget}.");
+            }
+        }
+
+        private static void ValidateBuildSteps(EvoBuildDryRunReport report, PlatformBuildProfile profile)
+        {
+            var steps = profile.Steps;
+            if (steps == null || steps.Count == 0)
+            {
+                report.AddWarning("Build profile has no build steps. Version bump steps will not run.");
+                return;
+            }
+
+            var hasBundleVersionStep = false;
+            var hasAndroidVersionCodeStep = false;
+            for (var i = 0; i < steps.Count; i++)
+            {
+                var step = steps[i];
+                if (step == null)
+                {
+                    report.AddWarning($"Build step #{i + 1} is missing.");
+                    continue;
+                }
+
+                if (!step.Enabled)
+                {
+                    report.AddWarning($"Build step '{step.name}' is disabled.");
+                    continue;
+                }
+
+                if (step is IncrementBundleVersionStep bundleStep)
+                {
+                    hasBundleVersionStep = true;
+                    ValidateVersionStepPhase(report, step);
+                    if (bundleStep.BumpMode == EvoVersionBumpMode.None)
+                    {
+                        report.AddWarning($"Build step '{step.name}' will not bump bundleVersion because bump mode is None.");
+                    }
+
+                    if (bundleStep.OnlyReleaseBuilds && profile.BuildMode != EvoBuildMode.Release)
+                    {
+                        report.AddWarning($"Build step '{step.name}' will skip bundleVersion because profile build mode is {profile.BuildMode}.");
+                    }
+                }
+
+                if (step is IncrementAndroidVersionCodeStep androidStep)
+                {
+                    hasAndroidVersionCodeStep = true;
+                    ValidateVersionStepPhase(report, step);
+                    if (profile.BuildTarget != BuildTarget.Android)
+                    {
+                        report.AddWarning($"Build step '{step.name}' will skip versionCode because build target is {profile.BuildTarget}.");
+                    }
+
+                    if (androidStep.OnlyReleaseBuilds && profile.BuildMode != EvoBuildMode.Release)
+                    {
+                        report.AddWarning($"Build step '{step.name}' will skip versionCode because profile build mode is {profile.BuildMode}.");
+                    }
+                }
+            }
+
+            if (!hasBundleVersionStep)
+            {
+                report.AddWarning("IncrementBundleVersionStep is not assigned to this profile. bundleVersion will not be bumped automatically.");
+            }
+
+            if (profile.BuildTarget == BuildTarget.Android && !hasAndroidVersionCodeStep)
+            {
+                report.AddWarning("IncrementAndroidVersionCodeStep is not assigned to this Android profile. versionCode will not be bumped automatically.");
+            }
+        }
+
+        private static void ValidateVersionStepPhase(EvoBuildDryRunReport report, EvoBuildStepAsset step)
+        {
+            if (step.Phase != EvoBuildStepPhase.PrepareBuild)
+            {
+                report.AddWarning($"Build step '{step.name}' phase is {step.Phase}. Use PrepareBuild if the bumped version must appear in the confirmation dialog and output path.");
             }
         }
 

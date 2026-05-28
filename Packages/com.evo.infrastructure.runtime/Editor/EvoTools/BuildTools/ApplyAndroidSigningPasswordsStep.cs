@@ -1,6 +1,9 @@
 using System;
 using UnityEditor;
 using UnityEngine;
+#if ODIN_INSPECTOR
+using Sirenix.OdinInspector;
+#endif
 
 namespace Evo.Infrastructure.Editor.EvoTools.Build
 {
@@ -10,7 +13,13 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         [SerializeField] private string keystorePasswordEnvironmentVariable = "EVO_ANDROID_KEYSTORE_PASS";
         [SerializeField] private string keyAliasPasswordEnvironmentVariable = "EVO_ANDROID_KEYALIAS_PASS";
         [SerializeField] private bool allowSerializedFallback;
+#if ODIN_INSPECTOR
+        [ShowIf(nameof(allowSerializedFallback))]
+#endif
         [SerializeField] private string serializedKeystorePassword;
+#if ODIN_INSPECTOR
+        [ShowIf(nameof(allowSerializedFallback))]
+#endif
         [SerializeField] private string serializedKeyAliasPassword;
 
         public override void Validate(EvoBuildContext context, EvoBuildDryRunReport report)

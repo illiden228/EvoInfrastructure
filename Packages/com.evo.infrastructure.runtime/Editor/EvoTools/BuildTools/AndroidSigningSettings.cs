@@ -1,5 +1,8 @@
 using System;
 using UnityEngine;
+#if ODIN_INSPECTOR
+using Sirenix.OdinInspector;
+#endif
 
 namespace Evo.Infrastructure.Editor.EvoTools.Build
 {
@@ -8,10 +11,25 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
     {
         [Tooltip("When enabled, ApplyAndroidSigningPasswordsStep reads passwords from this build profile. When disabled, the step uses its own legacy settings.")]
         [SerializeField] private bool overridePasswords;
+#if ODIN_INSPECTOR
+        [ShowIf(nameof(overridePasswords))]
+#endif
         [SerializeField] private string keystorePasswordEnvironmentVariable = "EVO_ANDROID_KEYSTORE_PASS";
+#if ODIN_INSPECTOR
+        [ShowIf(nameof(overridePasswords))]
+#endif
         [SerializeField] private string keyAliasPasswordEnvironmentVariable = "EVO_ANDROID_KEYALIAS_PASS";
+#if ODIN_INSPECTOR
+        [ShowIf(nameof(overridePasswords))]
+#endif
         [SerializeField] private bool allowSerializedFallback;
+#if ODIN_INSPECTOR
+        [ShowIf("@overridePasswords && allowSerializedFallback")]
+#endif
         [SerializeField] private string serializedKeystorePassword;
+#if ODIN_INSPECTOR
+        [ShowIf("@overridePasswords && allowSerializedFallback")]
+#endif
         [SerializeField] private string serializedKeyAliasPassword;
 
         public bool OverridePasswords => overridePasswords;

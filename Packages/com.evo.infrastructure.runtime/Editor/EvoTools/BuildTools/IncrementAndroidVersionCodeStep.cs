@@ -8,6 +8,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
     {
         [SerializeField] private bool onlyReleaseBuilds = true;
 
+        public bool OnlyReleaseBuilds => onlyReleaseBuilds;
+
         public override bool Execute(EvoBuildContext context, EvoBuildApplyResult result)
         {
             if (onlyReleaseBuilds && context?.Profile != null && context.Profile.BuildMode != EvoBuildMode.Release)

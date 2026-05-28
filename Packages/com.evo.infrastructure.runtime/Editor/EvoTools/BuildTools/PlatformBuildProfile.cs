@@ -2,6 +2,9 @@ using System.Collections.Generic;
 using Evo.Infrastructure.Services.Config;
 using UnityEditor;
 using UnityEngine;
+#if ODIN_INSPECTOR
+using Sirenix.OdinInspector;
+#endif
 
 namespace Evo.Infrastructure.Editor.EvoTools.Build
 {
@@ -21,7 +24,13 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         [SerializeField, HideInInspector] private List<string> platformDefines = new();
         [SerializeField, HideInInspector] private List<string> profileDefines = new();
         [SerializeField] private PlayerSettingsOverrides playerSettings = new();
+#if ODIN_INSPECTOR
+        [ShowIf(nameof(IsAndroidBuildTarget))]
+#endif
         [SerializeField] private AndroidBuildSettings androidBuild = new();
+#if ODIN_INSPECTOR
+        [ShowIf(nameof(IsAndroidBuildTarget))]
+#endif
         [SerializeField] private AndroidSigningSettings androidSigning = new();
         [SerializeField] private string outputPathTemplate;
         [SerializeField] private BuildOptions buildOptions;
@@ -48,6 +57,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         public string OutputPathTemplate => outputPathTemplate;
         public BuildOptions BuildOptions => buildOptions;
         public IReadOnlyList<EvoBuildStepAsset> Steps => steps;
+        private bool IsAndroidBuildTarget => buildTarget == BuildTarget.Android;
 
         private void OnValidate()
         {

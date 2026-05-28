@@ -18,6 +18,9 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         [SerializeField] private bool onlyReleaseBuilds = true;
         [SerializeField] private EvoVersionBumpMode bumpMode = EvoVersionBumpMode.Patch;
 
+        public bool OnlyReleaseBuilds => onlyReleaseBuilds;
+        public EvoVersionBumpMode BumpMode => bumpMode;
+
         public override bool Execute(EvoBuildContext context, EvoBuildApplyResult result)
         {
             if (onlyReleaseBuilds && context?.Profile != null && context.Profile.BuildMode != EvoBuildMode.Release)
@@ -33,7 +36,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
 
             var current = PlayerSettings.bundleVersion;
-            var next = BumpVersion(current, bumpMode);
+            var next = ChangeVersion(current, bumpMode, 1);
             PlayerSettings.bundleVersion = next;
             if (context?.Profile != null && context.Profile.SyncBundleVersionOverride(next))
             {
@@ -46,26 +49,33 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             return true;
         }
 
-        internal static string BumpVersion(string version, EvoVersionBumpMode mode)
+        internal static string ChangeVersion(string version, EvoVersionBumpMode mode, int direction)
         {
             var parts = (version ?? "0.0.0").Split('.');
             var major = ParsePart(parts, 0);
             var minor = ParsePart(parts, 1);
             var patch = ParsePart(parts, 2);
+            direction = direction < 0 ? -1 : 1;
 
             switch (mode)
             {
                 case EvoVersionBumpMode.Major:
-                    major++;
-                    minor = 0;
-                    patch = 0;
+                    major = Math.Max(0, major + direction);
+                    if (direction > 0)
+                    {
+                        minor = 0;
+                        patch = 0;
+                    }
                     break;
                 case EvoVersionBumpMode.Minor:
-                    minor++;
-                    patch = 0;
+                    minor = Math.Max(0, minor + direction);
+                    if (direction > 0)
+                    {
+                        patch = 0;
+                    }
                     break;
                 case EvoVersionBumpMode.Patch:
-                    patch++;
+                    patch = Math.Max(0, patch + direction);
                     break;
             }
 

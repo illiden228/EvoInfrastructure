@@ -27,7 +27,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             DrawMainFields();
             DrawPlatformIdSelector();
             _definesList?.DoLayoutList();
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("playerSettings"), includeChildren: true);
+            DrawPlayerSettings();
             DrawAndroidSettings();
             EditorGUILayout.PropertyField(serializedObject.FindProperty("outputPathTemplate"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("buildOptions"));
@@ -72,8 +72,120 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 return;
             }
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("androidBuild"), includeChildren: true);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty("androidSigning"), includeChildren: true);
+            DrawAndroidBuildSettings(serializedObject.FindProperty("androidBuild"));
+            DrawAndroidSigningSettings(serializedObject.FindProperty("androidSigning"));
+        }
+
+        private void DrawPlayerSettings()
+        {
+            var property = serializedObject.FindProperty("playerSettings");
+            if (property == null)
+            {
+                return;
+            }
+
+            EditorGUILayout.LabelField("Player Settings", EditorStyles.boldLabel);
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                DrawOptionalProperty(property, "overrideProductName", "productName");
+                DrawOptionalProperty(property, "overrideBundleVersion", "bundleVersion");
+                DrawOptionalProperty(property, "overrideApplicationIdentifier", "applicationIdentifier");
+
+                var overrideOrientation = property.FindPropertyRelative("overrideOrientation");
+                if (overrideOrientation == null)
+                {
+                    return;
+                }
+
+                EditorGUILayout.PropertyField(overrideOrientation);
+                if (overrideOrientation != null && overrideOrientation.boolValue)
+                {
+                    EditorGUI.indentLevel++;
+                    EditorGUILayout.PropertyField(property.FindPropertyRelative("defaultOrientation"));
+                    EditorGUILayout.PropertyField(property.FindPropertyRelative("autorotateToPortrait"));
+                    EditorGUILayout.PropertyField(property.FindPropertyRelative("autorotateToPortraitUpsideDown"));
+                    EditorGUILayout.PropertyField(property.FindPropertyRelative("autorotateToLandscapeLeft"));
+                    EditorGUILayout.PropertyField(property.FindPropertyRelative("autorotateToLandscapeRight"));
+                    EditorGUI.indentLevel--;
+                }
+            }
+        }
+
+        private static void DrawAndroidBuildSettings(SerializedProperty property)
+        {
+            if (property == null)
+            {
+                return;
+            }
+
+            EditorGUILayout.LabelField("Android Build", EditorStyles.boldLabel);
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                DrawOptionalProperty(property, "overrideBuildAppBundle", "buildAppBundle");
+            }
+        }
+
+        private static void DrawAndroidSigningSettings(SerializedProperty property)
+        {
+            if (property == null)
+            {
+                return;
+            }
+
+            EditorGUILayout.LabelField("Android Signing", EditorStyles.boldLabel);
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                var overridePasswords = property.FindPropertyRelative("overridePasswords");
+                if (overridePasswords == null)
+                {
+                    return;
+                }
+
+                EditorGUILayout.PropertyField(overridePasswords);
+                if (!overridePasswords.boolValue)
+                {
+                    return;
+                }
+
+                EditorGUI.indentLevel++;
+                EditorGUILayout.PropertyField(property.FindPropertyRelative("keystorePasswordEnvironmentVariable"));
+                EditorGUILayout.PropertyField(property.FindPropertyRelative("keyAliasPasswordEnvironmentVariable"));
+
+                var allowSerializedFallback = property.FindPropertyRelative("allowSerializedFallback");
+                EditorGUILayout.PropertyField(allowSerializedFallback);
+                if (allowSerializedFallback != null && allowSerializedFallback.boolValue)
+                {
+                    EditorGUILayout.PropertyField(property.FindPropertyRelative("serializedKeystorePassword"));
+                    EditorGUILayout.PropertyField(property.FindPropertyRelative("serializedKeyAliasPassword"));
+                }
+
+                EditorGUI.indentLevel--;
+            }
+        }
+
+        private static void DrawOptionalProperty(SerializedProperty parent, string toggleName, string valueName)
+        {
+            var toggle = parent.FindPropertyRelative(toggleName);
+            if (toggle == null)
+            {
+                return;
+            }
+
+            EditorGUILayout.PropertyField(toggle);
+            if (!toggle.boolValue)
+            {
+                return;
+            }
+
+            var value = parent.FindPropertyRelative(valueName);
+            if (value == null)
+            {
+                return;
+            }
+
+            EditorGUI.indentLevel++;
+            EditorGUILayout.PropertyField(value);
+            EditorGUI.indentLevel--;
         }
 
         private static void DrawStepsHelp()

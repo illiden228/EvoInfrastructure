@@ -31,11 +31,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
             AssetDatabase.SaveAssets();
             var outputPath = ResolveOutputPath(globalConfig, profile);
-            if (!EditorUtility.DisplayDialog(
-                    "Evo Build",
-                    BuildConfirmationMessage(profile, outputPath, buildAndRun),
-                    buildAndRun ? "Build And Run" : "Build",
-                    "Cancel"))
+            if (!ConfirmBuildWithOptionalVersionBump(globalConfig, profile, buildAndRun, ref outputPath, result))
             {
                 result.AddMessage("Build cancelled.");
                 return result;
@@ -97,15 +93,87 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             var iosBuildNumber = profile.BuildTarget == BuildTarget.iOS
                 ? $"\niOS buildNumber: {PlayerSettings.iOS.buildNumber}"
                 : string.Empty;
+            var debugOptions = BuildHasDebugOptions(profile)
+                ? "\nDebuggable options: YES"
+                : "\nDebuggable options: no";
 
             return $"{(buildAndRun ? "Build and run" : "Build")} profile '{profile.DisplayName}'?" +
                    $"\n\nVersion: {PlayerSettings.bundleVersion}" +
                    androidVersionCode +
                    androidPackageFormat +
                    iosBuildNumber +
+                   $"\nBuild mode: {profile.BuildMode}" +
+                   $"\nBuild options: {profile.BuildOptions}" +
+                   debugOptions +
                    $"\nPlatform: {profile.PlatformId}" +
                    $"\nTarget: {profile.BuildTargetGroup}/{profile.BuildTarget}" +
                    $"\n\nOutput:\n{outputPath}";
+        }
+
+        private static bool ConfirmBuildWithOptionalVersionBump(
+            BuildGlobalConfig globalConfig,
+            PlatformBuildProfile profile,
+            bool buildAndRun,
+            ref string outputPath,
+            EvoBuildApplyResult result)
+        {
+            while (true)
+            {
+                var selected = EditorUtility.DisplayDialogComplex(
+                    "Evo Build",
+                    BuildConfirmationMessage(profile, outputPath, buildAndRun),
+                    buildAndRun ? "Build And Run" : "Build",
+                    "Bump + Build",
+                    "Cancel");
+
+                if (selected == 0)
+                {
+                    return true;
+                }
+
+                if (selected == 2)
+                {
+                    return false;
+                }
+
+                BumpPatchAndAndroidVersionCode(profile, result);
+                outputPath = ResolveOutputPath(globalConfig, profile);
+            }
+        }
+
+        private static void BumpPatchAndAndroidVersionCode(PlatformBuildProfile profile, EvoBuildApplyResult result)
+        {
+            var currentVersion = PlayerSettings.bundleVersion;
+            var nextVersion = IncrementBundleVersionStep.ChangeVersion(currentVersion, EvoVersionBumpMode.Patch, 1);
+            PlayerSettings.bundleVersion = nextVersion;
+            if (profile != null && profile.SyncBundleVersionOverride(nextVersion))
+            {
+                EditorUtility.SetDirty(profile);
+            }
+
+            result.AddMessage($"Bundle version: {currentVersion} -> {nextVersion}");
+            if (profile != null && profile.BuildTarget == BuildTarget.Android)
+            {
+                var currentCode = PlayerSettings.Android.bundleVersionCode;
+                PlayerSettings.Android.bundleVersionCode = Mathf.Max(1, currentCode + 1);
+                result.AddMessage($"Android versionCode: {currentCode} -> {PlayerSettings.Android.bundleVersionCode}");
+            }
+
+            AssetDatabase.SaveAssets();
+        }
+
+        private static bool BuildHasDebugOptions(PlatformBuildProfile profile)
+        {
+            if (profile == null)
+            {
+                return false;
+            }
+
+            var options = profile.BuildOptions;
+            return (options & BuildOptions.Development) != 0 ||
+                   (options & BuildOptions.AllowDebugging) != 0 ||
+                   (options & BuildOptions.ConnectWithProfiler) != 0 ||
+                   (options & BuildOptions.EnableDeepProfilingSupport) != 0;
         }
 
         public static string ResolveOutputPath(BuildGlobalConfig globalConfig, PlatformBuildProfile profile)
