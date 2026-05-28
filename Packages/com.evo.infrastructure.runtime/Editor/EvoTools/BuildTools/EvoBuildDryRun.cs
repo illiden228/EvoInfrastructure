@@ -248,10 +248,6 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                         report.AddWarning($"Build step '{step.name}' will not bump bundleVersion because bump mode is None.");
                     }
 
-                    if (bundleStep.OnlyReleaseBuilds && profile.BuildMode != EvoBuildMode.Release)
-                    {
-                        report.AddWarning($"Build step '{step.name}' will skip bundleVersion because profile build mode is {profile.BuildMode}.");
-                    }
                 }
 
                 if (step is IncrementAndroidVersionCodeStep androidStep)
@@ -263,10 +259,6 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                         report.AddWarning($"Build step '{step.name}' will skip versionCode because build target is {profile.BuildTarget}.");
                     }
 
-                    if (androidStep.OnlyReleaseBuilds && profile.BuildMode != EvoBuildMode.Release)
-                    {
-                        report.AddWarning($"Build step '{step.name}' will skip versionCode because profile build mode is {profile.BuildMode}.");
-                    }
                 }
             }
 

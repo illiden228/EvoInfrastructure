@@ -15,20 +15,12 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
     [CreateAssetMenu(fileName = "IncrementBundleVersionStep", menuName = "EvoTools/Build/Steps/Increment Bundle Version")]
     public sealed class IncrementBundleVersionStep : EvoBuildStepAsset
     {
-        [SerializeField] private bool onlyReleaseBuilds = true;
         [SerializeField] private EvoVersionBumpMode bumpMode = EvoVersionBumpMode.Patch;
 
-        public bool OnlyReleaseBuilds => onlyReleaseBuilds;
         public EvoVersionBumpMode BumpMode => bumpMode;
 
         public override bool Execute(EvoBuildContext context, EvoBuildApplyResult result)
         {
-            if (onlyReleaseBuilds && context?.Profile != null && context.Profile.BuildMode != EvoBuildMode.Release)
-            {
-                result.AddMessage("Bundle version bump skipped for non-release profile.");
-                return true;
-            }
-
             if (bumpMode == EvoVersionBumpMode.None)
             {
                 result.AddMessage("Bundle version bump skipped.");
