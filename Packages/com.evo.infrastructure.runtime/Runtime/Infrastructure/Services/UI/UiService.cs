@@ -582,25 +582,62 @@ namespace Evo.Infrastructure.Services.UI
             var viewModel = handle.ViewModel;
             viewModel?.OnHide();
 
-            var transition = view.GetTransition();
-            if (transition != null)
+            if (!forceDestroyView)
             {
-                await transition.HideAsync(view);
+                var transition = view.GetTransition();
+                if (transition != null)
+                {
+                    await transition.HideAsync(view);
+                }
+
+                if (view == null)
+                {
+                    if (disposeViewModel)
+                    {
+                        viewModel?.Dispose();
+                    }
+
+                    return;
+                }
             }
 
             if ((handle.KeepAlive && !forceDestroyView) || !IsServiceOwnedView(view))
             {
+                if (view == null)
+                {
+                    if (disposeViewModel)
+                    {
+                        viewModel?.Dispose();
+                    }
+
+                    return;
+                }
+
                 view.gameObject.SetActive(false);
             }
             else
             {
                 RemoveCachedView(view);
+                if (view == null)
+                {
+                    if (disposeViewModel)
+                    {
+                        viewModel?.Dispose();
+                    }
+
+                    return;
+                }
+
                 UnityEngine.Object.Destroy(view.gameObject);
             }
 
             if (disposeViewModel)
             {
-                view.Unbind();
+                if (view != null)
+                {
+                    view.Unbind();
+                }
+
                 viewModel?.Dispose();
             }
         }
