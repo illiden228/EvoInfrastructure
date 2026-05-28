@@ -9,7 +9,6 @@ using Evo.Infrastructure.Services.ResourceProvider;
 using Evo.Infrastructure.Services.SceneLoader;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using VContainer;
 #if ENABLE_INPUT_SYSTEM
@@ -142,9 +141,6 @@ namespace Evo.Infrastructure.Services.UI
             {
                 _sceneLoader.SceneLoadStarted += OnSceneLoadStarted;
             }
-
-            SceneManager.activeSceneChanged += OnActiveSceneChanged;
-            SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
         public void Reload()
@@ -159,9 +155,6 @@ namespace Evo.Infrastructure.Services.UI
             {
                 _sceneLoader.SceneLoadStarted -= OnSceneLoadStarted;
             }
-
-            SceneManager.activeSceneChanged -= OnActiveSceneChanged;
-            SceneManager.sceneLoaded -= OnSceneLoaded;
         }
 
         public void RegisterSceneView(UiViewBase view)
@@ -705,22 +698,12 @@ namespace Evo.Infrastructure.Services.UI
             state.ProcessingQueue = false;
         }
 
-        private void OnActiveSceneChanged(Scene previousScene, Scene nextScene)
-        {
-            CloseSceneBoundViewsAsync(nextScene).Forget();
-        }
-
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-        {
-            CloseSceneBoundViewsAsync(scene).Forget();
-        }
-
         private void OnSceneLoadStarted(SceneLoadInfo info)
         {
-            CloseSceneBoundViewsAsync(default).Forget();
+            CloseSceneBoundViewsAsync().Forget();
         }
 
-        private async UniTaskVoid CloseSceneBoundViewsAsync(Scene activeScene)
+        private async UniTaskVoid CloseSceneBoundViewsAsync()
         {
             if (_closingSceneBoundViews)
             {
@@ -732,7 +715,7 @@ namespace Evo.Infrastructure.Services.UI
             {
                 foreach (var pair in _layers)
                 {
-                    await CloseSceneBoundViews(pair.Value, activeScene, false);
+                    await CloseSceneBoundViews(pair.Value, false);
                 }
 
                 RemoveDestroyedSceneViews();
@@ -743,7 +726,7 @@ namespace Evo.Infrastructure.Services.UI
             }
         }
 
-        private async UniTask CloseSceneBoundViews(LayerState state, Scene activeScene, bool processQueueAfter)
+        private async UniTask CloseSceneBoundViews(LayerState state, bool processQueueAfter)
         {
             if (state == null)
             {
@@ -760,7 +743,7 @@ namespace Evo.Infrastructure.Services.UI
                     continue;
                 }
 
-                if (ShouldKeepHandleAcrossSceneChange(handle, activeScene))
+                if (ShouldKeepHandleAcrossSceneChange(handle))
                 {
                     continue;
                 }
@@ -788,7 +771,7 @@ namespace Evo.Infrastructure.Services.UI
                     continue;
                 }
 
-                if (ShouldKeepHandleAcrossSceneChange(handle, activeScene))
+                if (ShouldKeepHandleAcrossSceneChange(handle))
                 {
                     keptHistory.Push(handle);
                     continue;
@@ -826,27 +809,14 @@ namespace Evo.Infrastructure.Services.UI
             }
         }
 
-        private static bool ShouldKeepHandleAcrossSceneChange(UiHandle handle, Scene activeScene)
+        private static bool ShouldKeepHandleAcrossSceneChange(UiHandle handle)
         {
             if (handle == null || handle.View == null)
             {
                 return false;
             }
 
-            if (handle.KeepAcrossSceneLoads)
-            {
-                return true;
-            }
-
-            return IsViewInScene(handle.View, activeScene);
-        }
-
-        private static bool IsViewInScene(UiViewBase view, Scene scene)
-        {
-            return view != null &&
-                   scene.IsValid() &&
-                   view.gameObject.scene.IsValid() &&
-                   view.gameObject.scene == scene;
+            return handle.KeepAcrossSceneLoads;
         }
 
         private void ClearSceneBoundQueue(LayerState state)
