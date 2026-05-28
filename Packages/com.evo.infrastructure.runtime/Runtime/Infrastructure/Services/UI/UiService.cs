@@ -8,6 +8,7 @@ using Evo.Infrastructure.Services.Debug;
 using Evo.Infrastructure.Services.ResourceProvider;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using VContainer;
 #if ENABLE_INPUT_SYSTEM
@@ -16,7 +17,7 @@ using UnityEngine.InputSystem.UI;
 
 namespace Evo.Infrastructure.Services.UI
 {
-    public sealed class UiService : IUiService
+    public sealed class UiService : IUiService, IDisposable
     {
         private sealed class LayerState
         {
@@ -125,6 +126,7 @@ namespace Evo.Infrastructure.Services.UI
         private readonly Dictionary<UiLayer, LayerState> _layers = new();
         private static readonly Dictionary<ContextReceiverKey, IContextApplier> ContextApplierCache = new();
         private GameObject _root;
+        private bool _closingSceneBoundViews;
 
         public UiService(UiSystemConfig config, IResourceProviderService resources, IObjectResolver resolver)
         {
@@ -133,12 +135,18 @@ namespace Evo.Infrastructure.Services.UI
             _resolver = resolver;
 
             Reload();
+            SceneManager.activeSceneChanged += OnActiveSceneChanged;
         }
 
         public void Reload()
         {
             BuildCacheFromConfig();
             EnsureLayers();
+        }
+
+        public void Dispose()
+        {
+            SceneManager.activeSceneChanged -= OnActiveSceneChanged;
         }
 
         public void RegisterSceneView(UiViewBase view)
@@ -197,6 +205,7 @@ namespace Evo.Infrastructure.Services.UI
             var mode = options?.OpenModeOverride ?? entry?.OpenMode ?? UiOpenMode.Queue;
             var keepHistory = options != null ? options.KeepHistory : entry?.KeepHistory ?? false;
             var keepAlive = options?.KeepAliveOverride ?? entry?.KeepAlive ?? true;
+            var keepAcrossSceneLoads = options?.KeepAcrossSceneLoadsOverride ?? entry?.KeepAcrossSceneLoads ?? false;
 
             if (mode == UiOpenMode.Queue)
             {
@@ -209,7 +218,7 @@ namespace Evo.Infrastructure.Services.UI
                 }
             }
 
-            return OpenInstanceInternal(view, viewModelType, layer, mode, keepAlive, keepHistory, options?.Context, options?.ContextType, options?.ContextPayload);
+            return OpenInstanceInternal(view, viewModelType, layer, mode, keepAlive, keepHistory, keepAcrossSceneLoads, options?.Context, options?.ContextType, options?.ContextPayload);
         }
 
         public async UniTask HideAsync(UiViewBase view)
@@ -286,6 +295,7 @@ namespace Evo.Infrastructure.Services.UI
             var mode = options?.OpenModeOverride ?? entry.OpenMode;
             var keepAlive = options?.KeepAliveOverride ?? entry.KeepAlive;
             var keepHistory = options != null ? options.KeepHistory : entry.KeepHistory;
+            var keepAcrossSceneLoads = options?.KeepAcrossSceneLoadsOverride ?? entry.KeepAcrossSceneLoads;
 
             var state = GetLayerState(layer);
             if (state == null)
@@ -301,7 +311,7 @@ namespace Evo.Infrastructure.Services.UI
                 return tcs.Task;
             }
 
-            return OpenInternal(entry, viewId, layer, mode, keepAlive, keepHistory, options?.Context, options?.ContextType, options?.ContextPayload);
+            return OpenInternal(entry, viewId, layer, mode, keepAlive, keepHistory, keepAcrossSceneLoads, options?.Context, options?.ContextType, options?.ContextPayload);
         }
 
         internal async UniTask CloseAsync(UiHandle handle)
@@ -322,7 +332,7 @@ namespace Evo.Infrastructure.Services.UI
                 state.History.TryPop(out _);
             }
 
-            await HideAndDispose(handle, true);
+            await HideAndDispose(handle, true, false);
             handle.MarkClosed();
 
             if (state.Stack.Count == 0 && state.History.Count > 0)
@@ -345,6 +355,7 @@ namespace Evo.Infrastructure.Services.UI
             UiOpenMode mode,
             bool keepAlive,
             bool keepHistory,
+            bool keepAcrossSceneLoads,
             object context,
             Type contextType,
             IUiContextPayload contextPayload)
@@ -361,7 +372,7 @@ namespace Evo.Infrastructure.Services.UI
                 var current = state.Stack[state.Stack.Count - 1];
                 if (keepHistory)
                 {
-                    await HideAndDispose(current, false);
+                    await HideAndDispose(current, false, false);
                     state.Stack.RemoveAt(state.Stack.Count - 1);
                     state.History.Push(current);
                     hidden = current;
@@ -390,7 +401,7 @@ namespace Evo.Infrastructure.Services.UI
             view.Bind(viewModel);
             viewModel.OnShow();
 
-            var handle = new UiHandle(this, view, viewModel, layer, keepAlive || entry.IsSceneView);
+            var handle = new UiHandle(this, view, viewModel, layer, keepAlive || entry.IsSceneView, keepAcrossSceneLoads);
             state.Stack.Add(handle);
 
             await ShowView(view);
@@ -410,6 +421,7 @@ namespace Evo.Infrastructure.Services.UI
             UiOpenMode mode,
             bool keepAlive,
             bool keepHistory,
+            bool keepAcrossSceneLoads,
             object context,
             Type contextType,
             IUiContextPayload contextPayload)
@@ -426,7 +438,7 @@ namespace Evo.Infrastructure.Services.UI
                 var current = state.Stack[state.Stack.Count - 1];
                 if (keepHistory)
                 {
-                    await HideAndDispose(current, false);
+                    await HideAndDispose(current, false, false);
                     state.Stack.RemoveAt(state.Stack.Count - 1);
                     state.History.Push(current);
                     hidden = current;
@@ -448,7 +460,7 @@ namespace Evo.Infrastructure.Services.UI
             view.Bind(viewModel);
             viewModel.OnShow();
 
-            var handle = new UiHandle(this, view, viewModel, layer, keepAlive || IsSceneView(view));
+            var handle = new UiHandle(this, view, viewModel, layer, keepAlive || IsSceneView(view), keepAcrossSceneLoads);
             state.Stack.Add(handle);
 
             await ShowView(view);
@@ -534,14 +546,24 @@ namespace Evo.Infrastructure.Services.UI
             }
         }
 
-        private async UniTask HideAndDispose(UiHandle handle, bool disposeViewModel)
+        private async UniTask HideAndDispose(UiHandle handle, bool disposeViewModel, bool forceDestroyView)
         {
-            if (handle == null || handle.View == null)
+            if (handle == null)
             {
                 return;
             }
 
             var view = handle.View;
+            if (view == null)
+            {
+                if (disposeViewModel)
+                {
+                    handle.ViewModel?.Dispose();
+                }
+
+                return;
+            }
+
             var viewModel = handle.ViewModel;
             viewModel?.OnHide();
 
@@ -551,12 +573,13 @@ namespace Evo.Infrastructure.Services.UI
                 await transition.HideAsync(view);
             }
 
-            if (handle.KeepAlive)
+            if (handle.KeepAlive && !forceDestroyView)
             {
                 view.gameObject.SetActive(false);
             }
             else
             {
+                RemoveCachedView(view);
                 UnityEngine.Object.Destroy(view.gameObject);
             }
 
@@ -612,7 +635,8 @@ namespace Evo.Infrastructure.Services.UI
                     var mode = options.OpenModeOverride ?? UiOpenMode.Queue;
                     var keepHistory = options.KeepHistory;
                     var keepAlive = options.KeepAliveOverride ?? true;
-                    handle = await OpenInstanceInternal(request.View, viewModelType, layer, mode, keepAlive, keepHistory, options.Context, options.ContextType, options.ContextPayload);
+                    var keepAcrossSceneLoads = options.KeepAcrossSceneLoadsOverride ?? false;
+                    handle = await OpenInstanceInternal(request.View, viewModelType, layer, mode, keepAlive, keepHistory, keepAcrossSceneLoads, options.Context, options.ContextType, options.ContextPayload);
                 }
                 else
                 {
@@ -620,12 +644,154 @@ namespace Evo.Infrastructure.Services.UI
                     var mode = options.OpenModeOverride ?? entry.OpenMode;
                     var keepAlive = options.KeepAliveOverride ?? entry.KeepAlive;
                     var keepHistory = options.KeepHistory || entry.KeepHistory;
-                    handle = await OpenInternal(entry, request.ViewId, layer, mode, keepAlive, keepHistory, options.Context, options.ContextType, options.ContextPayload);
+                    var keepAcrossSceneLoads = options.KeepAcrossSceneLoadsOverride ?? entry.KeepAcrossSceneLoads;
+                    handle = await OpenInternal(entry, request.ViewId, layer, mode, keepAlive, keepHistory, keepAcrossSceneLoads, options.Context, options.ContextType, options.ContextPayload);
                 }
                 request.Tcs.TrySetResult(handle);
             }
 
             state.ProcessingQueue = false;
+        }
+
+        private void OnActiveSceneChanged(Scene previousScene, Scene nextScene)
+        {
+            CloseSceneBoundViewsAsync().Forget();
+        }
+
+        private async UniTaskVoid CloseSceneBoundViewsAsync()
+        {
+            if (_closingSceneBoundViews)
+            {
+                return;
+            }
+
+            _closingSceneBoundViews = true;
+            try
+            {
+                foreach (var pair in _layers)
+                {
+                    await CloseSceneBoundViews(pair.Value);
+                }
+
+                RemoveDestroyedSceneViews();
+            }
+            finally
+            {
+                _closingSceneBoundViews = false;
+            }
+        }
+
+        private async UniTask CloseSceneBoundViews(LayerState state)
+        {
+            if (state == null)
+            {
+                return;
+            }
+
+            ClearSceneBoundQueue(state);
+
+            for (var i = state.Stack.Count - 1; i >= 0; i--)
+            {
+                var handle = state.Stack[i];
+                if (handle == null)
+                {
+                    continue;
+                }
+
+                if (handle.KeepAcrossSceneLoads && handle.View != null)
+                {
+                    continue;
+                }
+
+                state.Stack.RemoveAt(i);
+                await HideAndDispose(handle, true, true);
+                handle.MarkClosed();
+            }
+
+            if (state.History.Count == 0)
+            {
+                if (state.Stack.Count == 0)
+                {
+                    ProcessQueue(state).Forget();
+                }
+
+                return;
+            }
+
+            var keptHistory = new Stack<UiHandle>();
+            while (state.History.Count > 0)
+            {
+                var handle = state.History.Pop();
+                if (handle == null)
+                {
+                    continue;
+                }
+
+                if (handle.KeepAcrossSceneLoads && handle.View != null)
+                {
+                    keptHistory.Push(handle);
+                    continue;
+                }
+
+                await HideAndDispose(handle, true, true);
+                handle.MarkClosed();
+            }
+
+            while (keptHistory.Count > 0)
+            {
+                state.History.Push(keptHistory.Pop());
+            }
+
+            if (state.Stack.Count == 0)
+            {
+                ProcessQueue(state).Forget();
+            }
+        }
+
+        private void ClearSceneBoundQueue(LayerState state)
+        {
+            if (state.Queue.Count == 0)
+            {
+                return;
+            }
+
+            var keptRequests = new Queue<OpenRequest>();
+            while (state.Queue.Count > 0)
+            {
+                var request = state.Queue.Dequeue();
+                if (ShouldKeepQueuedRequestAcrossSceneLoads(request))
+                {
+                    keptRequests.Enqueue(request);
+                    continue;
+                }
+
+                request.Tcs.TrySetResult(null);
+            }
+
+            while (keptRequests.Count > 0)
+            {
+                state.Queue.Enqueue(keptRequests.Dequeue());
+            }
+        }
+
+        private bool ShouldKeepQueuedRequestAcrossSceneLoads(OpenRequest request)
+        {
+            if (request.Options?.KeepAcrossSceneLoadsOverride.HasValue == true)
+            {
+                return request.Options.KeepAcrossSceneLoadsOverride.Value;
+            }
+
+            UiViewEntry entry = null;
+            if (request.View != null)
+            {
+                _entryByViewType.TryGetValue(request.View.GetType(), out entry);
+            }
+            else
+            {
+                entry = ResolveEntry(request.ViewModelType, request.ViewId);
+            }
+
+            return entry?.KeepAcrossSceneLoads ?? false;
         }
 
         private UiViewEntry ResolveEntry(Type viewModelType, string viewId)
@@ -852,6 +1018,7 @@ namespace Evo.Infrastructure.Services.UI
                 OpenModeOverride = options?.OpenModeOverride,
                 KeepAliveOverride = options?.KeepAliveOverride,
                 KeepHistory = options?.KeepHistory ?? false,
+                KeepAcrossSceneLoadsOverride = options?.KeepAcrossSceneLoadsOverride,
                 ContextType = typeof(TContext),
                 ContextPayload = new UiContextPayload<TContext>(context)
             };
@@ -1043,6 +1210,50 @@ namespace Evo.Infrastructure.Services.UI
             }
 
             return null;
+        }
+
+        private void RemoveCachedView(UiViewBase view)
+        {
+            if (view == null || _cachedViews.Count == 0)
+            {
+                return;
+            }
+
+            var keysToRemove = new List<string>();
+            foreach (var pair in _cachedViews)
+            {
+                if (pair.Value == view)
+                {
+                    keysToRemove.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < keysToRemove.Count; i++)
+            {
+                _cachedViews.Remove(keysToRemove[i]);
+            }
+        }
+
+        private void RemoveDestroyedSceneViews()
+        {
+            if (_sceneViewsByType.Count == 0)
+            {
+                return;
+            }
+
+            var keysToRemove = new List<Type>();
+            foreach (var pair in _sceneViewsByType)
+            {
+                if (pair.Value == null)
+                {
+                    keysToRemove.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < keysToRemove.Count; i++)
+            {
+                _sceneViewsByType.Remove(keysToRemove[i]);
+            }
         }
 
         private bool IsSceneView(UiViewBase view)

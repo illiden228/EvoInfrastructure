@@ -67,6 +67,7 @@ namespace Evo.Infrastructure.Runtime.UI
         public bool IsSceneView;
         public bool KeepAlive;
         public bool KeepHistory;
+        public bool KeepAcrossSceneLoads;
 
         [NonSerialized] internal UiSystemConfig Owner;
 

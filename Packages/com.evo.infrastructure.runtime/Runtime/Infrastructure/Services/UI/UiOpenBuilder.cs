@@ -28,6 +28,13 @@ namespace Evo.Infrastructure.Services.UI
             return new UiOpenBuilder<TViewModel>(_uiService, _viewId, options);
         }
 
+        public UiOpenBuilder<TViewModel> KeepAcrossSceneLoads(bool keepAcrossSceneLoads = true)
+        {
+            var options = CloneOptions(_options);
+            options.KeepAcrossSceneLoadsOverride = keepAcrossSceneLoads;
+            return new UiOpenBuilder<TViewModel>(_uiService, _viewId, options);
+        }
+
         public UniTask<UiHandle> OpenAsync()
         {
             return _uiService.OpenAsync<TViewModel>(_viewId, _options);
@@ -44,6 +51,21 @@ namespace Evo.Infrastructure.Services.UI
             return _uiService.OpenAsync<TViewModel>(_viewId, WithContext(_options, context));
         }
 
+        private static UiOpenOptions CloneOptions(UiOpenOptions options)
+        {
+            return new UiOpenOptions
+            {
+                LayerOverride = options?.LayerOverride,
+                OpenModeOverride = options?.OpenModeOverride,
+                KeepAliveOverride = options?.KeepAliveOverride,
+                KeepHistory = options?.KeepHistory ?? false,
+                KeepAcrossSceneLoadsOverride = options?.KeepAcrossSceneLoadsOverride,
+                Context = options?.Context,
+                ContextType = options?.ContextType,
+                ContextPayload = options?.ContextPayload
+            };
+        }
+
         private static UiOpenOptions WithContext<TContext>(UiOpenOptions options, TContext context)
         {
             return new UiOpenOptions
@@ -52,6 +74,7 @@ namespace Evo.Infrastructure.Services.UI
                 OpenModeOverride = options?.OpenModeOverride,
                 KeepAliveOverride = options?.KeepAliveOverride,
                 KeepHistory = options?.KeepHistory ?? false,
+                KeepAcrossSceneLoadsOverride = options?.KeepAcrossSceneLoadsOverride,
                 ContextType = typeof(TContext),
                 ContextPayload = new UiContextPayload<TContext>(context)
             };

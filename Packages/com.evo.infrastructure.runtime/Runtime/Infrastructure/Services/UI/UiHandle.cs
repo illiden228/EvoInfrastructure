@@ -9,19 +9,27 @@ namespace Evo.Infrastructure.Services.UI
         private readonly UniTaskCompletionSource _closedTcs = new();
         private readonly UiService _service;
 
-        internal UiHandle(UiService service, UiViewBase view, IUiViewModel viewModel, UiLayer layer, bool keepAlive)
+        internal UiHandle(
+            UiService service,
+            UiViewBase view,
+            IUiViewModel viewModel,
+            UiLayer layer,
+            bool keepAlive,
+            bool keepAcrossSceneLoads)
         {
             _service = service;
             View = view;
             ViewModel = viewModel;
             Layer = layer;
             KeepAlive = keepAlive;
+            KeepAcrossSceneLoads = keepAcrossSceneLoads;
         }
 
         public UiViewBase View { get; }
         public IUiViewModel ViewModel { get; }
         public UiLayer Layer { get; }
         public bool KeepAlive { get; }
+        public bool KeepAcrossSceneLoads { get; }
 
         public UniTask Closed => _closedTcs.Task;
 

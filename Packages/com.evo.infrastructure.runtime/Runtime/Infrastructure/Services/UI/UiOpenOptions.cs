@@ -9,6 +9,7 @@ namespace Evo.Infrastructure.Services.UI
         public UiOpenMode? OpenModeOverride;
         public bool? KeepAliveOverride;
         public bool KeepHistory;
+        public bool? KeepAcrossSceneLoadsOverride;
         public object Context;
         public Type ContextType;
         internal IUiContextPayload ContextPayload;
