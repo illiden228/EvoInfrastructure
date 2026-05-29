@@ -6,7 +6,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
     {
         public static void Validate(EvoBuildContext context, EvoBuildDryRunReport report)
         {
-            var steps = Collect(context?.Profile, EvoBuildStepPhase.Validate);
+            var steps = CollectAllEnabled(context?.Profile);
             for (var i = 0; i < steps.Count; i++)
             {
                 steps[i].Validate(context, report);
@@ -27,6 +27,15 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
 
             return true;
+        }
+
+        public static void Cleanup(EvoBuildContext context, EvoBuildApplyResult result)
+        {
+            var steps = CollectCleanup(context?.Profile);
+            for (var i = steps.Count - 1; i >= 0; i--)
+            {
+                steps[i].Cleanup(context, result);
+            }
         }
 
         private static List<EvoBuildStepAsset> Collect(PlatformBuildProfile profile, EvoBuildStepPhase phase)
@@ -52,6 +61,59 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 var order = left.Order.CompareTo(right.Order);
                 return order != 0 ? order : string.CompareOrdinal(left.name, right.name);
             });
+            return result;
+        }
+
+        private static List<EvoBuildStepAsset> CollectAllEnabled(PlatformBuildProfile profile)
+        {
+            var result = new List<EvoBuildStepAsset>();
+            var steps = profile?.Steps;
+            if (steps == null)
+            {
+                return result;
+            }
+
+            for (var i = 0; i < steps.Count; i++)
+            {
+                var step = steps[i];
+                if (step != null && step.Enabled)
+                {
+                    result.Add(step);
+                }
+            }
+
+            result.Sort((left, right) =>
+            {
+                var phase = left.Phase.CompareTo(right.Phase);
+                if (phase != 0)
+                {
+                    return phase;
+                }
+
+                var order = left.Order.CompareTo(right.Order);
+                return order != 0 ? order : string.CompareOrdinal(left.name, right.name);
+            });
+            return result;
+        }
+
+        private static List<IEvoBuildCleanupStep> CollectCleanup(PlatformBuildProfile profile)
+        {
+            var result = new List<IEvoBuildCleanupStep>();
+            var steps = profile?.Steps;
+            if (steps == null)
+            {
+                return result;
+            }
+
+            for (var i = 0; i < steps.Count; i++)
+            {
+                var step = steps[i];
+                if (step != null && step.Enabled && step is IEvoBuildCleanupStep cleanupStep)
+                {
+                    result.Add(cleanupStep);
+                }
+            }
+
             return result;
         }
     }

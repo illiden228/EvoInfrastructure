@@ -38,9 +38,12 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
 
             var signingSnapshot = AndroidSigningPasswordSnapshot.Capture(profile);
+            EvoBuildContext context = null;
+            var beforeBuildStarted = false;
             try
             {
-                var context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
+                context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
+                beforeBuildStarted = true;
                 if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.BeforeBuild, result))
                 {
                     return result;
@@ -72,12 +75,19 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
                 result.AddMessage($"Build succeeded: {outputPath}");
                 result.AddMessage($"Build size: {buildReport.summary.totalSize} bytes.");
+                EvoBuildStepRunner.Cleanup(context, result);
+                beforeBuildStarted = false;
                 EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.AfterBuild, result);
                 RevealBuildOutput(outputPath, result);
                 return result;
             }
             finally
             {
+                if (beforeBuildStarted)
+                {
+                    EvoBuildStepRunner.Cleanup(context, result);
+                }
+
                 signingSnapshot.Restore(result);
             }
         }
@@ -190,7 +200,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 .Replace("{profileId}", SanitizePathPart(profile.ProfileId))
                 .Replace("{platformId}", SanitizePathPart(profile.PlatformId))
                 .Replace("{productName}", SanitizePathPart(PlayerSettings.productName))
-                .Replace("{version}", SanitizePathPart(PlayerSettings.bundleVersion));
+                .Replace("{version}", SanitizePathPart(PlayerSettings.bundleVersion))
+                .Replace("{androidVersionCode}", SanitizePathPart(PlayerSettings.Android.bundleVersionCode.ToString()));
 
             if (profile.BuildTarget == BuildTarget.Android)
             {

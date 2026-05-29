@@ -55,4 +55,9 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             return true;
         }
     }
+
+    public interface IEvoBuildCleanupStep
+    {
+        void Cleanup(EvoBuildContext context, EvoBuildApplyResult result);
+    }
 }

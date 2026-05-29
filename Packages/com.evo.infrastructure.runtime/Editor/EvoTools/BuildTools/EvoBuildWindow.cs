@@ -177,42 +177,9 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             EditorGUILayout.LabelField("Version", EditorStyles.boldLabel);
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    EditorGUILayout.LabelField("Bundle Version", PlayerSettings.bundleVersion);
-                    using (new EditorGUI.DisabledScope(_profile == null))
-                    {
-                        if (GUILayout.Button("- Patch", GUILayout.Width(72f)))
-                        {
-                            ChangeBundleVersion(EvoVersionBumpMode.Patch, -1);
-                        }
-
-                        if (GUILayout.Button("+ Patch", GUILayout.Width(72f)))
-                        {
-                            ChangeBundleVersion(EvoVersionBumpMode.Patch, 1);
-                        }
-
-                        if (GUILayout.Button("- Minor", GUILayout.Width(72f)))
-                        {
-                            ChangeBundleVersion(EvoVersionBumpMode.Minor, -1);
-                        }
-
-                        if (GUILayout.Button("+ Minor", GUILayout.Width(72f)))
-                        {
-                            ChangeBundleVersion(EvoVersionBumpMode.Minor, 1);
-                        }
-
-                        if (GUILayout.Button("- Major", GUILayout.Width(72f)))
-                        {
-                            ChangeBundleVersion(EvoVersionBumpMode.Major, -1);
-                        }
-
-                        if (GUILayout.Button("+ Major", GUILayout.Width(72f)))
-                        {
-                            ChangeBundleVersion(EvoVersionBumpMode.Major, 1);
-                        }
-                    }
-                }
+                EditorGUILayout.LabelField("Bundle Version", EditorStyles.miniBoldLabel);
+                EditorGUILayout.LabelField("Current", PlayerSettings.bundleVersion);
+                DrawBundleVersionControls();
 
                 if (_profile != null && _profile.PlayerSettings != null && !_profile.PlayerSettings.OverrideBundleVersion)
                 {
@@ -223,30 +190,111 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
                 if (_profile != null && _profile.BuildTarget == BuildTarget.Android)
                 {
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        EditorGUILayout.LabelField("Android Version Code", PlayerSettings.Android.bundleVersionCode.ToString());
-                        if (GUILayout.Button("-1", GUILayout.Width(72f)))
-                        {
-                            ChangeAndroidVersionCode(-1);
-                        }
-
-                        if (GUILayout.Button("+1", GUILayout.Width(72f)))
-                        {
-                            ChangeAndroidVersionCode(1);
-                        }
-                    }
+                    EditorGUILayout.Space(4f);
+                    EditorGUILayout.LabelField("Android Version Code", EditorStyles.miniBoldLabel);
+                    DrawNumberControl(
+                        "Version Code",
+                        PlayerSettings.Android.bundleVersionCode.ToString(),
+                        () => ChangeAndroidVersionCode(-1),
+                        () => ChangeAndroidVersionCode(1),
+                        enabled: true);
 
                     using (new EditorGUILayout.HorizontalScope())
                     {
                         GUILayout.FlexibleSpace();
-                        if (GUILayout.Button("+ Patch And Code", GUILayout.Width(132f)))
+                        if (GUILayout.Button("+ Patch + Code", GUILayout.Width(132f), GUILayout.Height(24f)))
                         {
                             BumpPatchAndAndroidVersionCode();
                         }
                     }
                 }
             }
+        }
+
+        private void DrawBundleVersionControls()
+        {
+            ParseBundleVersion(PlayerSettings.bundleVersion, out var major, out var minor, out var patch);
+
+            using (new EditorGUI.DisabledScope(_profile == null))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    DrawNumberControl(
+                        "Major",
+                        major.ToString(),
+                        () => ChangeBundleVersion(EvoVersionBumpMode.Major, -1),
+                        () => ChangeBundleVersion(EvoVersionBumpMode.Major, 1),
+                        enabled: true);
+                    DrawVersionSeparator();
+                    DrawNumberControl(
+                        "Minor",
+                        minor.ToString(),
+                        () => ChangeBundleVersion(EvoVersionBumpMode.Minor, -1),
+                        () => ChangeBundleVersion(EvoVersionBumpMode.Minor, 1),
+                        enabled: true);
+                    DrawVersionSeparator();
+                    DrawNumberControl(
+                        "Patch",
+                        patch.ToString(),
+                        () => ChangeBundleVersion(EvoVersionBumpMode.Patch, -1),
+                        () => ChangeBundleVersion(EvoVersionBumpMode.Patch, 1),
+                        enabled: true);
+                    GUILayout.FlexibleSpace();
+                }
+            }
+        }
+
+        private static void DrawNumberControl(string label, string value, System.Action decrement, System.Action increment, bool enabled)
+        {
+            using (new EditorGUILayout.VerticalScope(GUILayout.Width(96f)))
+            {
+                EditorGUILayout.LabelField(label, EditorStyles.centeredGreyMiniLabel, GUILayout.Width(96f));
+                using (new EditorGUI.DisabledScope(!enabled))
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        if (GUILayout.Button("-", GUILayout.Width(26f), GUILayout.Height(24f)))
+                        {
+                            decrement?.Invoke();
+                        }
+
+                        var valueStyle = new GUIStyle(EditorStyles.helpBox)
+                        {
+                            alignment = TextAnchor.MiddleCenter,
+                            fontStyle = FontStyle.Bold
+                        };
+                        GUILayout.Label(value, valueStyle, GUILayout.Width(38f), GUILayout.Height(24f));
+
+                        if (GUILayout.Button("+", GUILayout.Width(26f), GUILayout.Height(24f)))
+                        {
+                            increment?.Invoke();
+                        }
+                    }
+                }
+            }
+        }
+
+        private static void DrawVersionSeparator()
+        {
+            EditorGUILayout.LabelField(".", EditorStyles.boldLabel, GUILayout.Width(10f), GUILayout.Height(42f));
+        }
+
+        private static void ParseBundleVersion(string version, out int major, out int minor, out int patch)
+        {
+            var parts = (version ?? "0.0.0").Split('.');
+            major = ParseVersionPart(parts, 0);
+            minor = ParseVersionPart(parts, 1);
+            patch = ParseVersionPart(parts, 2);
+        }
+
+        private static int ParseVersionPart(string[] parts, int index)
+        {
+            if (parts == null || index < 0 || index >= parts.Length)
+            {
+                return 0;
+            }
+
+            return int.TryParse(parts[index], out var value) ? Mathf.Max(0, value) : 0;
         }
 
         private List<PlatformBuildProfile> CollectSelectableProfiles()
