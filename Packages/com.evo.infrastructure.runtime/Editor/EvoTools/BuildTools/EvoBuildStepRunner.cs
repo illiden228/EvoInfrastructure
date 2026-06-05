@@ -13,28 +13,42 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
         }
 
-        public static bool Execute(EvoBuildContext context, EvoBuildStepPhase phase, EvoBuildApplyResult result)
+        public static bool Execute(
+            EvoBuildContext context,
+            EvoBuildStepPhase phase,
+            EvoBuildApplyResult result,
+            EvoBuildProgressTracker progress = null)
         {
             var steps = Collect(context?.Profile, phase);
             for (var i = 0; i < steps.Count; i++)
             {
                 var step = steps[i];
-                if (!step.Execute(context, result))
+                using (progress?.Step($"{phase} / {step.name}", 0.1f + i / (float)steps.Count * 0.2f, result))
                 {
-                    result.AddError($"Build step failed: {step.name} ({phase}).");
-                    return false;
+                    if (!step.Execute(context, result))
+                    {
+                        result.AddError($"Build step failed: {step.name} ({phase}).");
+                        return false;
+                    }
                 }
             }
 
             return true;
         }
 
-        public static void Cleanup(EvoBuildContext context, EvoBuildApplyResult result)
+        public static void Cleanup(
+            EvoBuildContext context,
+            EvoBuildApplyResult result,
+            EvoBuildProgressTracker progress = null)
         {
             var steps = CollectCleanup(context?.Profile);
             for (var i = steps.Count - 1; i >= 0; i--)
             {
-                steps[i].Cleanup(context, result);
+                var label = steps[i] is EvoBuildStepAsset asset ? asset.name : steps[i].GetType().Name;
+                using (progress?.Step($"Cleanup / {label}", 0.92f, result))
+                {
+                    steps[i].Cleanup(context, result);
+                }
             }
         }
 

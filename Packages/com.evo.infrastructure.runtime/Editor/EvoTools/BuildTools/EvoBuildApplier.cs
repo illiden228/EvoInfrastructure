@@ -39,6 +39,16 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             PlatformCatalog platformCatalog,
             bool switchBuildTarget)
         {
+            return ApplyPlatform(globalConfig, profile, platformCatalog, switchBuildTarget, progress: null);
+        }
+
+        internal static EvoBuildApplyResult ApplyPlatform(
+            BuildGlobalConfig globalConfig,
+            PlatformBuildProfile profile,
+            PlatformCatalog platformCatalog,
+            bool switchBuildTarget,
+            EvoBuildProgressTracker progress = null)
+        {
             var result = new EvoBuildApplyResult();
             var report = EvoBuildPlanner.CreateDryRun(globalConfig, profile);
             if (report.HasErrors)
@@ -58,26 +68,45 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
 
             var context = new EvoBuildContext(globalConfig, profile, report, string.Empty, buildAndRun: false);
-            if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.BeforeApply, result))
+            if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.BeforeApply, result, progress))
             {
                 return result;
             }
 
-            if (switchBuildTarget && !SwitchBuildTarget(profile, result))
+            using (progress?.Step("Apply Platform / Switch Build Target", 0.12f, result))
+            {
+                if (switchBuildTarget && !SwitchBuildTarget(profile, result))
+                {
+                    return result;
+                }
+            }
+
+            using (progress?.Step("Apply Platform / Defines", 0.16f, result))
+            {
+                ApplyDefines(report, result);
+            }
+
+            using (progress?.Step("Apply Platform / PlayerSettings", 0.18f, result))
+            {
+                ApplyPlayerSettings(profile, result);
+                ApplyAndroidBuildSettings(profile, result);
+            }
+
+            using (progress?.Step("Apply Platform / PlatformCatalog", 0.2f, result))
+            {
+                ApplyPlatformCatalog(profile, platformCatalog, result);
+            }
+
+            if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.AfterApply, result, progress))
             {
                 return result;
             }
 
-            ApplyDefines(report, result);
-            ApplyPlayerSettings(profile, result);
-            ApplyAndroidBuildSettings(profile, result);
-            ApplyPlatformCatalog(profile, platformCatalog, result);
-            if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.AfterApply, result))
+            using (progress?.Step("Apply Platform / Save Assets", 0.22f, result))
             {
-                return result;
+                AssetDatabase.SaveAssets();
             }
 
-            AssetDatabase.SaveAssets();
             return result;
         }
 

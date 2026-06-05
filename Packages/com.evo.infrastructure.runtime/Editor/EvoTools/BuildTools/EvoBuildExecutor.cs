@@ -16,79 +16,107 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             PlatformCatalog platformCatalog,
             bool buildAndRun)
         {
-            var result = EvoBuildApplier.ApplyPlatform(globalConfig, profile, platformCatalog, switchBuildTarget: true);
-            if (!result.Success)
-            {
-                return result;
-            }
-
-            var report = EvoBuildPlanner.CreateDryRun(globalConfig, profile);
-            var prepareContext = new EvoBuildContext(globalConfig, profile, report, string.Empty, buildAndRun);
-            if (!EvoBuildStepRunner.Execute(prepareContext, EvoBuildStepPhase.PrepareBuild, result))
-            {
-                return result;
-            }
-
-            AssetDatabase.SaveAssets();
-            var outputPath = ResolveOutputPath(globalConfig, profile);
-            if (!ConfirmBuildWithOptionalVersionBump(globalConfig, profile, buildAndRun, ref outputPath, result))
-            {
-                result.AddMessage("Build cancelled.");
-                return result;
-            }
-
-            var signingSnapshot = AndroidSigningPasswordSnapshot.Capture(profile);
-            EvoBuildContext context = null;
-            var beforeBuildStarted = false;
+            var progress = new EvoBuildProgressTracker("Evo Build");
+            var result = new EvoBuildApplyResult();
+            var outputPath = string.Empty;
             try
             {
-                context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
-                beforeBuildStarted = true;
-                if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.BeforeBuild, result))
+                result = EvoBuildApplier.ApplyPlatform(globalConfig, profile, platformCatalog, switchBuildTarget: true, progress);
+                if (!result.Success)
                 {
                     return result;
+                }
+
+                EvoBuildDryRunReport report;
+                using (progress.Step("Create Dry Run Report", 0.24f, result))
+                {
+                    report = EvoBuildPlanner.CreateDryRun(globalConfig, profile);
+                }
+
+                var prepareContext = new EvoBuildContext(globalConfig, profile, report, string.Empty, buildAndRun);
+                if (!EvoBuildStepRunner.Execute(prepareContext, EvoBuildStepPhase.PrepareBuild, result, progress))
+                {
+                    return result;
+                }
+
+                using (progress.Step("Save Assets Before Build", 0.32f, result))
+                {
+                    AssetDatabase.SaveAssets();
                 }
 
                 outputPath = ResolveOutputPath(globalConfig, profile);
-                context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
-                EnsureOutputDirectory(outputPath);
-                var options = profile.BuildOptions;
-                if (buildAndRun)
+                if (!ConfirmBuildWithOptionalVersionBump(globalConfig, profile, buildAndRun, ref outputPath, result))
                 {
-                    options |= BuildOptions.AutoRunPlayer;
-                }
-
-                var buildReport = BuildPipeline.BuildPlayer(new BuildPlayerOptions
-                {
-                    scenes = GetEnabledScenes(),
-                    locationPathName = outputPath,
-                    target = profile.BuildTarget,
-                    targetGroup = profile.BuildTargetGroup,
-                    options = options
-                });
-
-                if (buildReport.summary.result != BuildResult.Succeeded)
-                {
-                    result.AddError($"Build failed: {buildReport.summary.result}. Errors: {buildReport.summary.totalErrors}.");
+                    result.AddMessage("Build cancelled.");
                     return result;
                 }
 
-                result.AddMessage($"Build succeeded: {outputPath}");
-                result.AddMessage($"Build size: {buildReport.summary.totalSize} bytes.");
-                EvoBuildStepRunner.Cleanup(context, result);
-                beforeBuildStarted = false;
-                EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.AfterBuild, result);
-                RevealBuildOutput(outputPath, result);
-                return result;
+                var signingSnapshot = AndroidSigningPasswordSnapshot.Capture(profile);
+                EvoBuildContext context = null;
+                var beforeBuildStarted = false;
+                try
+                {
+                    context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
+                    beforeBuildStarted = true;
+                    if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.BeforeBuild, result, progress))
+                    {
+                        return result;
+                    }
+
+                    outputPath = ResolveOutputPath(globalConfig, profile);
+                    context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
+                    using (progress.Step("Ensure Output Directory", 0.4f, result))
+                    {
+                        EnsureOutputDirectory(outputPath);
+                    }
+
+                    var options = profile.BuildOptions;
+                    if (buildAndRun)
+                    {
+                        options |= BuildOptions.AutoRunPlayer;
+                    }
+
+                    BuildReport buildReport;
+                    using (progress.Step("BuildPipeline.BuildPlayer", 0.5f, result))
+                    {
+                        buildReport = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+                        {
+                            scenes = GetEnabledScenes(),
+                            locationPathName = outputPath,
+                            target = profile.BuildTarget,
+                            targetGroup = profile.BuildTargetGroup,
+                            options = options
+                        });
+                    }
+
+                    if (buildReport.summary.result != BuildResult.Succeeded)
+                    {
+                        result.AddError($"Build failed: {buildReport.summary.result}. Errors: {buildReport.summary.totalErrors}.");
+                        return result;
+                    }
+
+                    result.AddMessage($"Build succeeded: {outputPath}");
+                    result.AddMessage($"Build size: {buildReport.summary.totalSize} bytes.");
+                    EvoBuildStepRunner.Cleanup(context, result, progress);
+                    beforeBuildStarted = false;
+                    EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.AfterBuild, result, progress);
+                    RevealBuildOutput(outputPath, result);
+                    return result;
+                }
+                finally
+                {
+                    if (beforeBuildStarted)
+                    {
+                        EvoBuildStepRunner.Cleanup(context, result, progress);
+                    }
+
+                    signingSnapshot.Restore(result);
+                }
             }
             finally
             {
-                if (beforeBuildStarted)
-                {
-                    EvoBuildStepRunner.Cleanup(context, result);
-                }
-
-                signingSnapshot.Restore(result);
+                WriteBuildReport(outputPath, profile, buildAndRun, result, progress);
+                progress.Dispose();
             }
         }
 
@@ -300,6 +328,41 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
             EditorUtility.RevealInFinder(revealPath);
             result.AddMessage($"Revealed build output: {revealPath.Replace('\\', '/')}");
+        }
+
+        private static void WriteBuildReport(
+            string outputPath,
+            PlatformBuildProfile profile,
+            bool buildAndRun,
+            EvoBuildApplyResult result,
+            EvoBuildProgressTracker progress)
+        {
+            if (string.IsNullOrWhiteSpace(outputPath) || progress == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var normalizedPath = outputPath.Replace('\\', '/');
+                var directory = Path.HasExtension(normalizedPath)
+                    ? Path.GetDirectoryName(normalizedPath)
+                    : normalizedPath;
+                if (string.IsNullOrWhiteSpace(directory))
+                {
+                    return;
+                }
+
+                Directory.CreateDirectory(directory);
+                var fileName = $"evo-build-report-{DateTime.Now:yyyyMMdd-HHmmss}.txt";
+                var reportPath = Path.Combine(directory, fileName).Replace('\\', '/');
+                File.WriteAllText(reportPath, progress.CreateReport(profile, outputPath, buildAndRun, result));
+                result?.AddMessage($"Build report saved: {reportPath}");
+            }
+            catch (Exception ex)
+            {
+                result?.AddError($"Failed to write build report: {ex.Message}");
+            }
         }
 
         private static string SanitizePathPart(string value)
