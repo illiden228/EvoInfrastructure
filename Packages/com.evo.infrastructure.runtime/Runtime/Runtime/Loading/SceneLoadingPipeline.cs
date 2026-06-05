@@ -19,12 +19,26 @@ namespace Evo.Infrastructure.Runtime.Loading
     {
         private readonly ISceneLoaderService _sceneLoader;
         private readonly ILoadingProgress _progress;
+        private readonly ILoadingPresentation _loadingPresentation;
+        private readonly SceneTransitionOptions _transitionOptions;
         private readonly string _transitionSceneName;
 
         public SceneLoadingPipeline(ISceneLoaderService sceneLoader, ILoadingProgress progress, IConfigService configService)
+            : this(sceneLoader, progress, configService, null)
+        {
+        }
+
+        [Inject]
+        public SceneLoadingPipeline(
+            ISceneLoaderService sceneLoader,
+            ILoadingProgress progress,
+            IConfigService configService,
+            IObjectResolver resolver)
         {
             _sceneLoader = sceneLoader;
             _progress = progress;
+            _loadingPresentation = TryResolve<ILoadingPresentation>(resolver);
+            _transitionOptions = TryResolve<SceneTransitionOptions>(resolver) ?? new SceneTransitionOptions();
             _transitionSceneName = ResolveTransitionSceneName(configService);
         }
 
@@ -62,13 +76,16 @@ namespace Evo.Infrastructure.Runtime.Loading
             var runner = new LoadingRunner();
             var steps = CreateSteps(sceneReference, mode, activateOnLoad, priority);
             var useTransition = mode == LoadSceneMode.Single && !string.IsNullOrEmpty(_transitionSceneName);
-            var loadingTask = runner.RunAsync(steps, _progress, cancellationToken);
-            var transitionTask = useTransition
-                ? LoadTransitionSceneAdditiveAsync(cancellationToken)
-                : UniTask.CompletedTask;
 
             try
             {
+                await ShowLoadingPresentationIfNeeded(cancellationToken);
+
+                var loadingTask = runner.RunAsync(steps, _progress, cancellationToken);
+                var transitionTask = useTransition
+                    ? LoadTransitionSceneAdditiveAsync(cancellationToken)
+                    : UniTask.CompletedTask;
+
                 await UniTask.WhenAll(loadingTask, transitionTask);
             }
             finally
@@ -77,7 +94,33 @@ namespace Evo.Infrastructure.Runtime.Loading
                 {
                     await UnloadTransitionSceneAsync();
                 }
+
+                await HideLoadingPresentationIfNeeded();
             }
+        }
+
+        private async UniTask ShowLoadingPresentationIfNeeded(CancellationToken cancellationToken)
+        {
+            if (_loadingPresentation == null ||
+                _transitionOptions == null ||
+                !_transitionOptions.AwaitLoadingPresentationBeforeSceneLoad)
+            {
+                return;
+            }
+
+            await _loadingPresentation.ShowAsync(cancellationToken);
+        }
+
+        private async UniTask HideLoadingPresentationIfNeeded()
+        {
+            if (_loadingPresentation == null ||
+                _transitionOptions == null ||
+                !_transitionOptions.HideLoadingPresentationAfterLoadingFinished)
+            {
+                return;
+            }
+
+            await _loadingPresentation.HideAsync(CancellationToken.None);
         }
 
         private async UniTask LoadTransitionSceneAdditiveAsync(CancellationToken cancellationToken)
@@ -428,6 +471,26 @@ namespace Evo.Infrastructure.Runtime.Loading
             }
 
             return property.GetValue(config) as string;
+        }
+
+        private static T TryResolve<T>(IObjectResolver resolver)
+            where T : class
+        {
+            if (resolver == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                return resolver.TryResolve(typeof(T), out var resolved)
+                    ? resolved as T
+                    : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static Type FindTypeByName(string fullName)

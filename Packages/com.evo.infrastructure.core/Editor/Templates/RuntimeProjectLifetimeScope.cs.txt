@@ -53,6 +53,7 @@ namespace Game.Runtime.EntryPoint
 
             builder.Register<IResourceLoaderService, AddressablesResourceLoaderService>(Lifetime.Singleton);
             builder.RegisterInstance(new SceneLoaderOptions());
+            builder.RegisterInstance(new SceneTransitionOptions());
             builder.Register<ISceneLoaderService, SceneLoaderService>(Lifetime.Singleton);
             builder.Register<IResourceProviderService, ResourceProviderService>(Lifetime.Singleton);
             builder.Register<IScenePayloadService, ScenePayloadService>(Lifetime.Singleton);

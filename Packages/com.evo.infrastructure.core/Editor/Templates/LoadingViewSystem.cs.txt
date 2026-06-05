@@ -14,7 +14,7 @@ using VContainer.Unity;
 
 namespace Game.Runtime.Loading
 {
-    public sealed class LoadingViewSystem : IInitializable, IDisposable
+    public sealed class LoadingViewSystem : IInitializable, IDisposable, ILoadingPresentation
     {
         private const float MIN_VISIBLE_SECONDS = 0.35f;
         private const float FINAL_PROGRESS_HOLD_SECONDS = 0.1f;
@@ -29,6 +29,7 @@ namespace Game.Runtime.Loading
         private bool _hasLoadingHandle;
         private double _showStartedAt;
         private LoadingScreenView _loadingScreenView;
+        private bool _isVisible;
 
         public LoadingViewSystem(
             IResourceLoaderService resourceLoader,
@@ -66,34 +67,45 @@ namespace Game.Runtime.Loading
             _loadingProgress.Finished -= OnFinished;
         }
 
-        private void OnReady()
+        public bool IsVisible => _isVisible;
+
+        public UniTask ShowAsync(CancellationToken cancellationToken)
         {
             _showStartedAt = Time.realtimeSinceStartupAsDouble;
-            if (_loadingSceneBusy)
-            {
-                _pendingShow = true;
-                return;
-            }
+            return ShowLoadingSceneAsync(cancellationToken);
+        }
 
-            ShowLoadingSceneAsync().Forget();
+        public UniTask HideAsync(CancellationToken cancellationToken)
+        {
+            return HideLoadingSceneAsync(cancellationToken);
+        }
+
+        private void OnReady()
+        {
+            ShowAsync(CancellationToken.None).Forget();
         }
 
         private void OnFinished()
         {
-            if (_loadingSceneBusy)
+            HideAsync(CancellationToken.None).Forget();
+        }
+
+        private async UniTask ShowLoadingSceneAsync(CancellationToken cancellationToken)
+        {
+            if (_loadingScene == null || _resourceLoader == null || (_hasLoadingHandle && _loadingHandle.IsValid()))
             {
-                _pendingHide = true;
                 return;
             }
 
-            HideLoadingSceneAsync(CancellationToken.None).Forget();
-        }
-
-        private async UniTaskVoid ShowLoadingSceneAsync(CancellationToken cancellationToken = default)
-        {
-            if (_loadingScene == null || _resourceLoader == null || _loadingSceneBusy || (_hasLoadingHandle && _loadingHandle.IsValid()))
+            if (_loadingSceneBusy)
             {
-                return;
+                _pendingShow = true;
+                await UniTask.WaitUntil(() => !_loadingSceneBusy, cancellationToken: cancellationToken);
+                _pendingShow = false;
+                if (_hasLoadingHandle && _loadingHandle.IsValid())
+                {
+                    return;
+                }
             }
 
             _loadingSceneBusy = true;
@@ -109,7 +121,13 @@ namespace Game.Runtime.Loading
                     {
                         await _loadingScreenView.PlayShowAsync(cancellationToken);
                     }
+
+                    _isVisible = true;
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -118,12 +136,7 @@ namespace Game.Runtime.Loading
             finally
             {
                 _loadingSceneBusy = false;
-                if (_pendingShow)
-                {
-                    _pendingShow = false;
-                    ShowLoadingSceneAsync(cancellationToken).Forget();
-                }
-                else if (_pendingHide)
+                if (_pendingHide)
                 {
                     _pendingHide = false;
                     HideLoadingSceneAsync(cancellationToken).Forget();
@@ -131,12 +144,19 @@ namespace Game.Runtime.Loading
             }
         }
 
-        private async UniTaskVoid HideLoadingSceneAsync(CancellationToken cancellationToken)
+        private async UniTask HideLoadingSceneAsync(CancellationToken cancellationToken)
         {
-            if (_loadingScene == null || _loadingSceneBusy)
+            if (_loadingScene == null)
             {
                 _loadingProgress?.NotifyHidden();
                 return;
+            }
+
+            if (_loadingSceneBusy)
+            {
+                _pendingHide = true;
+                await UniTask.WaitUntil(() => !_loadingSceneBusy, cancellationToken: cancellationToken);
+                _pendingHide = false;
             }
 
             _loadingSceneBusy = true;
@@ -160,6 +180,10 @@ namespace Game.Runtime.Loading
                     await _resourceLoader.UnloadSceneAsync(_loadingScene, cancellationToken);
                 }
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 Debug.LogWarning($"LoadingSceneSystem failed to unload LoadingScene. {ex.Message}");
@@ -168,6 +192,7 @@ namespace Game.Runtime.Loading
             {
                 _loadingSceneBusy = false;
                 _hasLoadingHandle = false;
+                _isVisible = false;
                 _loadingHandle = default;
                 _loadingScreenView = null;
             }
