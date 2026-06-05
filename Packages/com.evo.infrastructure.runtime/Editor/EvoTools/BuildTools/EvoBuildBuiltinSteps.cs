@@ -13,11 +13,16 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
     }
 
     [CreateAssetMenu(fileName = "IncrementBundleVersionStep", menuName = "EvoTools/Build/Steps/Increment Bundle Version")]
-    public sealed class IncrementBundleVersionStep : EvoBuildStepAsset
+    public sealed class IncrementBundleVersionStep : EvoBuildStepAsset, IEvoBuildCleanupStep
     {
         [SerializeField] private EvoVersionBumpMode bumpMode = EvoVersionBumpMode.Patch;
+        [Tooltip("When enabled, the previous bundleVersion is restored if the build is cancelled or BuildPipeline fails.")]
+        [SerializeField] private bool restoreIfBuildDoesNotSucceed = true;
+        [NonSerialized] private bool changedThisRun;
+        [NonSerialized] private string previousBundleVersion;
 
         public EvoVersionBumpMode BumpMode => bumpMode;
+        public bool RestoreIfBuildDoesNotSucceed => restoreIfBuildDoesNotSucceed;
 
         public override bool Execute(EvoBuildContext context, EvoBuildApplyResult result)
         {
@@ -29,6 +34,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
             var current = PlayerSettings.bundleVersion;
             var next = ChangeVersion(current, bumpMode, 1);
+            previousBundleVersion = current;
+            changedThisRun = true;
             PlayerSettings.bundleVersion = next;
             if (context?.Profile != null && context.Profile.SyncBundleVersionOverride(next))
             {
@@ -39,6 +46,28 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             result.AddMessage($"Bundle version: {current} -> {next}");
             AssetDatabase.SaveAssets();
             return true;
+        }
+
+        public void Cleanup(EvoBuildContext context, EvoBuildApplyResult result)
+        {
+            if (!restoreIfBuildDoesNotSucceed || !changedThisRun || result?.BuildSucceeded == true)
+            {
+                changedThisRun = false;
+                previousBundleVersion = null;
+                return;
+            }
+
+            var current = PlayerSettings.bundleVersion;
+            PlayerSettings.bundleVersion = previousBundleVersion ?? string.Empty;
+            if (context?.Profile != null && context.Profile.SyncBundleVersionOverride(PlayerSettings.bundleVersion))
+            {
+                EditorUtility.SetDirty(context.Profile);
+            }
+
+            result?.AddMessage($"Bundle version restored after unsuccessful build: {current} -> {PlayerSettings.bundleVersion}");
+            AssetDatabase.SaveAssets();
+            changedThisRun = false;
+            previousBundleVersion = null;
         }
 
         internal static string ChangeVersion(string version, EvoVersionBumpMode mode, int direction)

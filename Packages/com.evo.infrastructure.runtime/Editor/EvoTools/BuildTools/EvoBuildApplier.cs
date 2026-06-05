@@ -13,6 +13,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         public IReadOnlyList<string> Messages => _messages;
         public IReadOnlyList<string> Errors => _errors;
         public bool Success => _errors.Count == 0;
+        public bool BuildSucceeded { get; private set; }
+        public bool BuildCancelled { get; private set; }
 
         public void AddMessage(string message)
         {
@@ -28,6 +30,17 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             {
                 _errors.Add(message);
             }
+        }
+
+        internal void MarkBuildSucceeded()
+        {
+            BuildSucceeded = true;
+            BuildCancelled = false;
+        }
+
+        internal void MarkBuildCancelled()
+        {
+            BuildCancelled = true;
         }
     }
 

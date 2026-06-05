@@ -19,6 +19,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             var progress = new EvoBuildProgressTracker("Evo Build");
             var result = new EvoBuildApplyResult();
             var outputPath = string.Empty;
+            EvoBuildContext cleanupContext = null;
             try
             {
                 result = EvoBuildApplier.ApplyPlatform(globalConfig, profile, platformCatalog, switchBuildTarget: true, progress);
@@ -34,6 +35,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 }
 
                 var prepareContext = new EvoBuildContext(globalConfig, profile, report, string.Empty, buildAndRun);
+                cleanupContext = prepareContext;
                 if (!EvoBuildStepRunner.Execute(prepareContext, EvoBuildStepPhase.PrepareBuild, result, progress))
                 {
                     return result;
@@ -48,6 +50,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 if (!ConfirmBuildWithOptionalVersionBump(globalConfig, profile, buildAndRun, ref outputPath, result))
                 {
                     result.AddMessage("Build cancelled.");
+                    result.MarkBuildCancelled();
                     return result;
                 }
 
@@ -65,6 +68,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
                     outputPath = ResolveOutputPath(globalConfig, profile);
                     context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
+                    cleanupContext = context;
                     using (progress.Step("Ensure Output Directory", 0.4f, result))
                     {
                         EnsureOutputDirectory(outputPath);
@@ -97,6 +101,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
                     result.AddMessage($"Build succeeded: {outputPath}");
                     result.AddMessage($"Build size: {buildReport.summary.totalSize} bytes.");
+                    result.MarkBuildSucceeded();
                     EvoBuildStepRunner.Cleanup(context, result, progress);
                     beforeBuildStarted = false;
                     EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.AfterBuild, result, progress);
@@ -108,6 +113,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                     if (beforeBuildStarted)
                     {
                         EvoBuildStepRunner.Cleanup(context, result, progress);
+                        cleanupContext = null;
                     }
 
                     signingSnapshot.Restore(result);
@@ -115,6 +121,11 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
             finally
             {
+                if (!result.BuildSucceeded && cleanupContext != null)
+                {
+                    EvoBuildStepRunner.Cleanup(cleanupContext, result, progress);
+                }
+
                 WriteBuildReport(outputPath, profile, buildAndRun, result, progress);
                 progress.Dispose();
             }
