@@ -17,6 +17,8 @@ namespace Evo.Infrastructure.Runtime.Loading
 {
     public sealed class SceneLoadingPipeline : ISceneLoadingPipeline
     {
+        private const string SourceName = nameof(SceneLoadingPipeline);
+
         private readonly ISceneLoaderService _sceneLoader;
         private readonly ILoadingProgress _progress;
         private readonly ILoadingPresentation _loadingPresentation;
@@ -48,12 +50,28 @@ namespace Evo.Infrastructure.Runtime.Loading
             bool activateOnLoad = true,
             int priority = 100)
         {
+            return CreateSteps(sceneReference, mode, activateOnLoad, priority, unloadPreviousAfterTargetLoad: true);
+        }
+
+        private IReadOnlyList<ILoadingStep> CreateSteps(
+            AssetReference sceneReference,
+            LoadSceneMode mode,
+            bool activateOnLoad,
+            int priority,
+            bool unloadPreviousAfterTargetLoad)
+        {
             if (sceneReference == null)
             {
                 return Array.Empty<ILoadingStep>();
             }
 
-            var context = new SceneLoadingContext(sceneReference, mode, activateOnLoad, priority);
+            var context = new SceneLoadingContext(
+                sceneReference,
+                mode,
+                activateOnLoad,
+                priority,
+                unloadPreviousAfterTargetLoad);
+
             return new ILoadingStep[]
             {
                 new SceneLoadStep(_sceneLoader, context),
@@ -73,24 +91,42 @@ namespace Evo.Infrastructure.Runtime.Loading
                 return;
             }
 
-            var runner = new LoadingRunner();
-            var steps = CreateSteps(sceneReference, mode, activateOnLoad, priority);
             var useTransition = mode == LoadSceneMode.Single && !string.IsNullOrEmpty(_transitionSceneName);
+            var transitionSceneActivated = false;
 
             try
             {
                 await ShowLoadingPresentationIfNeeded(cancellationToken);
 
-                var loadingTask = runner.RunAsync(steps, _progress, cancellationToken);
-                var transitionTask = useTransition
-                    ? LoadTransitionSceneAdditiveAsync(cancellationToken)
-                    : UniTask.CompletedTask;
+                if (useTransition)
+                {
+                    var previousActiveScene = SceneManager.GetActiveScene();
+                    transitionSceneActivated = await LoadAndActivateTransitionSceneAsync(cancellationToken);
+                    if (transitionSceneActivated)
+                    {
+                        await UnloadPreviousActiveSceneBeforeTargetLoadAsync(previousActiveScene, cancellationToken);
+                    }
+                    else
+                    {
+                        EvoDebug.LogWarning(
+                            $"Transition scene '{_transitionSceneName}' was not activated. Falling back to target-first scene load.",
+                            SourceName);
+                    }
+                }
 
-                await UniTask.WhenAll(loadingTask, transitionTask);
+                var runner = new LoadingRunner();
+                var steps = CreateSteps(
+                    sceneReference,
+                    mode,
+                    activateOnLoad,
+                    priority,
+                    unloadPreviousAfterTargetLoad: !transitionSceneActivated);
+
+                await runner.RunAsync(steps, _progress, cancellationToken);
             }
             finally
             {
-                if (useTransition)
+                if (transitionSceneActivated)
                 {
                     await UnloadTransitionSceneAsync();
                 }
@@ -123,12 +159,15 @@ namespace Evo.Infrastructure.Runtime.Loading
             await _loadingPresentation.HideAsync(CancellationToken.None);
         }
 
-        private async UniTask LoadTransitionSceneAdditiveAsync(CancellationToken cancellationToken)
+        private async UniTask<bool> LoadAndActivateTransitionSceneAsync(CancellationToken cancellationToken)
         {
             var existingScene = SceneManager.GetSceneByName(_transitionSceneName);
             if (existingScene.IsValid() && existingScene.isLoaded)
             {
-                return;
+                EvoDebug.Log(
+                    $"Transition scene loaded: '{_transitionSceneName}' already loaded.",
+                    SourceName);
+                return TrySetTransitionSceneActive(existingScene);
             }
 
             var transitionLoad = SceneManager.LoadSceneAsync(_transitionSceneName, LoadSceneMode.Additive);
@@ -136,24 +175,96 @@ namespace Evo.Infrastructure.Runtime.Loading
             {
                 EvoDebug.LogWarning(
                     $"Transition scene '{_transitionSceneName}' failed to start loading.",
-                    nameof(SceneLoadingPipeline));
-                return;
+                    SourceName);
+                return false;
             }
 
             try
             {
                 await transitionLoad.ToUniTask(cancellationToken: cancellationToken);
+                var scene = SceneManager.GetSceneByName(_transitionSceneName);
+                if (!scene.IsValid() || !scene.isLoaded)
+                {
+                    EvoDebug.LogWarning(
+                        $"Transition scene '{_transitionSceneName}' load completed but scene is not loaded.",
+                        SourceName);
+                    return false;
+                }
+
+                EvoDebug.Log(
+                    $"Transition scene loaded: '{_transitionSceneName}'.",
+                    SourceName);
+
+                return TrySetTransitionSceneActive(scene);
             }
             catch (OperationCanceledException)
             {
-                // Cancellation is handled by the loading flow owner.
+                throw;
             }
             catch (Exception ex)
             {
                 EvoDebug.LogWarning(
                     $"Transition scene load failed. {ex.Message}",
-                    nameof(SceneLoadingPipeline));
+                    SourceName);
+                return false;
             }
+        }
+
+        private bool TrySetTransitionSceneActive(Scene scene)
+        {
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                return false;
+            }
+
+            if (!SceneManager.SetActiveScene(scene))
+            {
+                EvoDebug.LogWarning(
+                    $"Transition scene '{scene.name}' failed to become active.",
+                    SourceName);
+                return false;
+            }
+
+            EvoDebug.Log(
+                $"Transition scene set active: '{scene.name}'.",
+                SourceName);
+            return true;
+        }
+
+        private async UniTask UnloadPreviousActiveSceneBeforeTargetLoadAsync(
+            Scene previousActiveScene,
+            CancellationToken cancellationToken)
+        {
+            if (!previousActiveScene.IsValid() ||
+                !previousActiveScene.isLoaded ||
+                string.Equals(previousActiveScene.name, _transitionSceneName, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var transitionScene = SceneManager.GetSceneByName(_transitionSceneName);
+            if (!transitionScene.IsValid() || !transitionScene.isLoaded)
+            {
+                EvoDebug.LogWarning(
+                    $"Previous scene '{previousActiveScene.name}' was not unloaded before target load because transition scene is not loaded.",
+                    SourceName);
+                return;
+            }
+
+            var sceneName = previousActiveScene.name;
+            var unloadOperation = SceneManager.UnloadSceneAsync(previousActiveScene);
+            if (unloadOperation == null)
+            {
+                EvoDebug.LogWarning(
+                    $"Previous scene '{sceneName}' unload before target load failed to start.",
+                    SourceName);
+                return;
+            }
+
+            await unloadOperation.ToUniTask(cancellationToken: cancellationToken);
+            EvoDebug.Log(
+                $"Previous scene unloaded before target load: '{sceneName}'.",
+                SourceName);
         }
 
         private async UniTask UnloadTransitionSceneAsync()
@@ -164,19 +275,30 @@ namespace Evo.Infrastructure.Runtime.Loading
                 return;
             }
 
+            if (SceneManager.sceneCount <= 1)
+            {
+                EvoDebug.LogWarning(
+                    $"Transition scene '{_transitionSceneName}' was not unloaded because it is the only loaded scene.",
+                    SourceName);
+                return;
+            }
+
             try
             {
                 var unloadOperation = SceneManager.UnloadSceneAsync(scene);
                 if (unloadOperation != null)
                 {
                     await unloadOperation.ToUniTask(cancellationToken: CancellationToken.None);
+                    EvoDebug.Log(
+                        $"Transition scene unloaded: '{_transitionSceneName}'.",
+                        SourceName);
                 }
             }
             catch (Exception ex)
             {
                 EvoDebug.LogWarning(
                     $"Transition scene unload failed. {ex.Message}",
-                    nameof(SceneLoadingPipeline));
+                    SourceName);
             }
         }
 
@@ -186,15 +308,22 @@ namespace Evo.Infrastructure.Runtime.Loading
             public readonly LoadSceneMode Mode;
             public readonly bool ActivateOnLoad;
             public readonly int Priority;
+            public readonly bool UnloadPreviousAfterTargetLoad;
             public SceneInstance SceneInstance;
             public string SceneKey;
 
-            public SceneLoadingContext(AssetReference sceneReference, LoadSceneMode mode, bool activateOnLoad, int priority)
+            public SceneLoadingContext(
+                AssetReference sceneReference,
+                LoadSceneMode mode,
+                bool activateOnLoad,
+                int priority,
+                bool unloadPreviousAfterTargetLoad)
             {
                 SceneReference = sceneReference;
                 Mode = mode;
                 ActivateOnLoad = activateOnLoad;
                 Priority = priority;
+                UnloadPreviousAfterTargetLoad = unloadPreviousAfterTargetLoad;
                 SceneKey = GetReferenceKey(sceneReference);
             }
 
@@ -275,10 +404,26 @@ namespace Evo.Infrastructure.Runtime.Loading
 
                     if (_context.SceneInstance.Scene.IsValid())
                     {
-                        SceneManager.SetActiveScene(_context.SceneInstance.Scene);
+                        EvoDebug.Log(
+                            $"Target scene loaded: '{_context.SceneInstance.Scene.name}'.",
+                            SourceName);
+
+                        if (SceneManager.SetActiveScene(_context.SceneInstance.Scene))
+                        {
+                            EvoDebug.Log(
+                                $"Target scene set active: '{_context.SceneInstance.Scene.name}'.",
+                                SourceName);
+                        }
+                        else
+                        {
+                            EvoDebug.LogWarning(
+                                $"Target scene '{_context.SceneInstance.Scene.name}' failed to become active.",
+                                SourceName);
+                        }
                     }
 
                     if (_context.Mode == LoadSceneMode.Single &&
+                        _context.UnloadPreviousAfterTargetLoad &&
                         previousActiveScene.IsValid() &&
                         previousActiveScene.isLoaded &&
                         previousActiveScene != _context.SceneInstance.Scene)
