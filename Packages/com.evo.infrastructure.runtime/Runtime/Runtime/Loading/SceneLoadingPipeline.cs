@@ -210,7 +210,7 @@ namespace Evo.Infrastructure.Runtime.Loading
             }
         }
 
-        private bool TrySetTransitionSceneActive(Scene scene)
+        private bool TrySetTransitionSceneActive(UnityEngine.SceneManagement.Scene scene)
         {
             if (!scene.IsValid() || !scene.isLoaded)
             {
@@ -232,7 +232,7 @@ namespace Evo.Infrastructure.Runtime.Loading
         }
 
         private async UniTask UnloadPreviousActiveSceneBeforeTargetLoadAsync(
-            Scene previousActiveScene,
+            UnityEngine.SceneManagement.Scene previousActiveScene,
             CancellationToken cancellationToken)
         {
             if (!previousActiveScene.IsValid() ||
