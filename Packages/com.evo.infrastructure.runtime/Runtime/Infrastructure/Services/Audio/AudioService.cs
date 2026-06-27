@@ -15,22 +15,19 @@ namespace Evo.Infrastructure.Services.Audio
 
         private readonly IResourceLoaderService _resourceLoader;
         private readonly Dictionary<AudioCueKey, AudioClip> _clipCache = new();
-        private readonly Dictionary<AudioLayer, float> _layerVolumes = new()
+        private readonly Dictionary<AudioLayerKey, float> _layerVolumes = new()
         {
-            { AudioLayer.Background, 1f },
-            { AudioLayer.Effects, 1f },
-            { AudioLayer.UiEffects, 1f }
+            { AudioLayers.Background, 1f },
+            { AudioLayers.Effects, 1f },
+            { AudioLayers.UiEffects, 1f }
         };
+        private readonly Dictionary<AudioLayerKey, LoopPlayback> _loopPlaybacks = new();
+        private readonly Dictionary<AudioLayerKey, AudioSource> _oneShotSources = new();
         private readonly HashSet<string> _loadedClipKeys = new();
 
         private GameObject _root;
-        private AudioSource _backgroundSource;
-        private AudioSource _effectsSource;
-        private AudioSource _uiEffectsSource;
 
         private float _masterVolume = 1f;
-        private int _backgroundRequestVersion;
-        private AudioCueKey _currentBackgroundCue;
         private bool _disposed;
 
         public AudioService(IResourceLoaderService resourceLoader)
@@ -40,54 +37,89 @@ namespace Evo.Infrastructure.Services.Audio
 
         public void PlayBackground(AudioCueKey cueKey, bool restartIfSame = false)
         {
-            if (_disposed || cueKey == null)
-            {
-                EvoDebug.LogWarning("PlayBackground skipped: disposed service or null cue.", AUDIO_SERVICE_SOURCE);
-                return;
-            }
-
-            EnsureRuntime();
-            var requestVersion = ++_backgroundRequestVersion;
-            PlayBackgroundInternal(cueKey, restartIfSame, requestVersion).Forget();
+            PlayLoop(cueKey, AudioLayers.Background, restartIfSame);
         }
 
         public void StopBackground()
         {
-            if (_disposed)
+            StopLoop(AudioLayers.Background);
+        }
+
+        public void PlayLoop(AudioCueKey cueKey, AudioLayerKey layer, bool restartIfSame = false)
+        {
+            var safeLayer = GetSafeLayer(layer);
+            if (_disposed || cueKey == null)
             {
-                EvoDebug.LogWarning("StopBackground skipped: disposed service.", AUDIO_SERVICE_SOURCE);
+                EvoDebug.LogWarning($"PlayLoop skipped: disposed service or null cue, layer '{safeLayer}'.", AUDIO_SERVICE_SOURCE);
                 return;
             }
 
             EnsureRuntime();
-            _backgroundRequestVersion++;
-            _currentBackgroundCue = null;
-            _backgroundSource.Stop();
-            _backgroundSource.clip = null;
+            var playback = GetOrCreateLoopPlayback(safeLayer);
+            var requestVersion = ++playback.RequestVersion;
+            PlayLoopInternal(cueKey, safeLayer, playback, restartIfSame, requestVersion).Forget();
+        }
+
+        public void StopLoop(AudioLayerKey layer)
+        {
+            var safeLayer = GetSafeLayer(layer);
+            if (_disposed)
+            {
+                EvoDebug.LogWarning($"StopLoop skipped: disposed service, layer '{safeLayer}'.", AUDIO_SERVICE_SOURCE);
+                return;
+            }
+
+            EnsureRuntime();
+            if (!_loopPlaybacks.TryGetValue(safeLayer, out var playback))
+            {
+                return;
+            }
+
+            playback.RequestVersion++;
+            playback.CurrentCue = null;
+            playback.Source.Stop();
+            playback.Source.clip = null;
+        }
+
+        public void StopAllLoops()
+        {
+            if (_disposed)
+            {
+                EvoDebug.LogWarning("StopAllLoops skipped: disposed service.", AUDIO_SERVICE_SOURCE);
+                return;
+            }
+
+            EnsureRuntime();
+            foreach (var playback in _loopPlaybacks.Values)
+            {
+                playback.RequestVersion++;
+                playback.CurrentCue = null;
+                playback.Source.Stop();
+                playback.Source.clip = null;
+            }
         }
 
         public void PlayEffect(AudioCueKey cueKey)
         {
-            if (_disposed || cueKey == null)
-            {
-                EvoDebug.LogWarning("PlayEffect skipped: disposed service or null cue.", AUDIO_SERVICE_SOURCE);
-                return;
-            }
-
-            EnsureRuntime();
-            PlayOneShotInternal(cueKey, AudioLayer.Effects).Forget();
+            PlayOneShot(cueKey, AudioLayers.Effects);
         }
 
         public void PlayUiEffect(AudioCueKey cueKey)
         {
+            PlayOneShot(cueKey, AudioLayers.UiEffects);
+        }
+
+        public void PlayOneShot(AudioCueKey cueKey, AudioLayerKey layer)
+        {
+            var safeLayer = GetSafeLayer(layer);
             if (_disposed || cueKey == null)
             {
-                EvoDebug.LogWarning("PlayUiEffect skipped: disposed service or null cue.", AUDIO_SERVICE_SOURCE);
+                EvoDebug.LogWarning($"PlayOneShot skipped: disposed service or null cue, layer '{safeLayer}'.", AUDIO_SERVICE_SOURCE);
                 return;
             }
 
             EnsureRuntime();
-            PlayOneShotInternal(cueKey, AudioLayer.UiEffects).Forget();
+            PlayOneShotInternal(cueKey, safeLayer).Forget();
         }
 
         public void SetMasterVolume(float volume)
@@ -103,12 +135,17 @@ namespace Evo.Infrastructure.Services.Audio
 
         public void SetLayerVolume(AudioLayer layer, float volume)
         {
+            SetLayerVolume(ToLayerKey(layer), volume);
+        }
+
+        public void SetLayerVolume(AudioLayerKey layer, float volume)
+        {
             if (_disposed)
             {
                 return;
             }
 
-            _layerVolumes[layer] = Mathf.Clamp01(volume);
+            _layerVolumes[GetSafeLayer(layer)] = Mathf.Clamp01(volume);
             ApplyVolumes();
         }
 
@@ -120,11 +157,16 @@ namespace Evo.Infrastructure.Services.Audio
             }
 
             _disposed = true;
-            _backgroundRequestVersion++;
 
-            if (_backgroundSource != null)
+            foreach (var playback in _loopPlaybacks.Values)
             {
-                _backgroundSource.Stop();
+                playback.RequestVersion++;
+                playback.Source.Stop();
+            }
+
+            foreach (var source in _oneShotSources.Values)
+            {
+                source.Stop();
             }
 
             foreach (var loadedKey in _loadedClipKeys)
@@ -134,6 +176,8 @@ namespace Evo.Infrastructure.Services.Audio
 
             _loadedClipKeys.Clear();
             _clipCache.Clear();
+            _loopPlaybacks.Clear();
+            _oneShotSources.Clear();
 
             if (_root != null)
             {
@@ -144,32 +188,37 @@ namespace Evo.Infrastructure.Services.Audio
             EvoDebug.Log("Disposed runtime and released loaded clips.", AUDIO_SERVICE_SOURCE);
         }
 
-        private async UniTaskVoid PlayBackgroundInternal(AudioCueKey cueKey, bool restartIfSame, int requestVersion)
+        private async UniTaskVoid PlayLoopInternal(
+            AudioCueKey cueKey,
+            AudioLayerKey layer,
+            LoopPlayback playback,
+            bool restartIfSame,
+            int requestVersion)
         {
             var clip = await ResolveClipAsync(cueKey);
-            if (_disposed || requestVersion != _backgroundRequestVersion || clip == null)
+            if (_disposed || requestVersion != playback.RequestVersion || clip == null)
             {
                 if (clip == null)
                 {
-                    EvoDebug.LogWarning($"Background clip resolve failed for cue '{cueKey?.name}'.", AUDIO_SERVICE_SOURCE);
+                    EvoDebug.LogWarning($"Loop clip resolve failed for cue '{cueKey?.name}', layer '{layer}'.", AUDIO_SERVICE_SOURCE);
                 }
                 return;
             }
 
-            var isSameCue = _currentBackgroundCue == cueKey;
-            if (isSameCue && _backgroundSource.isPlaying && !restartIfSame)
+            var isSameCue = playback.CurrentCue == cueKey;
+            if (isSameCue && playback.Source.isPlaying && !restartIfSame)
             {
                 return;
             }
 
-            _currentBackgroundCue = cueKey;
-            _backgroundSource.loop = true;
-            _backgroundSource.clip = clip;
-            _backgroundSource.Play();
-            EvoDebug.Log($"Background started: cue '{cueKey.name}', clip '{clip.name}'.", AUDIO_SERVICE_SOURCE);
+            playback.CurrentCue = cueKey;
+            playback.Source.loop = true;
+            playback.Source.clip = clip;
+            playback.Source.Play();
+            EvoDebug.Log($"Loop started: cue '{cueKey.name}', clip '{clip.name}', layer '{layer}'.", AUDIO_SERVICE_SOURCE);
         }
 
-        private async UniTaskVoid PlayOneShotInternal(AudioCueKey cueKey, AudioLayer layer)
+        private async UniTaskVoid PlayOneShotInternal(AudioCueKey cueKey, AudioLayerKey layer)
         {
             var clip = await ResolveClipAsync(cueKey);
             if (_disposed || clip == null)
@@ -181,7 +230,7 @@ namespace Evo.Infrastructure.Services.Audio
                 return;
             }
 
-            var source = GetSource(layer);
+            var source = GetOrCreateOneShotSource(layer);
             source.PlayOneShot(clip);
             EvoDebug.Log($"OneShot played: cue '{cueKey.name}', clip '{clip.name}', layer '{layer}'.", AUDIO_SERVICE_SOURCE);
         }
@@ -228,9 +277,9 @@ namespace Evo.Infrastructure.Services.Audio
             _root = new GameObject(ROOT_NAME);
             UnityEngine.Object.DontDestroyOnLoad(_root);
 
-            _backgroundSource = CreateSource("BackgroundSource", loop: true);
-            _effectsSource = CreateSource("EffectsSource", loop: false);
-            _uiEffectsSource = CreateSource("UiEffectsSource", loop: false);
+            GetOrCreateLoopPlayback(AudioLayers.Background);
+            GetOrCreateOneShotSource(AudioLayers.Effects);
+            GetOrCreateOneShotSource(AudioLayers.UiEffects);
 
             ApplyVolumes();
             EvoDebug.Log("Runtime initialized: root and audio sources created.", AUDIO_SERVICE_SOURCE);
@@ -248,14 +297,33 @@ namespace Evo.Infrastructure.Services.Audio
             return source;
         }
 
-        private AudioSource GetSource(AudioLayer layer)
+        private LoopPlayback GetOrCreateLoopPlayback(AudioLayerKey layer)
         {
-            return layer switch
+            layer = GetSafeLayer(layer);
+            if (_loopPlaybacks.TryGetValue(layer, out var playback))
             {
-                AudioLayer.Background => _backgroundSource,
-                AudioLayer.UiEffects => _uiEffectsSource,
-                _ => _effectsSource
-            };
+                return playback;
+            }
+
+            var source = CreateSource($"LoopSource_{layer}", loop: true);
+            source.volume = GetLayerOutputVolume(layer);
+            playback = new LoopPlayback(source);
+            _loopPlaybacks[layer] = playback;
+            return playback;
+        }
+
+        private AudioSource GetOrCreateOneShotSource(AudioLayerKey layer)
+        {
+            layer = GetSafeLayer(layer);
+            if (_oneShotSources.TryGetValue(layer, out var source))
+            {
+                return source;
+            }
+
+            source = CreateSource($"OneShotSource_{layer}", loop: false);
+            source.volume = GetLayerOutputVolume(layer);
+            _oneShotSources[layer] = source;
+            return source;
         }
 
         private void ApplyVolumes()
@@ -265,19 +333,52 @@ namespace Evo.Infrastructure.Services.Audio
                 return;
             }
 
-            _backgroundSource.volume = GetLayerOutputVolume(AudioLayer.Background);
-            _effectsSource.volume = GetLayerOutputVolume(AudioLayer.Effects);
-            _uiEffectsSource.volume = GetLayerOutputVolume(AudioLayer.UiEffects);
+            foreach (var pair in _loopPlaybacks)
+            {
+                pair.Value.Source.volume = GetLayerOutputVolume(pair.Key);
+            }
+
+            foreach (var pair in _oneShotSources)
+            {
+                pair.Value.volume = GetLayerOutputVolume(pair.Key);
+            }
         }
 
-        private float GetLayerOutputVolume(AudioLayer layer)
+        private float GetLayerOutputVolume(AudioLayerKey layer)
         {
-            if (!_layerVolumes.TryGetValue(layer, out var layerVolume))
+            if (!_layerVolumes.TryGetValue(GetSafeLayer(layer), out var layerVolume))
             {
                 layerVolume = 1f;
             }
 
             return Mathf.Clamp01(_masterVolume * layerVolume);
+        }
+
+        private static AudioLayerKey GetSafeLayer(AudioLayerKey layer)
+        {
+            return string.IsNullOrWhiteSpace(layer.Id) ? AudioLayers.Default : layer;
+        }
+
+        private static AudioLayerKey ToLayerKey(AudioLayer layer)
+        {
+            return layer switch
+            {
+                AudioLayer.Background => AudioLayers.Background,
+                AudioLayer.UiEffects => AudioLayers.UiEffects,
+                _ => AudioLayers.Effects
+            };
+        }
+
+        private sealed class LoopPlayback
+        {
+            public LoopPlayback(AudioSource source)
+            {
+                Source = source;
+            }
+
+            public AudioSource Source { get; }
+            public AudioCueKey CurrentCue { get; set; }
+            public int RequestVersion { get; set; }
         }
     }
 }
