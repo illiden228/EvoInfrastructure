@@ -16,7 +16,17 @@ namespace Evo.Infrastructure.Services.Save
 
         public string BackendId => "yandex";
         public int Priority => 100;
-        public bool IsAvailable => _platformInfoService != null && _platformInfoService.IsWeb;
+        public bool IsAvailable
+        {
+            get
+            {
+#if YandexGamesPlatform_yg && Storage_yg
+                return _platformInfoService != null && _platformInfoService.IsWeb;
+#else
+                return false;
+#endif
+            }
+        }
 
         public YandexSaveBackend(IPlatformInfoService platformInfoService)
         {

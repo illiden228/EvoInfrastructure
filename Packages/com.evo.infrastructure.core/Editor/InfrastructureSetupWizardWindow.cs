@@ -20,10 +20,13 @@ namespace Evo.Infrastructure.Core.Editor
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
         private const string YandexPackageName = "com.evo.infrastructure.yandex";
-        private const string RuntimeGitTag = "v0.4.9";
-        private const string YandexGitTag = "v0.4.9";
+        private const string RuntimeGitTag = "v0.4.10";
+        private const string YandexGitTag = "v0.4.10";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
         private const string YandexGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.yandex";
+        private const string PluginYgLatestReleaseApiUrl = "https://api.github.com/repos/JustPlay-Max/Unity-PluginYG-2/releases/latest";
+        private const string PluginYgFolderPath = "Assets/PluginYourGames";
+        private const string PluginYgImportStateKeyPrefix = "Evo.Infrastructure.Core.PluginYgImportRequested.";
         private const string OdinPackagePathPrefsKey = "Evo.Infrastructure.Core.OdinPackagePath";
         private const string EmbeddedOdinPackageFolder = "Packages/com.evo.infrastructure.core/Editor/ThirdParty/Odin";
         private const string OdinPackageSearchPattern = "Odin*.unitypackage";
@@ -136,6 +139,8 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _dependenciesInstalled;
         private bool _runtimeInstalled;
         private bool _yandexInstalled;
+        private bool _pluginYgInstalled;
+        private bool _pluginYgDefineReady;
         private bool _odinInstalled;
         private bool _structureReady;
         private bool _bootstrapScopesReady;
@@ -168,6 +173,7 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _reactiveRestoreRequested;
         private bool _stateAnalyzed;
         private bool _odinImportRequested;
+        private bool _pluginYgImportRequested;
         private bool _bootstrapValidationAttempted;
         private int _scaffoldFinalizationAttempts;
         private bool _installVContainer = true;
@@ -181,7 +187,8 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _installR3Unity = true;
         private bool _installReactiveNuGets = true;
         private bool _installRuntimeModule = true;
-        private bool _installYandexModule = true;
+        private bool _installPluginYgPackage;
+        private bool _installYandexModule;
         private bool _installOdinPackage;
         private bool _installProjectStructure = true;
         private bool _installStarterScaffold = true;
@@ -296,6 +303,7 @@ namespace Evo.Infrastructure.Core.Editor
 
             EditorGUILayout.Space(4f);
             EditorGUILayout.LabelField("Optional Modules", EditorStyles.boldLabel);
+            _installPluginYgPackage = DrawInstallPlanRow("PluginYG2", _installPluginYgPackage, _pluginYgInstalled, GetPluginYgDetails());
             _installYandexModule = DrawInstallPlanRow("Evo Infrastructure Yandex", _installYandexModule, _yandexInstalled, "YG2 integration package.", () => RemovePackage(YandexPackageName, "Evo Infrastructure Yandex"));
             _installOdinPackage = DrawInstallPlanRow("Odin Inspector", _installOdinPackage, _odinInstalled, "Imported automatically at the end of Setup. Odin is not required for starter runtime.");
 
@@ -520,6 +528,18 @@ namespace Evo.Infrastructure.Core.Editor
             return $"Runtime framework package, {target}.";
         }
 
+        private string GetPluginYgDetails()
+        {
+            if (_pluginYgInstalled)
+            {
+                return _pluginYgDefineReady
+                    ? "Yandex Games PluginYG2 is installed and YandexGamesPlatform_yg define is available."
+                    : "PluginYG2 files/types were found. Open PluginYG2 settings if YandexGamesPlatform_yg define is still missing.";
+            }
+
+            return "Optional Yandex Games PluginYG2 import from the latest GitHub release.";
+        }
+
         private void DrawOdinPackagePathField()
         {
             var path = ResolveOdinPackagePath();
@@ -654,6 +674,15 @@ namespace Evo.Infrastructure.Core.Editor
             _statusLine = $"Installing Yandex package from git tag {YandexGitTag}...";
         }
 
+        private void InstallPluginYgPackage()
+        {
+            if (TryImportPluginYgPackage())
+            {
+                _statusLine = "Setup: importing PluginYG2 package...";
+                QueueRefreshBurst();
+            }
+        }
+
         private void InstallSelectedUpmPackagesBatch()
         {
             var packages = CollectSelectedUpmPackagesToInstall();
@@ -755,7 +784,13 @@ namespace Evo.Infrastructure.Core.Editor
             {
                 packages.Add($"{RuntimeGitUrl}#{RuntimeGitTag}");
             }
-            if (_installYandexModule && !_yandexInstalled && _runtimeInstalled) packages.Add($"{YandexGitUrl}#{YandexGitTag}");
+            if (_installYandexModule &&
+                !_yandexInstalled &&
+                _runtimeInstalled &&
+                (!_installPluginYgPackage || _pluginYgInstalled))
+            {
+                packages.Add($"{YandexGitUrl}#{YandexGitTag}");
+            }
             return packages;
         }
 
@@ -2402,6 +2437,7 @@ namespace Evo.Infrastructure.Core.Editor
             _oneClickSetupRequested = false;
             _scaffoldSetupRequested = false;
             _odinImportRequested = false;
+            _pluginYgImportRequested = false;
             _scaffoldFinalizeQueued = false;
             _reactiveRestoreRequested = false;
             _bootstrapValidationAttempted = false;
@@ -2416,6 +2452,7 @@ namespace Evo.Infrastructure.Core.Editor
             SessionState.SetBool(GetOneClickStateKey(), false);
             SessionState.SetBool(GetScaffoldStateKey(), false);
             SessionState.SetBool(GetOdinImportStateKey(), false);
+            SessionState.SetBool(GetPluginYgImportStateKey(), false);
         }
 
         private bool IsInterruptedPackageRequest(Error error)
@@ -2517,6 +2554,13 @@ namespace Evo.Infrastructure.Core.Editor
                 RefreshRuntimePackageState(packages);
                 _yandexInstalled = HasAnyPackage(packages, YandexPackageName, "com.evo.infrastructure.yandex") ||
                                    ManifestHasAnyDependency(YandexPackageName);
+                _pluginYgInstalled = IsPluginYgInstalled();
+                _pluginYgDefineReady = IsPluginYgDefineReady();
+                if (_pluginYgInstalled)
+                {
+                    _pluginYgImportRequested = false;
+                    SessionState.SetBool(GetPluginYgImportStateKey(), false);
+                }
                 _odinInstalled = IsOdinInstalled();
                 if (_odinInstalled)
                 {
@@ -2543,6 +2587,8 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             _structureReady = HasProjectStructure();
+            _pluginYgInstalled = IsPluginYgInstalled();
+            _pluginYgDefineReady = IsPluginYgDefineReady();
             _odinInstalled = IsOdinInstalled();
             ValidateTemplatesAndScaffoldScriptsState();
             _bootstrapScopesReady = AreBootstrapScopesValid();
@@ -2954,6 +3000,100 @@ namespace Evo.Infrastructure.Core.Editor
             return IsAssemblyLoaded("Sirenix.OdinInspector.Attributes") ||
                    IsAssemblyLoaded("Sirenix.OdinInspector.Editor") ||
                    FindTypeByName("Sirenix.OdinInspector.ShowInInspectorAttribute") != null;
+        }
+
+        private static bool IsPluginYgInstalled()
+        {
+            return FindTypeByName("YG.YG2") != null ||
+                   FindTypeByName("YG.SavesYG") != null ||
+                   AssetDatabase.IsValidFolder(PluginYgFolderPath) ||
+                   Directory.Exists(Path.Combine(GetProjectRootPath(), PluginYgFolderPath));
+        }
+
+        private static bool IsPluginYgDefineReady()
+        {
+            return IsDefineSymbolEnabled("YandexGamesPlatform_yg");
+        }
+
+        private bool TryImportPluginYgPackage()
+        {
+            if (IsPluginYgInstalled())
+            {
+                _pluginYgInstalled = true;
+                _pluginYgDefineReady = IsPluginYgDefineReady();
+                _pluginYgImportRequested = false;
+                SessionState.SetBool(GetPluginYgImportStateKey(), false);
+                _statusLine = "PluginYG2 is already installed.";
+                return true;
+            }
+
+            if (!TryDownloadLatestPluginYgPackage(out var packagePath, out var error))
+            {
+                _statusLine = "PluginYG2 import failed: " + error;
+                Debug.LogError("[Evo Setup] " + _statusLine);
+                return false;
+            }
+
+            _statusLine = $"Importing PluginYG2 package: {Path.GetFileName(packagePath)}";
+            Debug.Log("[Evo Setup] " + _statusLine);
+            _pluginYgImportRequested = true;
+            SessionState.SetBool(GetPluginYgImportStateKey(), true);
+            AssetDatabase.ImportPackage(packagePath, false);
+            AssetDatabase.Refresh();
+
+            _pluginYgInstalled = IsPluginYgInstalled();
+            _pluginYgDefineReady = IsPluginYgDefineReady();
+            if (_pluginYgInstalled)
+            {
+                _pluginYgImportRequested = false;
+                SessionState.SetBool(GetPluginYgImportStateKey(), false);
+            }
+
+            return true;
+        }
+
+        private static bool TryDownloadLatestPluginYgPackage(out string packagePath, out string error)
+        {
+            packagePath = string.Empty;
+            error = string.Empty;
+
+            try
+            {
+                using var webClient = new System.Net.WebClient();
+                webClient.Headers.Add("User-Agent", "Evo-Infrastructure-Setup");
+                var releaseJson = webClient.DownloadString(PluginYgLatestReleaseApiUrl);
+                var release = JsonUtility.FromJson<GitHubReleaseInfo>(releaseJson);
+                var asset = release?.assets?
+                    .FirstOrDefault(item =>
+                        item != null &&
+                        !string.IsNullOrWhiteSpace(item.browser_download_url) &&
+                        item.name != null &&
+                        item.name.EndsWith(".unitypackage", StringComparison.OrdinalIgnoreCase));
+
+                if (asset == null)
+                {
+                    error = "latest GitHub release does not contain a .unitypackage asset.";
+                    return false;
+                }
+
+                var cacheDirectory = Path.Combine(GetProjectRootPath(), "Library", "EvoSetup");
+                Directory.CreateDirectory(cacheDirectory);
+                packagePath = Path.Combine(cacheDirectory, asset.name);
+                webClient.DownloadFile(asset.browser_download_url, packagePath);
+
+                if (!File.Exists(packagePath) || new FileInfo(packagePath).Length <= 0)
+                {
+                    error = "downloaded unitypackage is empty.";
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
         }
 
         private bool SelectOdinPackagePath()
@@ -3674,6 +3814,7 @@ namespace Evo.Infrastructure.Core.Editor
             _installR3Unity = GetSelection(nameof(_installR3Unity), _installR3Unity);
             _installReactiveNuGets = GetSelection(nameof(_installReactiveNuGets), _installReactiveNuGets);
             _installRuntimeModule = GetSelection(nameof(_installRuntimeModule), _installRuntimeModule);
+            _installPluginYgPackage = GetSelection(nameof(_installPluginYgPackage), _installPluginYgPackage);
             _installYandexModule = GetSelection(nameof(_installYandexModule), _installYandexModule);
             _installOdinPackage = GetSelection(nameof(_installOdinPackage), _installOdinPackage);
             _installProjectStructure = GetSelection(nameof(_installProjectStructure), _installProjectStructure);
@@ -3693,6 +3834,7 @@ namespace Evo.Infrastructure.Core.Editor
             SetSelection(nameof(_installR3Unity), _installR3Unity);
             SetSelection(nameof(_installReactiveNuGets), _installReactiveNuGets);
             SetSelection(nameof(_installRuntimeModule), _installRuntimeModule);
+            SetSelection(nameof(_installPluginYgPackage), _installPluginYgPackage);
             SetSelection(nameof(_installYandexModule), _installYandexModule);
             SetSelection(nameof(_installOdinPackage), _installOdinPackage);
             SetSelection(nameof(_installProjectStructure), _installProjectStructure);
@@ -3714,6 +3856,7 @@ namespace Evo.Infrastructure.Core.Editor
             _oneClickSetupRequested = SessionState.GetBool(GetOneClickStateKey(), false);
             _scaffoldSetupRequested = SessionState.GetBool(GetScaffoldStateKey(), false);
             _odinImportRequested = SessionState.GetBool(GetOdinImportStateKey(), false);
+            _pluginYgImportRequested = SessionState.GetBool(GetPluginYgImportStateKey(), false);
             if (_oneClickSetupRequested)
             {
                 _statusLine = "Resuming setup after domain reload...";
@@ -3803,6 +3946,37 @@ namespace Evo.Infrastructure.Core.Editor
             if (_installRuntimeModule && !_runtimeInstalled && !IsRuntimeInstallReady(null))
             {
                 StopSetupWithError("Setup stopped: Runtime package prerequisites are not ready. Install selected runtime dependencies first.");
+                return;
+            }
+
+            if (_installPluginYgPackage && !_pluginYgInstalled)
+            {
+                if (_pluginYgImportRequested)
+                {
+                    if (IsPluginYgInstalled())
+                    {
+                        _pluginYgInstalled = true;
+                        _pluginYgDefineReady = IsPluginYgDefineReady();
+                        _pluginYgImportRequested = false;
+                        SessionState.SetBool(GetPluginYgImportStateKey(), false);
+                        _statusLine = "Setup: PluginYG2 import completed.";
+                        RefreshState();
+                        return;
+                    }
+
+                    _statusLine = "Setup: waiting for PluginYG2 import to finish...";
+                    return;
+                }
+
+                _statusLine = "Setup: downloading and importing PluginYG2...";
+                Debug.Log("[Evo Setup] Downloading and importing PluginYG2 from the latest GitHub release...");
+                if (!TryImportPluginYgPackage())
+                {
+                    StopSetupWithError(_statusLine);
+                    return;
+                }
+
+                QueueRefreshBurst();
                 return;
             }
 
@@ -3904,6 +4078,7 @@ namespace Evo.Infrastructure.Core.Editor
             var count = 0;
             if (CollectSelectedUpmPackagesToInstall().Count > 0 || !IsSelectedUpmPackagesReady()) count++;
             if (_installReactiveNuGets) count++;
+            if (_installPluginYgPackage) count++;
             if (_installOdinPackage) count++;
             if (_installProjectStructure) count++;
             if (_installStarterScaffold) count++;
@@ -3916,6 +4091,7 @@ namespace Evo.Infrastructure.Core.Editor
             var completed = 0;
             if (IsSelectedUpmPackagesReady()) completed++;
             if (_installReactiveNuGets && AreReactiveAssembliesReady()) completed++;
+            if (_installPluginYgPackage && _pluginYgInstalled) completed++;
             if (_installOdinPackage && _odinInstalled) completed++;
             if (_installProjectStructure && _structureReady) completed++;
             if (_installStarterScaffold && IsStarterScaffoldReady()) completed++;
@@ -3931,6 +4107,7 @@ namespace Evo.Infrastructure.Core.Editor
         {
             return HasSelectedUpmPackagesToInstall() ||
                    (_installReactiveNuGets && !AreReactiveAssembliesReady()) ||
+                   (_installPluginYgPackage && !_pluginYgInstalled) ||
                    (_installOdinPackage && !_odinInstalled) ||
                    (_installProjectStructure && !_structureReady) ||
                    (_installStarterScaffold && !IsStarterScaffoldReady());
@@ -3946,6 +4123,42 @@ namespace Evo.Infrastructure.Core.Editor
             return IsAssemblyLoaded("R3") &&
                    IsAssemblyLoaded("ObservableCollections") &&
                    IsAssemblyLoaded("ObservableCollections.R3");
+        }
+
+        private static bool IsDefineSymbolEnabled(string define)
+        {
+            if (string.IsNullOrWhiteSpace(define))
+            {
+                return false;
+            }
+
+            var groups = new[]
+            {
+                BuildTargetGroup.Standalone,
+                BuildTargetGroup.Android,
+                BuildTargetGroup.iOS,
+                BuildTargetGroup.WebGL
+            };
+
+            for (var i = 0; i < groups.Length; i++)
+            {
+                var symbols = PlayerSettings.GetScriptingDefineSymbolsForGroup(groups[i]);
+                if (string.IsNullOrWhiteSpace(symbols))
+                {
+                    continue;
+                }
+
+                var parts = symbols.Split(';');
+                for (var j = 0; j < parts.Length; j++)
+                {
+                    if (string.Equals(parts[j].Trim(), define, StringComparison.Ordinal))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private bool IsRuntimeInstallReady(ICollection<string> packagesBeingAdded)
@@ -3975,6 +4188,7 @@ namespace Evo.Infrastructure.Core.Editor
                    (!_installPrimeTween || _primeTweenInstalled) &&
                    (!_installR3Unity || _r3UnityInstalled) &&
                    (!_installRuntimeModule || _runtimeUpdateState == EvoPackageUpdateState.InstalledTarget) &&
+                   (!_installPluginYgPackage || _pluginYgInstalled) &&
                    (!_installYandexModule || _yandexInstalled);
         }
 
@@ -4002,6 +4216,11 @@ namespace Evo.Infrastructure.Core.Editor
             return OdinImportStateKeyPrefix + Application.dataPath.GetHashCode();
         }
 
+        private static string GetPluginYgImportStateKey()
+        {
+            return PluginYgImportStateKeyPrefix + Application.dataPath.GetHashCode();
+        }
+
         private static string GetScaffoldStateKey()
         {
             return ScaffoldStateKeyPrefix + Application.dataPath.GetHashCode();
@@ -4022,6 +4241,19 @@ namespace Evo.Infrastructure.Core.Editor
                 TargetPath = targetPath;
                 TemplateFileName = templateFileName;
             }
+        }
+
+        [Serializable]
+        private sealed class GitHubReleaseInfo
+        {
+            public GitHubReleaseAssetInfo[] assets;
+        }
+
+        [Serializable]
+        private sealed class GitHubReleaseAssetInfo
+        {
+            public string name;
+            public string browser_download_url;
         }
     }
 }

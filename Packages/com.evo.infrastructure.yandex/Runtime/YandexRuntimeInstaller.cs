@@ -20,6 +20,10 @@ namespace Evo.Infrastructure.Services.Yandex
                 return;
             }
 
+#if !YandexGamesPlatform_yg
+            return;
+#endif
+
             var config = GetConfig(configService);
             if (config.Ads)
             {
