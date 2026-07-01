@@ -20,8 +20,8 @@ namespace Evo.Infrastructure.Core.Editor
     {
         private const string RuntimePackageName = "com.evo.infrastructure.runtime";
         private const string YandexPackageName = "com.evo.infrastructure.yandex";
-        private const string RuntimeGitTag = "v0.4.10";
-        private const string YandexGitTag = "v0.4.10";
+        private const string RuntimeGitTag = "v0.4.11";
+        private const string YandexGitTag = "v0.4.11";
         private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
         private const string YandexGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.yandex";
         private const string PluginYgLatestReleaseApiUrl = "https://api.github.com/repos/JustPlay-Max/Unity-PluginYG-2/releases/latest";

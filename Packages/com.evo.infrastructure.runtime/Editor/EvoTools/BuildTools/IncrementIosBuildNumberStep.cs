@@ -20,6 +20,12 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 return true;
             }
 
+            if (context.HasCiBuildNumber)
+            {
+                result.AddMessage($"iOS buildNumber bump skipped because CI tag already set buildNumber {context.CiRequest.ParsedTag.BuildNumber}.");
+                return true;
+            }
+
             var current = PlayerSettings.iOS.buildNumber;
             var numeric = int.TryParse(current, out var value) ? Math.Max(0, value) : 0;
             var next = (numeric + 1).ToString();

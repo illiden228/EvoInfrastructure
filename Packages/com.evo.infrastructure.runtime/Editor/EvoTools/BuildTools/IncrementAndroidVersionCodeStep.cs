@@ -19,6 +19,12 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 return true;
             }
 
+            if (context.HasCiBuildNumber)
+            {
+                result.AddMessage($"Android versionCode bump skipped because CI tag already set buildNumber {context.CiRequest.ParsedTag.BuildNumber}.");
+                return true;
+            }
+
             var current = PlayerSettings.Android.bundleVersionCode;
             previousVersionCode = current;
             changedThisRun = true;

@@ -20,13 +20,15 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             PlatformBuildProfile profile,
             EvoBuildDryRunReport report,
             string outputPath,
-            bool buildAndRun)
+            bool buildAndRun,
+            EvoBuildCiRequest ciRequest = null)
         {
             GlobalConfig = globalConfig;
             Profile = profile;
             Report = report;
             OutputPath = outputPath ?? string.Empty;
             BuildAndRun = buildAndRun;
+            CiRequest = ciRequest;
         }
 
         public BuildGlobalConfig GlobalConfig { get; }
@@ -34,6 +36,9 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         public EvoBuildDryRunReport Report { get; }
         public string OutputPath { get; }
         public bool BuildAndRun { get; }
+        public EvoBuildCiRequest CiRequest { get; }
+        public bool HasCiVersion => !string.IsNullOrWhiteSpace(CiRequest?.ParsedTag.Version);
+        public bool HasCiBuildNumber => CiRequest?.ParsedTag.BuildNumber > 0;
     }
 
     public abstract class EvoBuildStepAsset : ScriptableObject

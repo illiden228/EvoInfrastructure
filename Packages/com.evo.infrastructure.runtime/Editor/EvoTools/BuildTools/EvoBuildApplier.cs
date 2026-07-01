@@ -15,6 +15,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         public bool Success => _errors.Count == 0;
         public bool BuildSucceeded { get; private set; }
         public bool BuildCancelled { get; private set; }
+        public string OutputPath { get; private set; } = string.Empty;
 
         public void AddMessage(string message)
         {
@@ -41,6 +42,11 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         internal void MarkBuildCancelled()
         {
             BuildCancelled = true;
+        }
+
+        internal void SetOutputPath(string outputPath)
+        {
+            OutputPath = outputPath ?? string.Empty;
         }
     }
 

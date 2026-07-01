@@ -16,6 +16,21 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             PlatformCatalog platformCatalog,
             bool buildAndRun)
         {
+            return Build(globalConfig, profile, platformCatalog, new EvoBuildExecutorOptions
+            {
+                BuildAndRun = buildAndRun,
+                Interactive = true,
+                RevealOutput = true
+            });
+        }
+
+        public static EvoBuildApplyResult Build(
+            BuildGlobalConfig globalConfig,
+            PlatformBuildProfile profile,
+            PlatformCatalog platformCatalog,
+            EvoBuildExecutorOptions options)
+        {
+            options ??= new EvoBuildExecutorOptions();
             var progress = new EvoBuildProgressTracker("Evo Build");
             var result = new EvoBuildApplyResult();
             var outputPath = string.Empty;
@@ -28,13 +43,15 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                     return result;
                 }
 
+                ApplyCiVersion(options.CiRequest, profile, result);
+
                 EvoBuildDryRunReport report;
                 using (progress.Step("Create Dry Run Report", 0.24f, result))
                 {
                     report = EvoBuildPlanner.CreateDryRun(globalConfig, profile);
                 }
 
-                var prepareContext = new EvoBuildContext(globalConfig, profile, report, string.Empty, buildAndRun);
+                var prepareContext = new EvoBuildContext(globalConfig, profile, report, string.Empty, options.BuildAndRun, options.CiRequest);
                 cleanupContext = prepareContext;
                 if (!EvoBuildStepRunner.Execute(prepareContext, EvoBuildStepPhase.PrepareBuild, result, progress))
                 {
@@ -46,38 +63,47 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                     AssetDatabase.SaveAssets();
                 }
 
-                outputPath = ResolveOutputPath(globalConfig, profile);
-                if (!ConfirmBuildWithOptionalVersionBump(globalConfig, profile, buildAndRun, ref outputPath, result))
+                outputPath = ResolveOutputPath(globalConfig, profile, options.OutputPathOverride);
+                result.SetOutputPath(outputPath);
+                if (options.Interactive && !ConfirmBuildWithOptionalVersionBump(globalConfig, profile, options.BuildAndRun, ref outputPath, result))
                 {
+                    result.SetOutputPath(outputPath);
                     result.AddMessage("Build cancelled.");
                     result.MarkBuildCancelled();
                     return result;
                 }
+                else if (!options.Interactive)
+                {
+                    result.AddMessage("Build confirmation skipped for non-interactive build.");
+                }
 
+                result.SetOutputPath(outputPath);
+                result.AddMessage($"Build output path: {outputPath}");
                 var signingSnapshot = AndroidSigningPasswordSnapshot.Capture(profile);
                 EvoBuildContext context = null;
                 var beforeBuildStarted = false;
                 try
                 {
-                    context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
+                    context = new EvoBuildContext(globalConfig, profile, report, outputPath, options.BuildAndRun, options.CiRequest);
                     beforeBuildStarted = true;
                     if (!EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.BeforeBuild, result, progress))
                     {
                         return result;
                     }
 
-                    outputPath = ResolveOutputPath(globalConfig, profile);
-                    context = new EvoBuildContext(globalConfig, profile, report, outputPath, buildAndRun);
+                    outputPath = ResolveOutputPath(globalConfig, profile, options.OutputPathOverride);
+                    result.SetOutputPath(outputPath);
+                    context = new EvoBuildContext(globalConfig, profile, report, outputPath, options.BuildAndRun, options.CiRequest);
                     cleanupContext = context;
                     using (progress.Step("Ensure Output Directory", 0.4f, result))
                     {
                         EnsureOutputDirectory(outputPath);
                     }
 
-                    var options = profile.BuildOptions;
-                    if (buildAndRun)
+                    var buildOptions = profile.BuildOptions;
+                    if (options.BuildAndRun)
                     {
-                        options |= BuildOptions.AutoRunPlayer;
+                        buildOptions |= BuildOptions.AutoRunPlayer;
                     }
 
                     BuildReport buildReport;
@@ -89,7 +115,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                             locationPathName = outputPath,
                             target = profile.BuildTarget,
                             targetGroup = profile.BuildTargetGroup,
-                            options = options
+                            options = buildOptions
                         });
                     }
 
@@ -105,7 +131,11 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                     EvoBuildStepRunner.Cleanup(context, result, progress);
                     beforeBuildStarted = false;
                     EvoBuildStepRunner.Execute(context, EvoBuildStepPhase.AfterBuild, result, progress);
-                    RevealBuildOutput(outputPath, result);
+                    if (options.RevealOutput)
+                    {
+                        RevealBuildOutput(outputPath, result);
+                    }
+
                     return result;
                 }
                 finally
@@ -126,7 +156,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                     EvoBuildStepRunner.Cleanup(cleanupContext, result, progress);
                 }
 
-                WriteBuildReport(outputPath, profile, buildAndRun, result, progress);
+                WriteBuildReport(outputPath, profile, options.BuildAndRun, result, progress);
                 progress.Dispose();
             }
         }
@@ -227,6 +257,22 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
         public static string ResolveOutputPath(BuildGlobalConfig globalConfig, PlatformBuildProfile profile)
         {
+            return ResolveOutputPath(globalConfig, profile, outputPathOverride: null);
+        }
+
+        public static string ResolveOutputPath(BuildGlobalConfig globalConfig, PlatformBuildProfile profile, string outputPathOverride)
+        {
+            if (!string.IsNullOrWhiteSpace(outputPathOverride))
+            {
+                var overriddenPath = outputPathOverride.Replace('\\', '/');
+                if (profile != null && profile.BuildTarget == BuildTarget.Android)
+                {
+                    overriddenPath = EnsureAndroidPackageExtension(overriddenPath, ResolveAndroidBuildAppBundle(profile));
+                }
+
+                return overriddenPath;
+            }
+
             var template = !string.IsNullOrWhiteSpace(profile.OutputPathTemplate)
                 ? profile.OutputPathTemplate
                 : globalConfig?.OutputPathPattern;
@@ -256,6 +302,36 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             }
 
             return result.Replace('\\', '/');
+        }
+
+        private static void ApplyCiVersion(EvoBuildCiRequest request, PlatformBuildProfile profile, EvoBuildApplyResult result)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.ParsedTag.Version))
+            {
+                return;
+            }
+
+            PlayerSettings.bundleVersion = request.ParsedTag.Version;
+            result.AddMessage($"Applied CI bundleVersion: {request.ParsedTag.Version}.");
+            if (profile == null)
+            {
+                return;
+            }
+
+            if (profile.BuildTarget == BuildTarget.Android)
+            {
+                PlayerSettings.Android.bundleVersionCode = request.ParsedTag.BuildNumber;
+                result.AddMessage($"Applied CI Android versionCode: {request.ParsedTag.BuildNumber}.");
+            }
+            else if (profile.BuildTarget == BuildTarget.iOS)
+            {
+                PlayerSettings.iOS.buildNumber = request.ParsedTag.BuildNumber.ToString();
+                result.AddMessage($"Applied CI iOS buildNumber: {request.ParsedTag.BuildNumber}.");
+            }
+            else
+            {
+                result.AddMessage($"CI buildNumber {request.ParsedTag.BuildNumber} parsed but no platform-specific build number was applied for {profile.BuildTarget}.");
+            }
         }
 
         private static bool ResolveAndroidBuildAppBundle(PlatformBuildProfile profile)

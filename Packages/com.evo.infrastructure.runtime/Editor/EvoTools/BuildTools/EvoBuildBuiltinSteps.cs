@@ -26,6 +26,12 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
         public override bool Execute(EvoBuildContext context, EvoBuildApplyResult result)
         {
+            if (context?.HasCiVersion == true)
+            {
+                result.AddMessage($"Bundle version bump skipped because CI tag already set version {context.CiRequest.ParsedTag.Version}.");
+                return true;
+            }
+
             if (bumpMode == EvoVersionBumpMode.None)
             {
                 result.AddMessage("Bundle version bump skipped.");
