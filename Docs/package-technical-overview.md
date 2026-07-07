@@ -69,6 +69,7 @@ For the current prototype, these can temporarily stay inside `runtime` or one la
 Example:
 
 - `com.evo.infrastructure.yandex`
+- `com.evo.infrastructure.crazygames`
 
 Responsibilities:
 
@@ -78,6 +79,15 @@ Responsibilities:
 - Yandex cloud save backend;
 - Yandex platform info provider;
 - Yandex store adapter if needed.
+
+CrazyGames package follows the same model:
+
+- CrazyGames ads adapter;
+- CrazyGames leaderboard fallback adapter;
+- CrazyGames cloud save backend;
+- CrazyGames player auth service;
+- CrazyGames platform info provider;
+- CrazyGames platform lifecycle provider.
 
 Platform package depends on feature abstractions, not the other way around.
 
@@ -158,7 +168,7 @@ This is convenient for one-off fixes, but worse for shared package evolution.
 Because the current priority is fast delivery:
 
 1. Keep the package split simple.
-2. Use `core`, `runtime`, `yandex`.
+2. Use `core`, `runtime`, and the platform package required by the target portal.
 3. Generate editable scaffold into `Assets/_Project`.
 4. Do not over-split inventory/stats/economy yet.
 5. Add clean extension points now, split modules later.
@@ -168,7 +178,13 @@ Minimum useful package set:
 ```text
 com.evo.infrastructure.core
 com.evo.infrastructure.runtime
+```
+
+Platform packages:
+
+```text
 com.evo.infrastructure.yandex
+com.evo.infrastructure.crazygames
 ```
 
 Optional later:

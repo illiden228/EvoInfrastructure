@@ -8,6 +8,18 @@ using UnityEngine;
 
 namespace Evo.Infrastructure.Editor.EvoTools.Build
 {
+    public enum ExcludeFoldersMissingFolderBehavior
+    {
+        Fail = 0,
+        Skip = 1
+    }
+
+    public enum ExcludeFoldersConflictBehavior
+    {
+        Fail = 0,
+        DeleteExcluded = 1
+    }
+
     [CreateAssetMenu(fileName = "ExcludeFoldersFromBuildStep", menuName = "EvoTools/Build/Steps/Exclude Folders From Build")]
     public sealed class ExcludeFoldersFromBuildStep : EvoBuildStepAsset, IEvoBuildCleanupStep
     {
@@ -16,6 +28,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
         [SerializeField] private List<string> folderPaths = new();
         [SerializeField] private string excludedSuffix = "~";
+        [SerializeField] private ExcludeFoldersMissingFolderBehavior missingFolderBehavior = ExcludeFoldersMissingFolderBehavior.Fail;
+        [SerializeField] private ExcludeFoldersConflictBehavior conflictBehavior = ExcludeFoldersConflictBehavior.Fail;
         [NonSerialized] private HashSet<string> excludedThisRun;
 
         public override void Validate(EvoBuildContext context, EvoBuildDryRunReport report)
@@ -43,15 +57,35 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                 var excluded = GetExcludedPath(source);
                 var sourceExists = Directory.Exists(ToFullPath(source));
                 var excludedExists = Directory.Exists(ToFullPath(excluded));
-                if (sourceExists && excludedExists)
+                var excludedMetaExists = File.Exists(ToFullPath(excluded) + ".meta");
+                if (sourceExists && (excludedExists || excludedMetaExists))
                 {
-                    report.AddError($"{name}: both source and excluded folders exist. Resolve one before build: {source}, {excluded}");
+                    if (conflictBehavior == ExcludeFoldersConflictBehavior.DeleteExcluded)
+                    {
+                        report.AddWarning($"{name}: source and excluded artifacts both exist. Build will delete stale excluded artifacts before exclusion: {excluded}");
+                    }
+                    else
+                    {
+                        report.AddError($"{name}: source and excluded artifacts both exist. Remove stale excluded folder/meta or set Conflict Behavior to DeleteExcluded: {source}, {excluded}");
+                    }
+
                     continue;
                 }
 
-                if (!sourceExists && !excludedExists)
+                if (!sourceExists && !excludedExists && !excludedMetaExists)
                 {
-                    report.AddWarning($"{name}: folder not found: {source}");
+                    if (missingFolderBehavior == ExcludeFoldersMissingFolderBehavior.Skip)
+                    {
+                        report.AddWarning($"{name}: folder is already absent and will be skipped: {source}");
+                    }
+                    else
+                    {
+                        report.AddWarning($"{name}: folder not found: {source}");
+                    }
+                }
+                else if (!sourceExists && excludedMetaExists && conflictBehavior == ExcludeFoldersConflictBehavior.DeleteExcluded)
+                {
+                    report.AddWarning($"{name}: stale excluded meta will be deleted before skipping absent folder: {excluded}.meta");
                 }
             }
         }
@@ -68,7 +102,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             if (excludedThisRun.Count > 0)
             {
                 result.AddMessage($"{name}: restoring previously tracked excluded folders before build.");
-                RestoreTrackedFolders(result);
+                RestoreTrackedFolders(result, allowDeleteExcludedConflict: conflictBehavior == ExcludeFoldersConflictBehavior.DeleteExcluded);
                 if (excludedThisRun != null && excludedThisRun.Count > 0)
                 {
                     return false;
@@ -100,11 +134,11 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
         public void Cleanup(EvoBuildContext context, EvoBuildApplyResult result)
         {
             excludedThisRun = LoadTrackedSources();
-            RestoreTrackedFolders(result);
+            RestoreTrackedFolders(result, allowDeleteExcludedConflict: false);
             AssetDatabase.Refresh();
         }
 
-        private void RestoreTrackedFolders(EvoBuildApplyResult result)
+        private void RestoreTrackedFolders(EvoBuildApplyResult result, bool allowDeleteExcludedConflict)
         {
             var restoredOrMissing = new List<string>();
             if (folderPaths != null)
@@ -115,7 +149,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
                     if (!string.IsNullOrWhiteSpace(source) &&
                         excludedThisRun != null &&
                         excludedThisRun.Contains(source) &&
-                        RestoreFolder(source, result))
+                        RestoreFolder(source, result, allowDeleteExcludedConflict))
                     {
                         UntrackExcludedSource(source);
                         restoredOrMissing.Add(source);
@@ -127,7 +161,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             {
                 foreach (var source in excludedThisRun)
                 {
-                    if (!restoredOrMissing.Contains(source) && RestoreFolder(source, result))
+                    if (!restoredOrMissing.Contains(source) && RestoreFolder(source, result, allowDeleteExcludedConflict))
                     {
                         UntrackExcludedSource(source);
                         restoredOrMissing.Add(source);
@@ -148,20 +182,54 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             var excludedPath = GetExcludedPath(sourcePath);
             var sourceExists = Directory.Exists(ToFullPath(sourcePath));
             var excludedExists = Directory.Exists(ToFullPath(excludedPath));
-            if (sourceExists && excludedExists)
+            var excludedMetaExists = File.Exists(ToFullPath(excludedPath) + ".meta");
+            if (sourceExists && (excludedExists || excludedMetaExists))
             {
-                result.AddError($"{name}: cannot exclude folder because both paths exist: {sourcePath}, {excludedPath}");
-                return false;
+                if (conflictBehavior != ExcludeFoldersConflictBehavior.DeleteExcluded)
+                {
+                    result.AddError($"{name}: cannot exclude folder because source and excluded artifacts both exist: {sourcePath}, {excludedPath}. Remove the stale excluded folder/meta or set Conflict Behavior to DeleteExcluded for CI.");
+                    return false;
+                }
+
+                if (!DeleteFolderWithMeta(excludedPath, result, "stale excluded folder"))
+                {
+                    return false;
+                }
+
+                result.AddMessage($"{name}: deleted stale excluded artifacts before exclusion: {excludedPath}");
+                excludedExists = false;
+                excludedMetaExists = false;
             }
 
             if (excludedExists)
             {
                 result.AddMessage($"{name}: folder already excluded: {excludedPath}");
+                if (missingFolderBehavior == ExcludeFoldersMissingFolderBehavior.Skip)
+                {
+                    TrackExcludedSource(sourcePath);
+                }
+
                 return true;
             }
 
             if (!sourceExists)
             {
+                if (conflictBehavior == ExcludeFoldersConflictBehavior.DeleteExcluded && excludedMetaExists)
+                {
+                    if (!DeleteFolderWithMeta(excludedPath, result, "stale excluded meta"))
+                    {
+                        return false;
+                    }
+
+                    result.AddMessage($"{name}: deleted stale excluded meta before skipping absent folder: {excludedPath}.meta");
+                }
+
+                if (missingFolderBehavior == ExcludeFoldersMissingFolderBehavior.Skip)
+                {
+                    result.AddMessage($"{name}: folder already absent, skipped: {sourcePath}");
+                    return true;
+                }
+
                 result.AddError($"{name}: folder not found: {sourcePath}");
                 return false;
             }
@@ -181,17 +249,33 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
             return true;
         }
 
-        private bool RestoreFolder(string sourcePath, EvoBuildApplyResult result)
+        private bool RestoreFolder(string sourcePath, EvoBuildApplyResult result, bool allowDeleteExcludedConflict)
         {
             var excludedPath = GetExcludedPath(sourcePath);
             if (!Directory.Exists(ToFullPath(excludedPath)))
             {
+                if (Directory.Exists(ToFullPath(sourcePath)))
+                {
+                    result.AddMessage($"{name}: excluded folder already restored: {sourcePath}");
+                }
+
                 return true;
             }
 
             if (Directory.Exists(ToFullPath(sourcePath)))
             {
-                result.AddError($"{name}: cannot restore excluded folder because original path exists: {sourcePath}");
+                if (allowDeleteExcludedConflict)
+                {
+                    if (!DeleteFolderWithMeta(excludedPath, result, "stale tracked excluded folder"))
+                    {
+                        return false;
+                    }
+
+                    result.AddMessage($"{name}: deleted stale tracked excluded artifacts before build: {excludedPath}");
+                    return true;
+                }
+
+                result.AddError($"{name}: cannot restore excluded folder because original path exists: {sourcePath}. Remove duplicate excluded folder manually or run the next build with Conflict Behavior set to DeleteExcluded.");
                 return false;
             }
 
@@ -424,6 +508,55 @@ namespace Evo.Infrastructure.Editor.EvoTools.Build
 
             result.AddError($"{name}: {error}");
             return false;
+        }
+
+        private bool DeleteFolderWithMeta(string assetPath, EvoBuildApplyResult result, string reason)
+        {
+            if (DeleteFolderWithMeta(assetPath, out var error))
+            {
+                return true;
+            }
+
+            result.AddError($"{name}: failed to delete {reason} '{assetPath}': {error}");
+            return false;
+        }
+
+        private static bool DeleteFolderWithMeta(string assetPath, out string error)
+        {
+            error = string.Empty;
+            try
+            {
+                var fullPath = ToFullPath(assetPath);
+                var metaPath = fullPath + ".meta";
+                if (Directory.Exists(fullPath) || File.Exists(fullPath))
+                {
+                    FileUtil.DeleteFileOrDirectory(fullPath);
+                }
+
+                if (File.Exists(metaPath))
+                {
+                    FileUtil.DeleteFileOrDirectory(metaPath);
+                }
+
+                if (Directory.Exists(fullPath) || File.Exists(fullPath))
+                {
+                    error = $"path still exists after deletion: {assetPath}";
+                    return false;
+                }
+
+                if (File.Exists(metaPath))
+                {
+                    error = $"meta still exists after deletion: {assetPath}.meta";
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
         }
 
         private static bool MoveFolderWithMeta(string sourceAssetPath, string targetAssetPath, out string error)

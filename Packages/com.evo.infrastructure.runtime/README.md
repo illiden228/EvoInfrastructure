@@ -58,3 +58,33 @@ Android signing remains environment-based through the existing `ApplyAndroidSign
 - `EVO_ANDROID_KEYALIAS_PASS`
 
 The CI entrypoint writes `Builds/ci-build-result.json` with `success`, `outputPath`, `profileId`, parsed tag fields, messages and errors.
+
+## Exclude Folders From Build
+
+`ExcludeFoldersFromBuildStep` temporarily excludes configured `Assets/...` folders by moving each folder to the same path with the excluded suffix, `~` by default. For example, `Assets/_Downloads` becomes `Assets/_Downloads~` before the build and is restored during cleanup. The step moves the folder `.meta` together with the folder.
+
+Default behavior is conservative for existing projects:
+
+- `Missing Folder Behavior = Fail`: missing source folders fail the build.
+- `Conflict Behavior = Fail`: if both `Assets/Folder` and `Assets/Folder~` exist, the build fails with a recovery message.
+
+For CI workspaces where folders may be intentionally deleted before the build or left excluded after an interrupted previous run, use:
+
+- `Missing Folder Behavior = Skip`
+- `Conflict Behavior = DeleteExcluded`
+
+In this mode:
+
+- If the source folder exists and the excluded folder does not, the step moves source to excluded and restores it during cleanup.
+- If both source and excluded are absent, the step logs that the folder is already absent and continues.
+- If only the excluded folder exists, the step treats it as already excluded, tracks it, and restores it during cleanup.
+- If both source and excluded exist, the source folder wins: the step deletes the stale excluded folder and excluded `.meta`, then excludes the source folder again.
+
+Cleanup is idempotent. Repeated cleanup calls do not fail when the folder was already restored or already absent. If cleanup sees both source and excluded folders at restore time, it reports an error instead of deleting data; the next build start can resolve that duplicate when `Conflict Behavior = DeleteExcluded`.
+
+Recommended SpaceRangers CI setup after updating this package:
+
+1. Keep `Assets/_Downloads` in `folderPaths`.
+2. Set `Missing Folder Behavior` to `Skip`.
+3. Set `Conflict Behavior` to `DeleteExcluded`.
+4. Remove the temporary project-side workaround that clears `folderPaths`.

@@ -7,6 +7,7 @@ Yandex-specific integrations for `com.evo.infrastructure.runtime`:
 - Yandex leaderboard adapter
 - Yandex cloud save backend
 - Yandex platform info provider
+- Yandex platform lifecycle provider
 
 ## Required in target project
 

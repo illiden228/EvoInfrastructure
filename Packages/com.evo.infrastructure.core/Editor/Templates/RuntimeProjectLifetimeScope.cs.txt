@@ -11,6 +11,7 @@ using Evo.Infrastructure.Services.Focus;
 using Evo.Infrastructure.Services.Leaderboard;
 using Evo.Infrastructure.Services.Localization;
 using Evo.Infrastructure.Services.PlatformInfo;
+using Evo.Infrastructure.Services.PlatformLifecycle;
 using Evo.Infrastructure.Services.ResourceCatalog;
 using Evo.Infrastructure.Services.ResourceLoader;
 using Evo.Infrastructure.Services.ResourceProvider;
@@ -49,6 +50,8 @@ namespace Game.Runtime.EntryPoint
 
             builder.Register<IPlatformInfoProvider, UnityPlatformInfoProvider>(Lifetime.Singleton);
             builder.Register<IPlatformInfoService, PlatformInfoService>(Lifetime.Singleton);
+            builder.Register<IGamePlatformLifecycleProvider, NullGamePlatformLifecycleProvider>(Lifetime.Singleton);
+            builder.Register<IGamePlatformLifecycle, GamePlatformLifecycle>(Lifetime.Singleton);
             builder.Register<IFocusService, FocusService>(Lifetime.Singleton);
 
             builder.Register<IResourceLoaderService, AddressablesResourceLoaderService>(Lifetime.Singleton);
@@ -73,6 +76,7 @@ namespace Game.Runtime.EntryPoint
             }
 
             RegisterOptionalYandex(builder);
+            RegisterOptionalCrazyGames(builder);
 
             builder.Register<IUiService, UiService>(Lifetime.Singleton);
             builder.Register<ILoadingProgress, LoadingProgressReporter>(Lifetime.Singleton);
@@ -107,7 +111,17 @@ namespace Game.Runtime.EntryPoint
 
         private void RegisterOptionalYandex(IContainerBuilder builder)
         {
-            var installerType = FindTypeByName("Evo.Infrastructure.Services.Yandex.YandexRuntimeInstaller");
+            RegisterOptionalPlatformPackage(builder, "Evo.Infrastructure.Services.Yandex.YandexRuntimeInstaller");
+        }
+
+        private void RegisterOptionalCrazyGames(IContainerBuilder builder)
+        {
+            RegisterOptionalPlatformPackage(builder, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesRuntimeInstaller");
+        }
+
+        private void RegisterOptionalPlatformPackage(IContainerBuilder builder, string installerTypeName)
+        {
+            var installerType = FindTypeByName(installerTypeName);
             var registerMethod = installerType?.GetMethod("Register", BindingFlags.Public | BindingFlags.Static);
             if (registerMethod == null)
             {

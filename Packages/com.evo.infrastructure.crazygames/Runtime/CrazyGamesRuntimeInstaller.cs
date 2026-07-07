@@ -1,18 +1,16 @@
 using Evo.Infrastructure.Services.Ads;
 using Evo.Infrastructure.Services.Ads.Adapters;
-using Evo.Infrastructure.Services.Analytics;
-using Evo.Infrastructure.Services.Analytics.Adapters;
 using Evo.Infrastructure.Services.Config;
 using Evo.Infrastructure.Services.Leaderboard;
 using Evo.Infrastructure.Services.Leaderboard.Adapters;
-using Evo.Infrastructure.Services.PlatformLifecycle;
 using Evo.Infrastructure.Services.PlatformInfo;
+using Evo.Infrastructure.Services.PlatformLifecycle;
 using Evo.Infrastructure.Services.Save;
 using VContainer;
 
-namespace Evo.Infrastructure.Services.Yandex
+namespace Evo.Infrastructure.Services.CrazyGames
 {
-    public static class YandexRuntimeInstaller
+    public static class CrazyGamesRuntimeInstaller
     {
         public static void Register(IContainerBuilder builder, IConfigService configService = null)
         {
@@ -21,54 +19,48 @@ namespace Evo.Infrastructure.Services.Yandex
                 return;
             }
 
-#if !YandexGamesPlatform_yg
+#if !CRAZY
             return;
 #endif
 
             var config = GetConfig(configService);
             if (config.Ads)
             {
-                builder.Register<IAdsAdapterFactory, YandexGamesAdsAdapterFactory>(Lifetime.Singleton);
-            }
-
-            if (config.Analytics)
-            {
-                builder.Register<IAnalyticsAdapter, YandexGamesAnalyticsAdapter>(Lifetime.Singleton);
+                builder.Register<IAdsAdapterFactory, CrazyGamesAdsAdapterFactory>(Lifetime.Singleton);
             }
 
             if (config.Leaderboard)
             {
-                builder.Register<ILeaderboardAdapter, YandexGamesLeaderboardAdapter>(Lifetime.Singleton);
+                builder.Register<ILeaderboardAdapter, CrazyNoopLeaderboardAdapter>(Lifetime.Singleton);
             }
 
             if (config.PlatformInfo)
             {
-                builder.Register<IPlatformInfoProvider, YandexGamesPlatformInfoProvider>(Lifetime.Singleton);
+                builder.Register<IPlatformInfoProvider, CrazyGamesPlatformInfoProvider>(Lifetime.Singleton);
             }
 
             if (config.PlatformLifecycle)
             {
-                builder.Register<IGamePlatformLifecycleProvider, YandexGamePlatformLifecycleProvider>(Lifetime.Singleton);
+                builder.Register<IGamePlatformLifecycleProvider, CrazyGamesPlatformLifecycleProvider>(Lifetime.Singleton);
             }
 
             if (config.CloudSave)
             {
-                builder.Register<ISaveBackend, YandexSaveBackend>(Lifetime.Singleton);
+                builder.Register<ISaveBackend, CrazySaveBackend>(Lifetime.Singleton);
             }
 
             if (config.PlayerAuth)
             {
-                builder.Register<IPlayerAuthService, YandexPlayerAuthService>(Lifetime.Singleton);
+                builder.Register<IPlayerAuthService, CrazyPlayerAuthService>(Lifetime.Singleton);
             }
         }
 
-        private static YandexRuntimeFeatureFlags GetConfig(IConfigService configService)
+        private static CrazyGamesRuntimeFeatureFlags GetConfig(IConfigService configService)
         {
-            if (configService != null && configService.TryGet<YandexRuntimeConfig>(out var config) && config != null)
+            if (configService != null && configService.TryGet<CrazyGamesRuntimeConfig>(out var config) && config != null)
             {
-                return new YandexRuntimeFeatureFlags(
+                return new CrazyGamesRuntimeFeatureFlags(
                     config.Ads,
-                    config.Analytics,
                     config.Leaderboard,
                     config.PlatformInfo,
                     config.PlatformLifecycle,
@@ -76,24 +68,22 @@ namespace Evo.Infrastructure.Services.Yandex
                     config.PlayerAuth);
             }
 
-            return YandexRuntimeFeatureFlags.Default;
+            return CrazyGamesRuntimeFeatureFlags.Default;
         }
 
-        private readonly struct YandexRuntimeFeatureFlags
+        private readonly struct CrazyGamesRuntimeFeatureFlags
         {
-            public static readonly YandexRuntimeFeatureFlags Default = new(true, true, true, true, true, true, true);
+            public static readonly CrazyGamesRuntimeFeatureFlags Default = new(true, true, true, true, true, true);
 
             public readonly bool Ads;
-            public readonly bool Analytics;
             public readonly bool Leaderboard;
             public readonly bool PlatformInfo;
             public readonly bool PlatformLifecycle;
             public readonly bool CloudSave;
             public readonly bool PlayerAuth;
 
-            public YandexRuntimeFeatureFlags(
+            public CrazyGamesRuntimeFeatureFlags(
                 bool ads,
-                bool analytics,
                 bool leaderboard,
                 bool platformInfo,
                 bool platformLifecycle,
@@ -101,7 +91,6 @@ namespace Evo.Infrastructure.Services.Yandex
                 bool playerAuth)
             {
                 Ads = ads;
-                Analytics = analytics;
                 Leaderboard = leaderboard;
                 PlatformInfo = platformInfo;
                 PlatformLifecycle = platformLifecycle;
