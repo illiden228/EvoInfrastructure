@@ -23,6 +23,7 @@ namespace Evo.Infrastructure.Core.Editor
         private const string CrazyGamesPackageName = "com.evo.infrastructure.crazygames";
         private const string CorePackageName = "com.evo.infrastructure.core";
         private const string LegacyRuntimePackageName = "com.evo.infrastructure.runtime";
+        private const string EvoRepositoryUrl = "https://github.com/illiden228/EvoInfrastructure.git";
         private const string EvoLatestReleaseApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/releases/latest";
         private const string EvoTagsApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/tags?per_page=1";
         private const string RuntimeGitTag = "v0.5.2";
@@ -721,8 +722,102 @@ namespace Evo.Infrastructure.Core.Editor
 
         private static string TryFetchLatestEvoGitTag()
         {
+            var gitTag = TryFetchLatestEvoGitTagWithGit();
+            if (!string.IsNullOrWhiteSpace(gitTag))
+            {
+                return gitTag;
+            }
+
+            return TryFetchLatestEvoGitTagWithGitHubApi();
+        }
+
+        private static string TryFetchLatestEvoGitTagWithGit()
+        {
+            try
+            {
+                var startInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "git",
+                    Arguments = $"ls-remote --tags --refs {EvoRepositoryUrl} v*",
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false
+                };
+
+                using var process = System.Diagnostics.Process.Start(startInfo);
+                if (process == null)
+                {
+                    return string.Empty;
+                }
+
+                if (!process.WaitForExit(8000))
+                {
+                    try
+                    {
+                        process.Kill();
+                    }
+                    catch
+                    {
+                        // Best effort cleanup for a stalled git process.
+                    }
+
+                    return string.Empty;
+                }
+
+                if (process.ExitCode != 0)
+                {
+                    return string.Empty;
+                }
+
+                return SelectLatestGitTag(process.StandardOutput.ReadToEnd());
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private static string SelectLatestGitTag(string lsRemoteOutput)
+        {
+            if (string.IsNullOrWhiteSpace(lsRemoteOutput))
+            {
+                return string.Empty;
+            }
+
+            Version latestVersion = null;
+            var latestTag = string.Empty;
+            var lines = lsRemoteOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i];
+                var refsIndex = line.IndexOf("refs/tags/", StringComparison.OrdinalIgnoreCase);
+                if (refsIndex < 0)
+                {
+                    continue;
+                }
+
+                var tag = NormalizeGitTag(line.Substring(refsIndex + "refs/tags/".Length));
+                if (!TryParseGitTagVersion(tag, out var version))
+                {
+                    continue;
+                }
+
+                if (latestVersion == null || version.CompareTo(latestVersion) > 0)
+                {
+                    latestVersion = version;
+                    latestTag = tag;
+                }
+            }
+
+            return latestTag;
+        }
+
+        private static string TryFetchLatestEvoGitTagWithGitHubApi()
+        {
             using var webClient = new System.Net.WebClient();
             webClient.Headers.Add("User-Agent", "Evo-Infrastructure-Setup");
+            webClient.Headers.Add("Accept", "application/vnd.github+json");
 
             try
             {
@@ -738,11 +833,18 @@ namespace Evo.Infrastructure.Core.Editor
                 // Some repositories use tags without GitHub releases. Fall back to tags API.
             }
 
-            var tagsJson = webClient.DownloadString(EvoTagsApiUrl);
-            var tags = JsonHelper.FromJson<GitHubTagInfo>(tagsJson);
-            return tags != null && tags.Length > 0 && !string.IsNullOrWhiteSpace(tags[0].name)
-                ? NormalizeGitTag(tags[0].name)
-                : string.Empty;
+            try
+            {
+                var tagsJson = webClient.DownloadString(EvoTagsApiUrl);
+                var tags = JsonHelper.FromJson<GitHubTagInfo>(tagsJson);
+                return tags != null && tags.Length > 0 && !string.IsNullOrWhiteSpace(tags[0].name)
+                    ? NormalizeGitTag(tags[0].name)
+                    : string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
 
         private static string NormalizeGitTag(string tag)
