@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
 using System.Xml.Linq;
 using UnityEditor;
 using UnityEditor.PackageManager;
@@ -20,7 +21,10 @@ namespace Evo.Infrastructure.Core.Editor
     {
         private const string YandexPackageName = "com.evo.infrastructure.yandex";
         private const string CrazyGamesPackageName = "com.evo.infrastructure.crazygames";
+        private const string CorePackageName = "com.evo.infrastructure.core";
         private const string LegacyRuntimePackageName = "com.evo.infrastructure.runtime";
+        private const string EvoLatestReleaseApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/releases/latest";
+        private const string EvoTagsApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/tags?per_page=1";
         private const string RuntimeGitTag = "v0.5.1";
         private const string YandexGitTag = "v0.5.1";
         private const string CrazyGamesGitTag = "v0.5.1";
@@ -289,6 +293,11 @@ namespace Evo.Infrastructure.Core.Editor
         private readonly List<string> _cachedLegacyRuntimeCallSites = new();
         private readonly List<string> _cachedOdinAsmdefIssues = new();
         private readonly HashSet<string> _cachedProjectFeatureRegistrationMethods = new(StringComparer.Ordinal);
+        private readonly List<string> _outdatedEvoPackageNames = new();
+        private string _latestEvoGitTag = string.Empty;
+        private string _latestEvoUpdateError = string.Empty;
+        private bool _latestEvoVersionCheckRequested;
+        private bool _isCheckingLatestEvoVersion;
         private bool _selectionStateDirty;
         private readonly List<string> _templateValidationIssues = new();
         private readonly List<string> _customScaffoldScriptPaths = new();
@@ -359,11 +368,13 @@ namespace Evo.Infrastructure.Core.Editor
             LoadSelectionState();
             EditorApplication.update += UpdateInstallQueue;
             ResumeOneClickSetupIfNeeded();
+            EditorApplication.delayCall += RequestLatestEvoVersionCheck;
         }
 
         private void OnDisable()
         {
             EditorApplication.update -= UpdateInstallQueue;
+            EditorApplication.delayCall -= RequestLatestEvoVersionCheck;
             EditorUtility.ClearProgressBar();
         }
 
@@ -406,6 +417,8 @@ namespace Evo.Infrastructure.Core.Editor
                 new ExternalDependencyRow(ExternalPackageDependency.ReactiveNuGets, "Reactive NuGets", _installReactiveNuGets, AreReactiveReadyOrConfigured(), "R3, ObservableCollections and ObservableCollections.R3.", RemoveReactiveNuGetPackages)
             });
             DrawLegacyRuntimeMigration();
+            DrawLatestEvoVersionCheck();
+            DrawEvoPackageUpdates();
             DrawEvoPackageGraph();
 
             EditorGUILayout.Space(4f);
@@ -547,6 +560,234 @@ namespace Evo.Infrastructure.Core.Editor
                 _statusLine = "Copied Evo feature registration snippet to clipboard.";
             }
             EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawEvoPackageUpdates()
+        {
+            if (_outdatedEvoPackageNames.Count == 0)
+            {
+                return;
+            }
+
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.HelpBox(
+                $"Evo package updates are available for tag {RuntimeGitTag}:\n" +
+                string.Join("\n", _outdatedEvoPackageNames.Select(GetEvoPackageDisplayNameOrId).Take(12)) +
+                (_outdatedEvoPackageNames.Count > 12 ? $"\n...and {_outdatedEvoPackageNames.Count - 12} more." : string.Empty),
+                MessageType.Warning);
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            using (new EditorGUI.DisabledScope(_isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested || _addAndRemoveRequest != null))
+            {
+                if (GUILayout.Button("Update Evo Packages", GUILayout.Width(170f)))
+                {
+                    UpdateOutdatedEvoPackages();
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawLatestEvoVersionCheck()
+        {
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField(
+                string.IsNullOrWhiteSpace(_latestEvoGitTag)
+                    ? $"Current Evo target: {RuntimeGitTag}"
+                    : $"Current Evo target: {RuntimeGitTag} | Latest: {_latestEvoGitTag}",
+                EditorStyles.miniLabel);
+            using (new EditorGUI.DisabledScope(_isCheckingLatestEvoVersion))
+            {
+                if (GUILayout.Button(_isCheckingLatestEvoVersion ? "Checking..." : "Check Updates", GUILayout.Width(120f)))
+                {
+                    CheckLatestEvoVersionAsync(force: true);
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+
+            if (!string.IsNullOrWhiteSpace(_latestEvoUpdateError))
+            {
+                EditorGUILayout.HelpBox("Evo update check failed: " + _latestEvoUpdateError, MessageType.Warning);
+            }
+
+            if (!HasRemoteEvoUpdate())
+            {
+                return;
+            }
+
+            EditorGUILayout.HelpBox(
+                $"A newer EvoInfrastructure release is available: {_latestEvoGitTag}. Update core first; after Unity reloads, the new wizard can update the remaining Evo packages.",
+                MessageType.Info);
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            using (new EditorGUI.DisabledScope(_isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested || _addAndRemoveRequest != null))
+            {
+                if (GUILayout.Button("Update Evo Core", GUILayout.Width(150f)))
+                {
+                    UpdateEvoCoreToLatest();
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private bool HasRemoteEvoUpdate()
+        {
+            return !string.IsNullOrWhiteSpace(_latestEvoGitTag) &&
+                   IsGitTagNewerThan(_latestEvoGitTag, RuntimeGitTag);
+        }
+
+        private void UpdateEvoCoreToLatest()
+        {
+            if (!HasRemoteEvoUpdate() || _isInstalling || _addAndRemoveRequest != null)
+            {
+                return;
+            }
+
+            var source = GetEvoPackageSource(CorePackageName, _latestEvoGitTag);
+            _isInstalling = true;
+            _statusLine = "Updating Evo core to " + _latestEvoGitTag + "...";
+            Debug.Log($"[Evo Setup] Updating Evo core to {_latestEvoGitTag}: {source}");
+            _addAndRemoveRequest = Client.AddAndRemove(new[] { source }, Array.Empty<string>());
+        }
+
+        private void UpdateOutdatedEvoPackages()
+        {
+            if (_isInstalling || _addAndRemoveRequest != null || _outdatedEvoPackageNames.Count == 0)
+            {
+                return;
+            }
+
+            var packages = _outdatedEvoPackageNames
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(GetEvoPackageInstallOrder)
+                .ThenBy(GetEvoPackageDescriptorIndex)
+                .Select(GetEvoPackageSource)
+                .ToArray();
+
+            if (packages.Length == 0)
+            {
+                _statusLine = "No Evo packages need update.";
+                return;
+            }
+
+            _isInstalling = true;
+            _statusLine = "Updating Evo packages to " + RuntimeGitTag + "...";
+            Debug.Log($"[Evo Setup] Updating Evo packages to {RuntimeGitTag}:\n{string.Join("\n", packages)}");
+            _addAndRemoveRequest = Client.AddAndRemove(packages, Array.Empty<string>());
+        }
+
+        private void RequestLatestEvoVersionCheck()
+        {
+            CheckLatestEvoVersionAsync(force: false);
+        }
+
+        private async void CheckLatestEvoVersionAsync(bool force)
+        {
+            if (_isCheckingLatestEvoVersion || (_latestEvoVersionCheckRequested && !force))
+            {
+                return;
+            }
+
+            _latestEvoVersionCheckRequested = true;
+            _isCheckingLatestEvoVersion = true;
+            _latestEvoUpdateError = string.Empty;
+            _statusLine = "Checking latest EvoInfrastructure release...";
+            Repaint();
+
+            try
+            {
+                var latestTag = await Task.Run(TryFetchLatestEvoGitTag);
+                _latestEvoGitTag = latestTag;
+                _statusLine = string.IsNullOrWhiteSpace(latestTag)
+                    ? "Could not find latest EvoInfrastructure tag."
+                    : string.Equals(latestTag, RuntimeGitTag, StringComparison.OrdinalIgnoreCase)
+                        ? "EvoInfrastructure is up to date."
+                        : "EvoInfrastructure update available: " + latestTag;
+            }
+            catch (Exception ex)
+            {
+                _latestEvoUpdateError = ex.Message;
+                _statusLine = "EvoInfrastructure update check failed.";
+                Debug.LogWarning("[Evo Setup] EvoInfrastructure update check failed: " + ex.Message);
+            }
+            finally
+            {
+                _isCheckingLatestEvoVersion = false;
+                Repaint();
+            }
+        }
+
+        private static string TryFetchLatestEvoGitTag()
+        {
+            using var webClient = new System.Net.WebClient();
+            webClient.Headers.Add("User-Agent", "Evo-Infrastructure-Setup");
+
+            try
+            {
+                var releaseJson = webClient.DownloadString(EvoLatestReleaseApiUrl);
+                var release = JsonUtility.FromJson<GitHubReleaseInfo>(releaseJson);
+                if (!string.IsNullOrWhiteSpace(release?.tag_name))
+                {
+                    return NormalizeGitTag(release.tag_name);
+                }
+            }
+            catch
+            {
+                // Some repositories use tags without GitHub releases. Fall back to tags API.
+            }
+
+            var tagsJson = webClient.DownloadString(EvoTagsApiUrl);
+            var tags = JsonHelper.FromJson<GitHubTagInfo>(tagsJson);
+            return tags != null && tags.Length > 0 && !string.IsNullOrWhiteSpace(tags[0].name)
+                ? NormalizeGitTag(tags[0].name)
+                : string.Empty;
+        }
+
+        private static string NormalizeGitTag(string tag)
+        {
+            if (string.IsNullOrWhiteSpace(tag))
+            {
+                return string.Empty;
+            }
+
+            tag = tag.Trim();
+            return tag.StartsWith("v", StringComparison.OrdinalIgnoreCase) ? tag : "v" + tag;
+        }
+
+        private static bool IsGitTagNewerThan(string candidateTag, string currentTag)
+        {
+            if (!TryParseGitTagVersion(candidateTag, out var candidate) ||
+                !TryParseGitTagVersion(currentTag, out var current))
+            {
+                return !string.Equals(candidateTag, currentTag, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return candidate.CompareTo(current) > 0;
+        }
+
+        private static bool TryParseGitTagVersion(string tag, out Version version)
+        {
+            version = null;
+            if (string.IsNullOrWhiteSpace(tag))
+            {
+                return false;
+            }
+
+            var value = tag.Trim();
+            if (value.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+            {
+                value = value.Substring(1);
+            }
+
+            var suffixIndex = value.IndexOfAny(new[] { '-', '+' });
+            if (suffixIndex >= 0)
+            {
+                value = value.Substring(0, suffixIndex);
+            }
+
+            return Version.TryParse(value, out version);
         }
 
         private void DrawScaffoldOwnershipDiagnostics()
@@ -1764,18 +2005,41 @@ namespace Evo.Infrastructure.Core.Editor
 
         private static string GetEvoPackageSource(string packageName)
         {
-            var tag = packageName.StartsWith(CrazyGamesPackageName, StringComparison.OrdinalIgnoreCase)
-                ? CrazyGamesGitTag
-                : packageName.StartsWith(YandexPackageName, StringComparison.OrdinalIgnoreCase)
-                    ? YandexGitTag
-                    : RuntimeGitTag;
+            return GetEvoPackageSource(packageName, GetEvoPackageTargetTag(packageName));
+        }
+
+        private static string GetEvoPackageSource(string packageName, string tag)
+        {
             return $"https://github.com/illiden228/EvoInfrastructure.git?path=Packages/{packageName}#{tag}";
+        }
+
+        private static string GetEvoPackageTargetTag(string packageName)
+        {
+            if (packageName.StartsWith(CrazyGamesPackageName, StringComparison.OrdinalIgnoreCase))
+            {
+                return CrazyGamesGitTag;
+            }
+
+            if (packageName.StartsWith(YandexPackageName, StringComparison.OrdinalIgnoreCase))
+            {
+                return YandexGitTag;
+            }
+
+            return RuntimeGitTag;
         }
 
         private static string GetEvoPackageDisplayName(string packageName)
         {
             var package = FindEvoPackage(packageName);
             return package != null ? package.DisplayName : packageName;
+        }
+
+        private static string GetEvoPackageDisplayNameOrId(string packageName)
+        {
+            var displayName = GetEvoPackageDisplayName(packageName);
+            return string.Equals(displayName, packageName, StringComparison.OrdinalIgnoreCase)
+                ? packageName
+                : $"{displayName} ({packageName})";
         }
 
         private static IReadOnlyList<ExternalPackageDependency> ResolveExternalDependencies(string packageName)
@@ -4748,9 +5012,12 @@ namespace Evo.Infrastructure.Core.Editor
         private void RefreshRuntimePackageState(IReadOnlyList<UnityEditor.PackageManager.PackageInfo> packages)
         {
             _installedEvoPackageNames.Clear();
+            _outdatedEvoPackageNames.Clear();
             var legacyRuntimePackage = FindPackage(packages, LegacyRuntimePackageName);
             _legacyRuntimeManifestDependency = GetManifestDependencyValue(LegacyRuntimePackageName);
             _legacyRuntimeInstalled = legacyRuntimePackage != null || !string.IsNullOrWhiteSpace(_legacyRuntimeManifestDependency);
+
+            TrackEvoPackageUpdateState(packages, CorePackageName);
             for (var i = 0; i < EvoPackages.Length; i++)
             {
                 var packageName = EvoPackages[i].Id;
@@ -4759,6 +5026,7 @@ namespace Evo.Infrastructure.Core.Editor
                 if (package != null || !string.IsNullOrWhiteSpace(manifestDependency))
                 {
                     _installedEvoPackageNames.Add(packageName);
+                    TrackEvoPackageUpdateState(packages, packageName);
                 }
             }
 
@@ -4816,6 +5084,28 @@ namespace Evo.Infrastructure.Core.Editor
                     ? $"{installedCount}/{RuntimePackageNames.Length} packages, {firstDifferentRevision}"
                     : _runtimeManifestDependency;
                 _runtimeUpdateState = EvoPackageUpdateState.InstalledDifferentRevision;
+            }
+        }
+
+        private void TrackEvoPackageUpdateState(IReadOnlyList<UnityEditor.PackageManager.PackageInfo> packages, string packageName)
+        {
+            var package = FindPackage(packages, packageName);
+            var manifestDependency = GetManifestDependencyValue(packageName);
+            var installed = package != null || !string.IsNullOrWhiteSpace(manifestDependency);
+            if (!installed)
+            {
+                return;
+            }
+
+            var updateState = ResolveEvoPackageUpdateState(
+                true,
+                package != null ? package.version ?? string.Empty : string.Empty,
+                package != null ? package.packageId ?? string.Empty : string.Empty,
+                manifestDependency,
+                GetEvoPackageTargetTag(packageName));
+            if (updateState == EvoPackageUpdateState.InstalledDifferentRevision)
+            {
+                _outdatedEvoPackageNames.Add(packageName);
             }
         }
 
@@ -5902,7 +6192,14 @@ namespace Evo.Infrastructure.Core.Editor
         [Serializable]
         private sealed class GitHubReleaseInfo
         {
+            public string tag_name;
             public GitHubReleaseAssetInfo[] assets;
+        }
+
+        [Serializable]
+        private sealed class GitHubTagInfo
+        {
+            public string name;
         }
 
         [Serializable]
@@ -5910,6 +6207,26 @@ namespace Evo.Infrastructure.Core.Editor
         {
             public string name;
             public string browser_download_url;
+        }
+
+        private static class JsonHelper
+        {
+            public static T[] FromJson<T>(string json)
+            {
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    return Array.Empty<T>();
+                }
+
+                var wrapper = JsonUtility.FromJson<JsonArrayWrapper<T>>("{\"items\":" + json + "}");
+                return wrapper?.items ?? Array.Empty<T>();
+            }
+
+            [Serializable]
+            private sealed class JsonArrayWrapper<T>
+            {
+                public T[] items;
+            }
         }
     }
 }
