@@ -1,0 +1,29 @@
+{
+  "name": "Evo.Infrastructure.EditorTools.Editor",
+  "references": [
+    "Evo.Infrastructure.Ads",
+    "Evo.Infrastructure.Analytics",
+    "Evo.Infrastructure.Config",
+    "Evo.Infrastructure.Debug",
+    "Evo.Infrastructure.Leaderboards",
+    "Evo.Infrastructure.Resources",
+    "Evo.Infrastructure.Save",
+    "Evo.Infrastructure.Scene",
+    "Evo.Infrastructure.UI",
+    "Unity.Addressables",
+    "Unity.Addressables.Editor",
+    "Unity.Localization",
+    "Unity.Localization.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

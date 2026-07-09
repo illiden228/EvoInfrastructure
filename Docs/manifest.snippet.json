@@ -1,14 +1,5 @@
 {
-  "scopedRegistries": [
-    {
-      "name": "evo",
-      "url": "https://registry.npmjs.org",
-      "scopes": [
-        "com.evo"
-      ]
-    }
-  ],
   "dependencies": {
-    "com.evo.infrastructure.core": "0.3.38"
+    "com.evo.infrastructure.core": "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.core#v0.5.0"
   }
 }

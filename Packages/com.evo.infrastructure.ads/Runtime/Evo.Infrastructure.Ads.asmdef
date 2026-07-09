@@ -1,0 +1,22 @@
+{
+  "name": "Evo.Infrastructure.Ads",
+  "references": [
+    "Evo.Infrastructure.Analytics",
+    "Evo.Infrastructure.Config",
+    "Evo.Infrastructure.DI",
+    "Evo.Infrastructure.Debug",
+    "Evo.Infrastructure.Platform",
+    "R3",
+    "UniTask",
+    "VContainer"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

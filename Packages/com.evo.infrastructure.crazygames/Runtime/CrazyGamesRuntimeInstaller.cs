@@ -1,15 +1,12 @@
-using Evo.Infrastructure.Services.Ads;
-using Evo.Infrastructure.Services.Ads.Adapters;
+using System;
+using System.Reflection;
+using Evo.Infrastructure.DI;
 using Evo.Infrastructure.Services.Config;
-using Evo.Infrastructure.Services.Leaderboard;
-using Evo.Infrastructure.Services.Leaderboard.Adapters;
-using Evo.Infrastructure.Services.PlatformInfo;
-using Evo.Infrastructure.Services.PlatformLifecycle;
-using Evo.Infrastructure.Services.Save;
 using VContainer;
 
 namespace Evo.Infrastructure.Services.CrazyGames
 {
+    [Obsolete("Use builder.RegisterEvoFeatures(features => features.UseCrazyGames...()) from split CrazyGames packages.")]
     public static class CrazyGamesRuntimeInstaller
     {
         public static void Register(IContainerBuilder builder, IConfigService configService = null)
@@ -19,40 +16,49 @@ namespace Evo.Infrastructure.Services.CrazyGames
                 return;
             }
 
-#if !CRAZY
-            return;
-#endif
-
             var config = GetConfig(configService);
+            var features = new EvoFeatureRegistry(builder);
+            if (config.PlatformInfo || config.PlatformLifecycle)
+            {
+                TryUseFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesPlatformFeatureExtensions", "UseCrazyGamesPlatform");
+            }
+
             if (config.Ads)
             {
-                builder.Register<IAdsAdapterFactory, CrazyGamesAdsAdapterFactory>(Lifetime.Singleton);
+                TryUseFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesAdsFeatureExtensions", "UseCrazyGamesAds");
             }
 
             if (config.Leaderboard)
             {
-                builder.Register<ILeaderboardAdapter, CrazyNoopLeaderboardAdapter>(Lifetime.Singleton);
+                TryUseFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesLeaderboardsFeatureExtensions", "UseCrazyGamesLeaderboards");
             }
 
-            if (config.PlatformInfo)
+            if (config.CloudSave || config.PlayerAuth)
             {
-                builder.Register<IPlatformInfoProvider, CrazyGamesPlatformInfoProvider>(Lifetime.Singleton);
+                TryUseFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesSaveFeatureExtensions", "UseCrazyGamesSave");
+            }
+        }
+
+        private static void TryUseFeature(EvoFeatureRegistry features, string typeName, string methodName)
+        {
+            var type = FindType(typeName);
+            var method = type?.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
+            method?.Invoke(null, new object[] { features });
+        }
+
+        private static Type FindType(string fullName)
+        {
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            for (var i = 0; i < assemblies.Length; i++)
+            {
+                var type = assemblies[i].GetType(fullName, false);
+                if (type != null)
+                {
+                    return type;
+                }
             }
 
-            if (config.PlatformLifecycle)
-            {
-                builder.Register<IGamePlatformLifecycleProvider, CrazyGamesPlatformLifecycleProvider>(Lifetime.Singleton);
-            }
-
-            if (config.CloudSave)
-            {
-                builder.Register<ISaveBackend, CrazySaveBackend>(Lifetime.Singleton);
-            }
-
-            if (config.PlayerAuth)
-            {
-                builder.Register<IPlayerAuthService, CrazyPlayerAuthService>(Lifetime.Singleton);
-            }
+            return null;
         }
 
         private static CrazyGamesRuntimeFeatureFlags GetConfig(IConfigService configService)

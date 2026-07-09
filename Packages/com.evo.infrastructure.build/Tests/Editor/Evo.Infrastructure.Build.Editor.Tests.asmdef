@@ -1,0 +1,21 @@
+{
+  "name": "Evo.Infrastructure.Build.Editor.Tests",
+  "rootNamespace": "",
+  "references": [
+    "Evo.Infrastructure.Build.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

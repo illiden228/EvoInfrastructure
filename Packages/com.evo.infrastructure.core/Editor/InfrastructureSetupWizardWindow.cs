@@ -18,12 +18,69 @@ namespace Evo.Infrastructure.Core.Editor
 {
     public sealed class InfrastructureSetupWizardWindow : EditorWindow
     {
-        private const string RuntimePackageName = "com.evo.infrastructure.runtime";
         private const string YandexPackageName = "com.evo.infrastructure.yandex";
-        private const string RuntimeGitTag = "v0.4.12";
-        private const string YandexGitTag = "v0.4.12";
-        private const string RuntimeGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.runtime";
-        private const string YandexGitUrl = "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.yandex";
+        private const string CrazyGamesPackageName = "com.evo.infrastructure.crazygames";
+        private const string LegacyRuntimePackageName = "com.evo.infrastructure.runtime";
+        private const string RuntimeGitTag = "v0.5.0";
+        private const string YandexGitTag = "v0.5.0";
+        private const string CrazyGamesGitTag = "v0.5.0";
+        private static readonly EvoPackageDescriptor[] EvoPackages =
+        {
+            new("com.evo.infrastructure.di", "DI", "Core", "Feature registry and VContainer helpers."),
+            new("com.evo.infrastructure.debug", "Debug", "Core", "Logging helpers."),
+            new("com.evo.infrastructure.config", "Config", "Core", "Scriptable config catalogs and config service.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.platform", "Platform", "Core", "Platform info and platform lifecycle abstractions.", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.resources", "Resources", "Core", "Addressables resource catalog, loader and provider.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.scene", "Scene", "Core", "Scene loading and payload services.", "com.evo.infrastructure.resources", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.save", "Save", "Services", "Save contracts, service and local backends.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.analytics", "Analytics", "Services", "Analytics service and adapter routing.", "com.evo.infrastructure.config", "com.evo.infrastructure.platform", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.ads", "Ads", "Services", "Ads service, cooldown helpers and adapter routing.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.platform", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.leaderboards", "Leaderboards", "Services", "Leaderboard service and adapter contract.", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.localization", "Localization", "Services", "Unity Localization wrapper.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.focus", "Focus", "Services", "Input focus service.", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.audio", "Audio", "Services", "Audio playback service.", "com.evo.infrastructure.resources", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.pooling", "Pooling", "Services", "Generic and GameObject pooling helpers."),
+            new("com.evo.infrastructure.loading", "Loading", "Runtime", "Startup/loading pipeline.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.localization", "com.evo.infrastructure.platform", "com.evo.infrastructure.resources", "com.evo.infrastructure.save", "com.evo.infrastructure.scene", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.ui", "UI", "Runtime", "UI runtime, views and UI service.", "com.evo.infrastructure.resources", "com.evo.infrastructure.scene", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.build", "Build", "Editor", "Build profiles and build pipeline editor tools.", "com.evo.infrastructure.config", "com.evo.infrastructure.platform"),
+            new("com.evo.infrastructure.editor-tools", "Editor Tools", "Editor", "Config, save, scene, resource and UI editor tools.", "com.evo.infrastructure.ads", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.leaderboards", "com.evo.infrastructure.resources", "com.evo.infrastructure.save", "com.evo.infrastructure.scene", "com.evo.infrastructure.ui", "com.evo.infrastructure.debug"),
+            new(YandexPackageName, "Yandex Core", "Yandex", "Shared PluginYG2 runtime config.", "com.evo.infrastructure.config"),
+            new("com.evo.infrastructure.yandex.platform", "Yandex Platform", "Yandex", "Yandex platform info and lifecycle providers.", YandexPackageName, "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.yandex.ads", "Yandex Ads", "Yandex", "Yandex ads adapter.", YandexPackageName, "com.evo.infrastructure.ads", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.yandex.analytics", "Yandex Analytics", "Yandex", "Yandex Metrica analytics adapter.", YandexPackageName, "com.evo.infrastructure.analytics", "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.yandex.save", "Yandex Save", "Yandex", "Yandex cloud save and player auth adapters.", YandexPackageName, "com.evo.infrastructure.save", "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.yandex.leaderboards", "Yandex Leaderboards", "Yandex", "Yandex leaderboard adapter.", YandexPackageName, "com.evo.infrastructure.leaderboards", "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
+            new(CrazyGamesPackageName, "CrazyGames Core", "CrazyGames", "Shared CrazySDK runtime config and SDK helper.", "com.evo.infrastructure.config", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.crazygames.platform", "CrazyGames Platform", "CrazyGames", "CrazyGames platform info and lifecycle providers.", CrazyGamesPackageName, "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.crazygames.ads", "CrazyGames Ads", "CrazyGames", "CrazyGames ads adapter.", CrazyGamesPackageName, "com.evo.infrastructure.ads", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.crazygames.save", "CrazyGames Save", "CrazyGames", "CrazyGames save and player auth adapters.", CrazyGamesPackageName, "com.evo.infrastructure.save", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.crazygames.leaderboards", "CrazyGames Leaderboards", "CrazyGames", "CrazyGames leaderboard adapter.", CrazyGamesPackageName, "com.evo.infrastructure.leaderboards", "com.evo.infrastructure.di")
+        };
+        private static readonly string[] RuntimePackageNames = EvoPackages
+            .Where(package => package.Category != "Yandex" && package.Category != "CrazyGames")
+            .Select(package => package.Id)
+            .ToArray();
+        private static readonly string[] DefaultSelectedEvoPackageNames =
+        {
+            "com.evo.infrastructure.di",
+            "com.evo.infrastructure.debug",
+            "com.evo.infrastructure.config",
+            "com.evo.infrastructure.platform",
+            "com.evo.infrastructure.resources",
+            "com.evo.infrastructure.scene",
+            "com.evo.infrastructure.loading",
+            "com.evo.infrastructure.ui",
+            "com.evo.infrastructure.save",
+            "com.evo.infrastructure.analytics",
+            "com.evo.infrastructure.ads",
+            "com.evo.infrastructure.leaderboards",
+            "com.evo.infrastructure.localization",
+            "com.evo.infrastructure.focus",
+            "com.evo.infrastructure.audio",
+            "com.evo.infrastructure.pooling",
+            "com.evo.infrastructure.build",
+            "com.evo.infrastructure.editor-tools"
+        };
         private const string PluginYgLatestReleaseApiUrl = "https://api.github.com/repos/JustPlay-Max/Unity-PluginYG-2/releases/latest";
         private const string PluginYgFolderPath = "Assets/PluginYourGames";
         private const string PluginYgImportStateKeyPrefix = "Evo.Infrastructure.Core.PluginYgImportRequested.";
@@ -87,6 +144,31 @@ namespace Evo.Infrastructure.Core.Editor
             new(StarterLoadingViewModelPath, LoadingViewModelTemplateName),
             new(StarterLoadingScreenViewPath, LoadingScreenViewTemplateName)
         };
+        private static readonly FeatureRegistrationSnippet[] FeatureRegistrationSnippets =
+        {
+            new("com.evo.infrastructure.config", "UseConfig", "features.UseConfig(configCatalogs);"),
+            new("com.evo.infrastructure.platform", "UsePlatform", "features.UsePlatform();"),
+            new("com.evo.infrastructure.focus", "UseFocus", "features.UseFocus();"),
+            new("com.evo.infrastructure.resources", "UseResources", "features.UseResources(resourceCatalog);"),
+            new("com.evo.infrastructure.scene", "UseScene", "features.UseScene(new SceneLoaderOptions());"),
+            new("com.evo.infrastructure.localization", "UseLocalization", "features.UseLocalization();"),
+            new("com.evo.infrastructure.audio", "UseAudio", "features.UseAudio();"),
+            new("com.evo.infrastructure.ads", "UseAds", "features.UseAds();"),
+            new("com.evo.infrastructure.analytics", "UseAnalytics", "features.UseAnalytics();"),
+            new("com.evo.infrastructure.leaderboards", "UseLeaderboards", "features.UseLeaderboards();"),
+            new("com.evo.infrastructure.save", "UseSave", "features.UseSave(new SaveStorageOptions());"),
+            new("com.evo.infrastructure.ui", "UseUi", "features.UseUi(uiSystemConfig);"),
+            new("com.evo.infrastructure.loading", "UseLoading", "features.UseLoading(new SceneTransitionOptions());"),
+            new("com.evo.infrastructure.yandex.platform", "UseYandexPlatform", "features.UseYandexPlatform();"),
+            new("com.evo.infrastructure.yandex.ads", "UseYandexAds", "features.UseYandexAds();"),
+            new("com.evo.infrastructure.yandex.analytics", "UseYandexAnalytics", "features.UseYandexAnalytics();"),
+            new("com.evo.infrastructure.yandex.save", "UseYandexSave", "features.UseYandexSave();"),
+            new("com.evo.infrastructure.yandex.leaderboards", "UseYandexLeaderboards", "features.UseYandexLeaderboards();"),
+            new("com.evo.infrastructure.crazygames.platform", "UseCrazyGamesPlatform", "features.UseCrazyGamesPlatform();"),
+            new("com.evo.infrastructure.crazygames.ads", "UseCrazyGamesAds", "features.UseCrazyGamesAds();"),
+            new("com.evo.infrastructure.crazygames.save", "UseCrazyGamesSave", "features.UseCrazyGamesSave();"),
+            new("com.evo.infrastructure.crazygames.leaderboards", "UseCrazyGamesLeaderboards", "features.UseCrazyGamesLeaderboards();")
+        };
 
         private const string VContainerSource = "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer";
         private const string UniTaskSource = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask";
@@ -94,7 +176,7 @@ namespace Evo.Infrastructure.Core.Editor
         private const string AddressablesSource = "com.unity.addressables@2.8.1";
         private const string LocalizationSource = "com.unity.localization@1.5.9";
         private const string InputSystemSource = "com.unity.inputsystem@1.7.0";
-        private const string UguiSource = "com.unity.ugui@2.0.0";
+        private const string UguiSource = "com.unity.ugui";
         private const string PrimeTweenSource = "com.kyrylokuzyk.primetween@1.3.8";
         private const string R3UnitySource = "https://github.com/Cysharp/R3.git?path=src/R3.Unity/Assets/R3.Unity";
         private const string PrimeTweenPackageName = "com.kyrylokuzyk.primetween";
@@ -136,9 +218,12 @@ namespace Evo.Infrastructure.Core.Editor
         [NonSerialized] private AddAndRemoveRequest _addAndRemoveRequest;
         [NonSerialized] private RemoveRequest _removeRequest;
         [NonSerialized] private ListRequest _listRequest;
+        [NonSerialized] private readonly HashSet<string> _selectedEvoPackageNames = new(StringComparer.OrdinalIgnoreCase);
+        [NonSerialized] private readonly HashSet<string> _installedEvoPackageNames = new(StringComparer.OrdinalIgnoreCase);
         private bool _dependenciesInstalled;
         private bool _runtimeInstalled;
-        private bool _yandexInstalled;
+        private bool _legacyRuntimeInstalled;
+        private string _legacyRuntimeManifestDependency = string.Empty;
         private bool _pluginYgInstalled;
         private bool _pluginYgDefineReady;
         private bool _odinInstalled;
@@ -186,9 +271,7 @@ namespace Evo.Infrastructure.Core.Editor
         private bool _installPrimeTween = true;
         private bool _installR3Unity = true;
         private bool _installReactiveNuGets = true;
-        private bool _installRuntimeModule = true;
         private bool _installPluginYgPackage;
-        private bool _installYandexModule;
         private bool _installOdinPackage;
         private bool _installProjectStructure = true;
         private bool _installStarterScaffold = true;
@@ -198,6 +281,7 @@ namespace Evo.Infrastructure.Core.Editor
         private string _statusLine = "Ready";
         private Vector2 _scroll;
         private readonly List<string> _templateValidationIssues = new();
+        private readonly List<string> _customScaffoldScriptPaths = new();
 
         private enum EvoPackageUpdateState
         {
@@ -205,6 +289,41 @@ namespace Evo.Infrastructure.Core.Editor
             Missing = 1,
             InstalledTarget = 2,
             InstalledDifferentRevision = 3
+        }
+
+        private enum ExternalPackageDependency
+        {
+            VContainer,
+            UniTask,
+            NuGetForUnity,
+            ReactiveNuGets,
+            R3Unity,
+            Addressables,
+            Localization,
+            InputSystem,
+            Ugui,
+            PrimeTween,
+            PluginYg
+        }
+
+        private sealed class EvoPackageDescriptor
+        {
+            public EvoPackageDescriptor(string id, string displayName, string category, string description, params string[] dependencies)
+            {
+                Id = id;
+                DisplayName = displayName;
+                Category = category;
+                Description = description;
+                Dependencies = dependencies ?? Array.Empty<string>();
+                ExternalDependencies = ResolveExternalDependencies(id);
+            }
+
+            public string Id { get; }
+            public string DisplayName { get; }
+            public string Category { get; }
+            public string Description { get; }
+            public IReadOnlyList<string> Dependencies { get; }
+            public IReadOnlyList<ExternalPackageDependency> ExternalDependencies { get; }
         }
 
         [MenuItem("EvoTools/Setup")]
@@ -267,6 +386,8 @@ namespace Evo.Infrastructure.Core.Editor
                     MessageType.Warning);
             }
 
+            DrawScaffoldOwnershipDiagnostics();
+
             using (new EditorGUI.DisabledScope(_isRefreshingState || _isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested))
             {
                 DrawActionButton(
@@ -289,26 +410,30 @@ namespace Evo.Infrastructure.Core.Editor
 
             EditorGUILayout.Space(4f);
             EditorGUILayout.LabelField("Runtime Packages", EditorStyles.boldLabel);
-            _installVContainer = DrawInstallPlanRow("VContainer", _installVContainer, _vContainerInstalled, "DI container for project and scene scopes.", () => RemovePackage(VContainerPackageName, "VContainer"));
-            _installUniTask = DrawInstallPlanRow("UniTask", _installUniTask, _uniTaskInstalled, "Async runtime used by loading and services.", () => RemovePackage(UniTaskPackageName, "UniTask"));
-            _installNuGetForUnity = DrawInstallPlanRow("NuGetForUnity", _installNuGetForUnity, _nuGetForUnityInstalled, "Installs reactive NuGet packages.", () => RemovePackage(NuGetForUnityPackageName, "NuGetForUnity"));
-            _installAddressables = DrawInstallPlanRow("Addressables", _installAddressables, _addressablesInstalled, "Startup scene references are created as addressable assets.", () => RemovePackage(AddressablesPackageName, "Addressables"));
-            _installLocalization = DrawInstallPlanRow("Unity Localization", _installLocalization, _localizationInstalled, "Runtime localization package.", () => RemovePackage(LocalizationPackageName, "Unity Localization"));
-            _installInputSystem = DrawInstallPlanRow("Input System", _installInputSystem, _inputSystemInstalled, "Default input package for gameplay projects.", () => RemovePackage(InputSystemPackageName, "Input System"));
-            _installUgui = DrawInstallPlanRow("Unity UI", _installUgui, _uguiInstalled, "Base UI package for loading and menus.", () => RemovePackage(UguiPackageName, "Unity UI"));
-            _installPrimeTween = DrawInstallPlanRow("PrimeTween", _installPrimeTween, _primeTweenInstalled, "Tweening dependency.", () => RemovePackage(PrimeTweenPackageName, "PrimeTween"));
-            _installR3Unity = DrawInstallPlanRow("R3.Unity", _installR3Unity, _r3UnityInstalled, "Reactive Unity integration.", () => RemovePackage(R3UnityPackageName, "R3.Unity"));
-            _installReactiveNuGets = DrawInstallPlanRow("Reactive NuGets", _installReactiveNuGets, AreReactiveAssembliesReady() || AreReactivePackagesConfigReady(), "R3, ObservableCollections and ObservableCollections.R3.", RemoveReactiveNuGetPackages);
-            _installRuntimeModule = DrawRuntimePackageRow();
+            _installVContainer = DrawExternalDependencyRow(ExternalPackageDependency.VContainer, "VContainer", _installVContainer, _vContainerInstalled, "DI container for project and scene scopes.", () => RemovePackage(VContainerPackageName, "VContainer"));
+            _installUniTask = DrawExternalDependencyRow(ExternalPackageDependency.UniTask, "UniTask", _installUniTask, _uniTaskInstalled, "Async runtime used by loading and services.", () => RemovePackage(UniTaskPackageName, "UniTask"));
+            _installNuGetForUnity = DrawExternalDependencyRow(ExternalPackageDependency.NuGetForUnity, "NuGetForUnity", _installNuGetForUnity, _nuGetForUnityInstalled, "Installs reactive NuGet packages.", () => RemovePackage(NuGetForUnityPackageName, "NuGetForUnity"));
+            _installAddressables = DrawExternalDependencyRow(ExternalPackageDependency.Addressables, "Addressables", _installAddressables, _addressablesInstalled, "Startup scene references are created as addressable assets.", () => RemovePackage(AddressablesPackageName, "Addressables"));
+            _installLocalization = DrawExternalDependencyRow(ExternalPackageDependency.Localization, "Unity Localization", _installLocalization, _localizationInstalled, "Runtime localization package.", () => RemovePackage(LocalizationPackageName, "Unity Localization"));
+            _installInputSystem = DrawExternalDependencyRow(ExternalPackageDependency.InputSystem, "Input System", _installInputSystem, _inputSystemInstalled, "Default input package for gameplay projects.", () => RemovePackage(InputSystemPackageName, "Input System"));
+            _installUgui = DrawExternalDependencyRow(ExternalPackageDependency.Ugui, "Unity UI", _installUgui, _uguiInstalled, "Base UI package for loading and menus.", () => RemovePackage(UguiPackageName, "Unity UI"));
+            _installPrimeTween = DrawExternalDependencyRow(ExternalPackageDependency.PrimeTween, "PrimeTween", _installPrimeTween, _primeTweenInstalled, "Tweening dependency.", () => RemovePackage(PrimeTweenPackageName, "PrimeTween"));
+            _installR3Unity = DrawExternalDependencyRow(ExternalPackageDependency.R3Unity, "R3.Unity", _installR3Unity, _r3UnityInstalled, "Reactive Unity integration.", () => RemovePackage(R3UnityPackageName, "R3.Unity"));
+            _installReactiveNuGets = DrawExternalDependencyRow(ExternalPackageDependency.ReactiveNuGets, "Reactive NuGets", _installReactiveNuGets, AreReactiveAssembliesReady() || AreReactivePackagesConfigReady(), "R3, ObservableCollections and ObservableCollections.R3.", RemoveReactiveNuGetPackages);
+            DrawLegacyRuntimeMigration();
+            DrawEvoPackageGraph();
 
             EditorGUILayout.Space(4f);
-            EditorGUILayout.LabelField("Optional Modules", EditorStyles.boldLabel);
-            _installPluginYgPackage = DrawInstallPlanRow("PluginYG2", _installPluginYgPackage, _pluginYgInstalled, GetPluginYgDetails());
-            _installYandexModule = DrawInstallPlanRow("Evo Infrastructure Yandex", _installYandexModule, _yandexInstalled, "YG2 integration package.", () => RemovePackage(YandexPackageName, "Evo Infrastructure Yandex"));
+            EditorGUILayout.LabelField("Optional SDK Imports", EditorStyles.boldLabel);
+            _installPluginYgPackage = DrawExternalDependencyRow(ExternalPackageDependency.PluginYg, "PluginYG2", _installPluginYgPackage, _pluginYgInstalled, GetPluginYgDetails());
             _installOdinPackage = DrawInstallPlanRow("Odin Inspector", _installOdinPackage, _odinInstalled, "Imported automatically at the end of Setup. Odin is not required for starter runtime.");
+            DrawYandexSdkDiagnostics();
+            DrawCrazySdkDiagnostics();
+            DrawOdinAsmdefDiagnostics();
 
             EditorGUILayout.Space(4f);
             DrawProjectRuntimeActions();
+            DrawRegistrationDiagnostics();
 
             var hasSelectedWork = HasSelectedSetupWork();
             using (new EditorGUI.DisabledScope(_isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested || !_stateAnalyzed || !hasSelectedWork))
@@ -326,6 +451,106 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             SaveSelectionState();
+        }
+
+        private void DrawLegacyRuntimeMigration()
+        {
+            if (!_legacyRuntimeInstalled)
+            {
+                return;
+            }
+
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.HelpBox(
+                $"Legacy runtime package is installed: {LegacyRuntimePackageName}" +
+                (string.IsNullOrWhiteSpace(_legacyRuntimeManifestDependency) ? string.Empty : $" ({_legacyRuntimeManifestDependency})") +
+                ". Use migration to replace it with selected feature packages. Existing project LifetimeScope files are not overwritten.",
+                MessageType.Warning);
+
+            EditorGUILayout.BeginHorizontal();
+            using (new EditorGUI.DisabledScope(_isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested))
+            {
+                if (GUILayout.Button("Select Migration Packages", GUILayout.Width(170f)))
+                {
+                    SelectLegacyRuntimeMigrationPackages();
+                    _statusLine = "Selected packages that replace legacy Evo runtime.";
+                }
+
+                var canMigrate = _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_scaffoldSetupRequested && !_isRefreshingState;
+                using (new EditorGUI.DisabledScope(!canMigrate))
+                {
+                    if (GUILayout.Button("Migrate Runtime Package", GUILayout.Width(180f)))
+                    {
+                        MigrateLegacyRuntimePackage();
+                    }
+                }
+            }
+
+            EditorGUILayout.LabelField("Installs selected replacement packages and removes only the old aggregate runtime package.", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.EndHorizontal();
+            DrawLegacyRuntimeCallSiteDiagnostics();
+        }
+
+        private void DrawLegacyRuntimeCallSiteDiagnostics()
+        {
+            var callSites = FindLegacyRuntimeInstallerCallSites(6);
+            if (callSites.Count == 0)
+            {
+                return;
+            }
+
+            EditorGUILayout.HelpBox(
+                "Legacy installer API calls were found. Migration changes packages only; update these project call sites manually before removing the old runtime package:\n" +
+                string.Join("\n", callSites) +
+                "\n\nUse the registration snippet below in your existing RuntimeProjectLifetimeScope instead of YandexRuntimeInstaller/CrazyGamesRuntimeInstaller.",
+                MessageType.Warning);
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Copy Migration Registration Snippet", GUILayout.Width(230f)))
+            {
+                GUIUtility.systemCopyBuffer = BuildFeatureRegistrationSnippet(includeOnlyMissing: false);
+                _statusLine = "Copied Evo feature registration snippet to clipboard.";
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawScaffoldOwnershipDiagnostics()
+        {
+            if (_customScaffoldScriptPaths.Count == 0)
+            {
+                return;
+            }
+
+            EditorGUILayout.HelpBox(
+                "Starter scaffold scripts differ from Evo templates and are treated as project-owned. Setup will not overwrite them:\n" +
+                string.Join("\n", _customScaffoldScriptPaths) +
+                "\n\nUse the diagnostics below or copy snippets if you want to update them manually.",
+                MessageType.Info);
+        }
+
+        private void DrawRegistrationDiagnostics()
+        {
+            var missing = CollectMissingFeatureRegistrationSnippets();
+            if (missing.Count == 0)
+            {
+                return;
+            }
+
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.HelpBox(
+                "Selected or installed Evo feature packages are not referenced from the existing RuntimeProjectLifetimeScope. The wizard will not rewrite the file; add these calls manually if this project should use them:\n" +
+                string.Join("\n", missing.Select(snippet => snippet.Call)),
+                MessageType.Warning);
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Copy Missing Registration Calls", GUILayout.Width(220f)))
+            {
+                GUIUtility.systemCopyBuffer = BuildFeatureRegistrationSnippet(includeOnlyMissing: true);
+                _statusLine = "Copied missing Evo feature registration calls to clipboard.";
+            }
+            EditorGUILayout.EndHorizontal();
         }
 
         private void DrawProjectRuntimeActions()
@@ -406,7 +631,9 @@ namespace Evo.Infrastructure.Core.Editor
             if (!_starterBuildScenesReady) missing.Add("Build Settings");
 
             return missing.Count == 0
-                ? "Starter scripts, scenes, configs, Addressables entries and build scenes."
+                ? _customScaffoldScriptPaths.Count == 0
+                    ? "Starter scripts, scenes, configs, Addressables entries and build scenes."
+                    : "Starter scaffold ready. Custom project scripts are preserved."
                 : "Missing: " + string.Join(", ", missing) + ".";
         }
 
@@ -446,86 +673,206 @@ namespace Evo.Infrastructure.Core.Editor
             return value;
         }
 
-        private bool DrawRuntimePackageRow()
+        private bool DrawExternalDependencyRow(
+            ExternalPackageDependency dependency,
+            string label,
+            bool selected,
+            bool installed,
+            string details,
+            Action removeAction = null)
         {
-            var updateAvailable = _runtimeUpdateState == EvoPackageUpdateState.InstalledDifferentRevision;
-            var installedTarget = _runtimeUpdateState == EvoPackageUpdateState.InstalledTarget;
-            var installed = _runtimeInstalled;
-            var value = installed || _installRuntimeModule;
+            var value = DrawInstallPlanRow(label, selected, installed, details, removeAction);
+            if (!installed && selected && !value)
+            {
+                if (dependency == ExternalPackageDependency.NuGetForUnity)
+                {
+                    _installReactiveNuGets = false;
+                    DeselectEvoPackagesRequiringExternalDependency(ExternalPackageDependency.ReactiveNuGets);
+                }
 
+                DeselectEvoPackagesRequiringExternalDependency(dependency);
+            }
+
+            return value;
+        }
+
+        private void DrawEvoPackageGraph()
+        {
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.LabelField("Evo Packages", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Selecting a package selects its dependencies. Clearing a dependency clears packages that depend on it.",
+                MessageType.Info);
+
+            var descriptorIssues = CollectEvoPackageDescriptorIssues();
+            if (descriptorIssues.Count > 0)
+            {
+                EditorGUILayout.HelpBox(
+                    "Package descriptor issues:\n" + string.Join("\n", descriptorIssues),
+                    MessageType.Warning);
+            }
+
+            var graphIssues = CollectSelectedEvoPackageGraphIssues();
+            if (graphIssues.Count > 0)
+            {
+                EditorGUILayout.HelpBox(
+                    "Selected package graph issues:\n" + string.Join("\n", graphIssues),
+                    MessageType.Warning);
+            }
+
+            var categories = EvoPackages.Select(package => package.Category).Distinct().ToArray();
+            for (var c = 0; c < categories.Length; c++)
+            {
+                var category = categories[c];
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(category, EditorStyles.miniBoldLabel, GUILayout.Width(180f));
+                using (new EditorGUI.DisabledScope(_isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested))
+                {
+                    if (GUILayout.Button("Select all", GUILayout.Width(78f)))
+                    {
+                        SelectEvoPackageCategory(category);
+                    }
+
+                    if (GUILayout.Button("Clear", GUILayout.Width(58f)))
+                    {
+                        DeselectEvoPackageCategory(category);
+                    }
+                }
+                EditorGUILayout.EndHorizontal();
+
+                for (var i = 0; i < EvoPackages.Length; i++)
+                {
+                    var package = EvoPackages[i];
+                    if (!string.Equals(package.Category, category, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    DrawEvoPackageRow(package);
+                }
+
+                EditorGUILayout.Space(2f);
+            }
+        }
+
+        private void DrawEvoPackageRow(EvoPackageDescriptor package)
+        {
+            var installed = IsEvoPackageInstalled(package.Id);
+            var selected = installed || _selectedEvoPackageNames.Contains(package.Id);
             EditorGUILayout.BeginHorizontal();
+
+            var newSelected = selected;
             using (new EditorGUI.DisabledScope(installed || _isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested))
             {
-                value = EditorGUILayout.ToggleLeft("Evo Infrastructure Runtime", value, GUILayout.Width(220f));
+                newSelected = EditorGUILayout.ToggleLeft(package.DisplayName, selected, GUILayout.Width(180f));
+            }
+
+            if (newSelected != selected)
+            {
+                if (newSelected)
+                {
+                    SelectEvoPackageWithDependencies(package.Id);
+                }
+                else
+                {
+                    DeselectEvoPackageWithDependents(package.Id);
+                }
             }
 
             var old = GUI.color;
-            GUI.color = installedTarget
+            GUI.color = installed
                 ? new Color(0.25f, 0.7f, 0.25f)
-                : updateAvailable
+                : newSelected
                     ? new Color(0.85f, 0.65f, 0.2f)
-                    : value
-                        ? new Color(0.85f, 0.65f, 0.2f)
-                        : new Color(0.65f, 0.65f, 0.65f);
-            EditorGUILayout.LabelField(GetRuntimePackageStatusLabel(value), GUILayout.Width(92f));
+                    : new Color(0.65f, 0.65f, 0.65f);
+            EditorGUILayout.LabelField(installed ? "Installed" : newSelected ? "Selected" : "Skipped", GUILayout.Width(72f));
             GUI.color = old;
 
             using (new EditorGUI.DisabledScope(!installed || _isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested || _removeRequest != null))
             {
                 if (GUILayout.Button("Remove", GUILayout.Width(68f)))
                 {
-                    RemovePackage(RuntimePackageName, "Evo Infrastructure Runtime");
+                    DeselectEvoPackageWithDependents(package.Id);
+                    RemovePackage(package.Id, package.DisplayName);
                 }
             }
 
-            using (new EditorGUI.DisabledScope(!updateAvailable || _isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested || _addRequest != null || _addAndRemoveRequest != null))
-            {
-                if (GUILayout.Button("Update", GUILayout.Width(68f)))
-                {
-                    UpdateRuntimePackage();
-                }
-            }
-
-            EditorGUILayout.LabelField(GetRuntimePackageDetails(), EditorStyles.wordWrappedMiniLabel);
+            var dependencies = package.Dependencies.Count == 0
+                ? "deps: none"
+                : "deps: " + string.Join(", ", package.Dependencies.Select(GetEvoPackageDisplayName));
+            var externalDependencies = package.ExternalDependencies.Count == 0
+                ? "external: none"
+                : "external: " + string.Join(", ", package.ExternalDependencies.Select(GetExternalDependencyDisplayName));
+            var diagnostics = GetEvoPackageSelectionDiagnostics(package, newSelected);
+            EditorGUILayout.LabelField($"{package.Id} | {dependencies} | {externalDependencies}{diagnostics} | {package.Description}", EditorStyles.wordWrappedMiniLabel);
             EditorGUILayout.EndHorizontal();
-
-            return installed || value;
         }
 
-        private string GetRuntimePackageStatusLabel(bool selected)
+        private static List<string> CollectEvoPackageDescriptorIssues()
         {
-            switch (_runtimeUpdateState)
+            var issues = new List<string>();
+            for (var i = 0; i < EvoPackages.Length; i++)
             {
-                case EvoPackageUpdateState.InstalledTarget:
-                    return "Ready";
-                case EvoPackageUpdateState.InstalledDifferentRevision:
-                    return "Update";
-                case EvoPackageUpdateState.Missing:
-                    return selected ? "Selected" : "Skipped";
-                default:
-                    return _runtimeInstalled ? "Installed" : selected ? "Selected" : "Skipped";
+                var package = EvoPackages[i];
+                for (var d = 0; d < package.Dependencies.Count; d++)
+                {
+                    if (FindEvoPackage(package.Dependencies[d]) == null)
+                    {
+                        issues.Add($"{package.DisplayName} references unknown package dependency '{package.Dependencies[d]}'.");
+                    }
+                }
             }
+
+            return issues;
         }
 
-        private string GetRuntimePackageDetails()
+        private List<string> CollectSelectedEvoPackageGraphIssues()
         {
-            var target = $"target {RuntimeGitTag}";
-            if (_runtimeUpdateState == EvoPackageUpdateState.InstalledTarget)
+            var issues = new List<string>();
+            var selectedPackages = CollectSelectedEvoPackageClosure();
+            foreach (var packageName in _selectedEvoPackageNames)
             {
-                return $"Runtime framework package, {target}.";
+                if (FindEvoPackage(packageName) == null)
+                {
+                    issues.Add($"Selected unknown package '{packageName}'.");
+                }
             }
 
-            if (_runtimeUpdateState == EvoPackageUpdateState.InstalledDifferentRevision)
+            foreach (var packageName in selectedPackages)
             {
-                var current = !string.IsNullOrWhiteSpace(_runtimeManifestDependency)
-                    ? _runtimeManifestDependency
-                    : !string.IsNullOrWhiteSpace(_runtimeInstalledPackageId)
-                        ? _runtimeInstalledPackageId
-                        : _runtimeInstalledVersion;
-                return $"Runtime framework package, update available: {current} -> {RuntimeGitTag}.";
+                var package = FindEvoPackage(packageName);
+                if (package == null)
+                {
+                    continue;
+                }
+
+                for (var i = 0; i < package.Dependencies.Count; i++)
+                {
+                    if (!selectedPackages.Contains(package.Dependencies[i]) && !IsEvoPackageInstalled(package.Dependencies[i]))
+                    {
+                        issues.Add($"{package.DisplayName} requires {GetEvoPackageDisplayName(package.Dependencies[i])}.");
+                    }
+                }
             }
 
-            return $"Runtime framework package, {target}.";
+            return issues;
+        }
+
+        private string GetEvoPackageSelectionDiagnostics(EvoPackageDescriptor package, bool selected)
+        {
+            if (!selected || package.ExternalDependencies.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var missingExternalDependencies = package.ExternalDependencies
+                .Where(dependency => !IsExternalDependencySelectedOrInstalled(dependency))
+                .Select(GetExternalDependencyDisplayName)
+                .ToArray();
+
+            return missingExternalDependencies.Length == 0
+                ? string.Empty
+                : " | missing external: " + string.Join(", ", missingExternalDependencies);
         }
 
         private string GetPluginYgDetails()
@@ -538,6 +885,173 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             return "Optional Yandex Games PluginYG2 import from the latest GitHub release.";
+        }
+
+        private void DrawCrazySdkDiagnostics()
+        {
+            if (!IsCrazyGamesSelectedOrInstalled() && !IsDefineSymbolEnabled("CRAZY"))
+            {
+                return;
+            }
+
+            var crazyDefineReady = IsDefineSymbolEnabled("CRAZY");
+            var crazySdkReady = FindTypeByName("CrazyGames.CrazySDK") != null;
+            if (crazyDefineReady && crazySdkReady)
+            {
+                EditorGUILayout.HelpBox("CrazySDK is visible and CRAZY define is enabled.", MessageType.Info);
+                return;
+            }
+
+            var issues = new List<string>();
+            if (!crazyDefineReady)
+            {
+                issues.Add("CRAZY define is missing.");
+            }
+
+            if (!crazySdkReady)
+            {
+                issues.Add("CrazyGames.CrazySDK type was not found. Install CrazySDK and, if your project uses asmdefs, create/select a CrazySDK asmdef manually.");
+            }
+
+            var messageType = crazyDefineReady && !crazySdkReady ? MessageType.Error : MessageType.Warning;
+            EditorGUILayout.HelpBox("CrazyGames SDK diagnostics: " + string.Join(" ", issues), messageType);
+        }
+
+        private void DrawYandexSdkDiagnostics()
+        {
+            if (!IsYandexSelectedOrInstalled() && !IsDefineSymbolEnabled("YandexGamesPlatform_yg"))
+            {
+                return;
+            }
+
+            var yandexDefineReady = IsDefineSymbolEnabled("YandexGamesPlatform_yg");
+            var pluginReady = IsPluginYgInstalled();
+            if (yandexDefineReady && pluginReady)
+            {
+                EditorGUILayout.HelpBox("PluginYG2 is visible and YandexGamesPlatform_yg define is enabled.", MessageType.Info);
+                return;
+            }
+
+            var issues = new List<string>();
+            if (!pluginReady)
+            {
+                issues.Add("PluginYG2 types were not found. Import PluginYG2 before enabling Yandex adapter packages.");
+            }
+
+            if (!yandexDefineReady)
+            {
+                issues.Add("YandexGamesPlatform_yg define is missing. Open PluginYG2 settings or enable the Yandex platform define.");
+            }
+
+            var messageType = yandexDefineReady && !pluginReady ? MessageType.Error : MessageType.Warning;
+            EditorGUILayout.HelpBox("Yandex SDK diagnostics: " + string.Join(" ", issues), messageType);
+        }
+
+        private void DrawOdinAsmdefDiagnostics()
+        {
+            if (!IsDefineSymbolEnabled("ODIN_INSPECTOR"))
+            {
+                return;
+            }
+
+            var issues = CollectOdinAsmdefIssues();
+            if (issues.Count == 0)
+            {
+                return;
+            }
+
+            EditorGUILayout.HelpBox(
+                "Odin is enabled, but some Evo asmdefs that compile Sirenix code do not reference Sirenix assemblies:\n" +
+                string.Join("\n", issues.Take(8)) +
+                (issues.Count > 8 ? $"\n...and {issues.Count - 8} more." : string.Empty),
+                MessageType.Warning);
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Run Evo asmdef utility", GUILayout.Width(180f)))
+            {
+                EvoAsmdefUtility.GenerateOrUpdateAsmdefs();
+                _statusLine = "Ran Evo asmdef utility.";
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private static List<string> CollectOdinAsmdefIssues()
+        {
+            var issues = new List<string>();
+            if (!Directory.Exists("Packages"))
+            {
+                return issues;
+            }
+
+            var asmdefPaths = Directory.GetFiles("Packages", "*.asmdef", SearchOption.AllDirectories);
+            for (var i = 0; i < asmdefPaths.Length; i++)
+            {
+                var asmdefPath = asmdefPaths[i].Replace("\\", "/");
+                if (asmdefPath.IndexOf("/com.evo.infrastructure.", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    continue;
+                }
+
+                var root = Path.GetDirectoryName(asmdefPath);
+                if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+                {
+                    continue;
+                }
+
+                if (!Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories)
+                        .Any(path => SafeReadAllText(path).IndexOf("Sirenix.", StringComparison.Ordinal) >= 0))
+                {
+                    continue;
+                }
+
+                var asmdefText = SafeReadAllText(asmdefPath);
+                if (asmdefText.IndexOf("Sirenix.OdinInspector", StringComparison.Ordinal) < 0 &&
+                    asmdefText.IndexOf("Sirenix.Utilities", StringComparison.Ordinal) < 0)
+                {
+                    issues.Add(asmdefPath);
+                }
+            }
+
+            return issues;
+        }
+
+        private bool IsCrazyGamesSelectedOrInstalled()
+        {
+            for (var i = 0; i < EvoPackages.Length; i++)
+            {
+                var package = EvoPackages[i];
+                if (!string.Equals(package.Category, "CrazyGames", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (_selectedEvoPackageNames.Contains(package.Id) || IsEvoPackageInstalled(package.Id))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsYandexSelectedOrInstalled()
+        {
+            for (var i = 0; i < EvoPackages.Length; i++)
+            {
+                var package = EvoPackages[i];
+                if (!string.Equals(package.Category, "Yandex", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (_selectedEvoPackageNames.Contains(package.Id) || IsEvoPackageInstalled(package.Id))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void DrawOdinPackagePathField()
@@ -653,27 +1167,6 @@ namespace Evo.Infrastructure.Core.Editor
             EnqueueSingleInstall(R3UnitySource, "Installing R3.Unity...");
         }
 
-        private void InstallRuntimePackage()
-        {
-            _installQueue.Enqueue($"{RuntimeGitUrl}#{RuntimeGitTag}");
-            _isInstalling = true;
-            _statusLine = $"Installing runtime package from git tag {RuntimeGitTag}...";
-        }
-
-        private void UpdateRuntimePackage()
-        {
-            EnqueueSingleInstall(
-                $"{RuntimeGitUrl}#{RuntimeGitTag}",
-                $"Updating runtime package to git tag {RuntimeGitTag}...");
-        }
-
-        private void InstallYandexPackage()
-        {
-            _installQueue.Enqueue($"{YandexGitUrl}#{YandexGitTag}");
-            _isInstalling = true;
-            _statusLine = $"Installing Yandex package from git tag {YandexGitTag}...";
-        }
-
         private void InstallPluginYgPackage()
         {
             if (TryImportPluginYgPackage())
@@ -716,6 +1209,36 @@ namespace Evo.Infrastructure.Core.Editor
             _addAndRemoveRequest = Client.AddAndRemove(packages.ToArray(), Array.Empty<string>());
         }
 
+        private void MigrateLegacyRuntimePackage()
+        {
+            if (_isInstalling || _removeRequest != null || _addRequest != null || _addAndRemoveRequest != null)
+            {
+                return;
+            }
+
+            SelectLegacyRuntimeMigrationPackages();
+            var foundationPackages = CollectFoundationPackagesToInstall();
+            if (foundationPackages.Count > 0 ||
+                (ShouldConfigureReactiveNuGets() && !AreReactiveAssembliesReady()) ||
+                (ShouldInstallExternalDependency(ExternalPackageDependency.R3Unity) && !_r3UnityInstalled && !AreReactiveAssembliesReady()))
+            {
+                _statusLine = "Migration packages selected. Install selected runtime dependencies first, then run migration again.";
+                Debug.LogWarning("[Evo Setup] Legacy runtime migration requires selected runtime dependencies to be installed first.");
+                return;
+            }
+
+            var packages = CollectFrameworkPackagesToInstall();
+            _isInstalling = true;
+            _statusLine = packages.Count > 0
+                ? "Migrating legacy runtime to feature packages..."
+                : "Removing legacy runtime package...";
+            Debug.Log(
+                "[Evo Setup] Migrating legacy runtime package. Adding:\n" +
+                string.Join("\n", packages) +
+                $"\nRemoving:\n{LegacyRuntimePackageName}");
+            _addAndRemoveRequest = Client.AddAndRemove(packages.ToArray(), new[] { LegacyRuntimePackageName });
+        }
+
         private static string GetPackageDisplayName(string source)
         {
             if (string.IsNullOrWhiteSpace(source))
@@ -727,7 +1250,8 @@ namespace Evo.Infrastructure.Core.Editor
             if (ContainsIgnoreCase(source, "UniTask")) return "UniTask";
             if (ContainsIgnoreCase(source, "NuGetForUnity")) return "NuGetForUnity";
             if (ContainsIgnoreCase(source, "R3.Unity")) return "R3.Unity";
-            if (ContainsIgnoreCase(source, RuntimePackageName)) return "Evo Runtime";
+            var evoPackage = EvoPackages.FirstOrDefault(package => ContainsIgnoreCase(source, package.Id));
+            if (evoPackage != null) return evoPackage.DisplayName;
             if (ContainsIgnoreCase(source, YandexPackageName)) return "Evo Yandex";
             if (ContainsIgnoreCase(source, PrimeTweenPackageName)) return "PrimeTween";
             if (ContainsIgnoreCase(source, AddressablesPackageName)) return "Addressables";
@@ -744,6 +1268,556 @@ namespace Evo.Infrastructure.Core.Editor
                    source.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        private List<FeatureRegistrationSnippet> CollectMissingFeatureRegistrationSnippets()
+        {
+            if (!File.Exists(StarterRuntimeProjectLifetimeScopePath))
+            {
+                return new List<FeatureRegistrationSnippet>();
+            }
+
+            string scopeText;
+            try
+            {
+                scopeText = File.ReadAllText(StarterRuntimeProjectLifetimeScopePath);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[Evo Setup] Failed to read '{StarterRuntimeProjectLifetimeScopePath}' for registration diagnostics: {ex.Message}");
+                return new List<FeatureRegistrationSnippet>();
+            }
+
+            var missing = new List<FeatureRegistrationSnippet>();
+            for (var i = 0; i < FeatureRegistrationSnippets.Length; i++)
+            {
+                var snippet = FeatureRegistrationSnippets[i];
+                if (!IsEvoPackageSelectedOrInstalled(snippet.PackageName))
+                {
+                    continue;
+                }
+
+                if (scopeText.IndexOf(snippet.MethodName, StringComparison.Ordinal) < 0)
+                {
+                    missing.Add(snippet);
+                }
+            }
+
+            return missing;
+        }
+
+        private string BuildFeatureRegistrationSnippet(bool includeOnlyMissing)
+        {
+            var snippets = includeOnlyMissing
+                ? CollectMissingFeatureRegistrationSnippets()
+                : FeatureRegistrationSnippets
+                    .Where(snippet => IsEvoPackageSelectedOrInstalled(snippet.PackageName))
+                    .ToList();
+
+            return snippets.Count == 0
+                ? string.Empty
+                : string.Join(Environment.NewLine, snippets.Select(snippet => snippet.Call));
+        }
+
+        private bool IsEvoPackageSelectedOrInstalled(string packageName)
+        {
+            return _selectedEvoPackageNames.Contains(packageName) || _installedEvoPackageNames.Contains(packageName);
+        }
+
+        private static List<string> FindLegacyRuntimeInstallerCallSites(int maxResults)
+        {
+            var results = new List<string>();
+            var assetsRoot = Path.Combine(GetProjectRootPath(), "Assets");
+            if (!Directory.Exists(assetsRoot))
+            {
+                return results;
+            }
+
+            try
+            {
+                var files = Directory.GetFiles(assetsRoot, "*.cs", SearchOption.AllDirectories);
+                for (var i = 0; i < files.Length && results.Count < maxResults; i++)
+                {
+                    var file = files[i];
+                    string text;
+                    try
+                    {
+                        text = File.ReadAllText(file);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    if (text.IndexOf("YandexRuntimeInstaller", StringComparison.Ordinal) < 0 &&
+                        text.IndexOf("CrazyGamesRuntimeInstaller", StringComparison.Ordinal) < 0)
+                    {
+                        continue;
+                    }
+
+                    results.Add(ToProjectRelativePath(file));
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[Evo Setup] Failed to scan legacy runtime installer call sites: {ex.Message}");
+            }
+
+            return results;
+        }
+
+        private static string ToProjectRelativePath(string fullPath)
+        {
+            var projectRoot = GetProjectRootPath();
+            if (fullPath.StartsWith(projectRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                return fullPath.Substring(projectRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Replace("\\", "/");
+            }
+
+            return fullPath.Replace("\\", "/");
+        }
+
+        private static string GetEvoPackageSource(string packageName)
+        {
+            var tag = packageName.StartsWith(CrazyGamesPackageName, StringComparison.OrdinalIgnoreCase)
+                ? CrazyGamesGitTag
+                : packageName.StartsWith(YandexPackageName, StringComparison.OrdinalIgnoreCase)
+                    ? YandexGitTag
+                    : RuntimeGitTag;
+            return $"https://github.com/illiden228/EvoInfrastructure.git?path=Packages/{packageName}#{tag}";
+        }
+
+        private static string GetEvoPackageDisplayName(string packageName)
+        {
+            var package = FindEvoPackage(packageName);
+            return package != null ? package.DisplayName : packageName;
+        }
+
+        private static IReadOnlyList<ExternalPackageDependency> ResolveExternalDependencies(string packageName)
+        {
+            switch (packageName)
+            {
+                case "com.evo.infrastructure.di":
+                    return new[] { ExternalPackageDependency.VContainer };
+                case "com.evo.infrastructure.config":
+                case "com.evo.infrastructure.platform":
+                case "com.evo.infrastructure.leaderboards":
+                    return new[] { ExternalPackageDependency.VContainer };
+                case "com.evo.infrastructure.resources":
+                case "com.evo.infrastructure.scene":
+                    return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.UniTask, ExternalPackageDependency.Addressables };
+                case "com.evo.infrastructure.save":
+                case "com.evo.infrastructure.analytics":
+                    return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.UniTask };
+                case "com.evo.infrastructure.ads":
+                    return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.UniTask, ExternalPackageDependency.ReactiveNuGets };
+                case "com.evo.infrastructure.localization":
+                    return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.UniTask, ExternalPackageDependency.Localization };
+                case "com.evo.infrastructure.focus":
+                    return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.ReactiveNuGets, ExternalPackageDependency.InputSystem };
+                case "com.evo.infrastructure.audio":
+                    return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.UniTask, ExternalPackageDependency.Addressables };
+                case "com.evo.infrastructure.loading":
+                    return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.UniTask, ExternalPackageDependency.Addressables, ExternalPackageDependency.Localization };
+                case "com.evo.infrastructure.ui":
+                    return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.UniTask, ExternalPackageDependency.ReactiveNuGets, ExternalPackageDependency.R3Unity, ExternalPackageDependency.Addressables, ExternalPackageDependency.InputSystem, ExternalPackageDependency.Ugui, ExternalPackageDependency.PrimeTween };
+                case "com.evo.infrastructure.editor-tools":
+                    return new[] { ExternalPackageDependency.Addressables, ExternalPackageDependency.Localization };
+                case "com.evo.infrastructure.yandex":
+                case "com.evo.infrastructure.yandex.platform":
+                case "com.evo.infrastructure.yandex.ads":
+                case "com.evo.infrastructure.yandex.analytics":
+                case "com.evo.infrastructure.yandex.save":
+                case "com.evo.infrastructure.yandex.leaderboards":
+                    return new[] { ExternalPackageDependency.PluginYg };
+                default:
+                    return Array.Empty<ExternalPackageDependency>();
+            }
+        }
+
+        private static string GetExternalDependencyDisplayName(ExternalPackageDependency dependency)
+        {
+            switch (dependency)
+            {
+                case ExternalPackageDependency.VContainer:
+                    return "VContainer";
+                case ExternalPackageDependency.UniTask:
+                    return "UniTask";
+                case ExternalPackageDependency.NuGetForUnity:
+                    return "NuGetForUnity";
+                case ExternalPackageDependency.ReactiveNuGets:
+                    return "Reactive NuGets";
+                case ExternalPackageDependency.R3Unity:
+                    return "R3.Unity";
+                case ExternalPackageDependency.Addressables:
+                    return "Addressables";
+                case ExternalPackageDependency.Localization:
+                    return "Unity Localization";
+                case ExternalPackageDependency.InputSystem:
+                    return "Input System";
+                case ExternalPackageDependency.Ugui:
+                    return "Unity UI";
+                case ExternalPackageDependency.PrimeTween:
+                    return "PrimeTween";
+                case ExternalPackageDependency.PluginYg:
+                    return "PluginYG2";
+                default:
+                    return dependency.ToString();
+            }
+        }
+
+        private static EvoPackageDescriptor FindEvoPackage(string packageName)
+        {
+            for (var i = 0; i < EvoPackages.Length; i++)
+            {
+                if (string.Equals(EvoPackages[i].Id, packageName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return EvoPackages[i];
+                }
+            }
+
+            return null;
+        }
+
+        private bool IsEvoPackageInstalled(string packageName)
+        {
+            return _installedEvoPackageNames.Contains(packageName);
+        }
+
+        private HashSet<string> CollectSelectedEvoPackageClosure()
+        {
+            var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var packageName in _selectedEvoPackageNames)
+            {
+                AddEvoPackageWithDependencies(packageName, result);
+            }
+
+            return result;
+        }
+
+        private static void AddEvoPackageWithDependencies(string packageName, HashSet<string> result)
+        {
+            var package = FindEvoPackage(packageName);
+            if (package == null || !result.Add(package.Id))
+            {
+                return;
+            }
+
+            for (var i = 0; i < package.Dependencies.Count; i++)
+            {
+                AddEvoPackageWithDependencies(package.Dependencies[i], result);
+            }
+        }
+
+        private HashSet<ExternalPackageDependency> CollectRequiredExternalDependenciesForSelectedEvoPackages()
+        {
+            var dependencies = new HashSet<ExternalPackageDependency>();
+            var selectedPackages = CollectSelectedEvoPackageClosure();
+            foreach (var packageName in selectedPackages)
+            {
+                var package = FindEvoPackage(packageName);
+                if (package == null)
+                {
+                    continue;
+                }
+
+                for (var i = 0; i < package.ExternalDependencies.Count; i++)
+                {
+                    dependencies.Add(package.ExternalDependencies[i]);
+                }
+            }
+
+            return dependencies;
+        }
+
+        private bool IsExternalDependencyRequiredBySelectedEvoPackages(ExternalPackageDependency dependency)
+        {
+            return CollectRequiredExternalDependenciesForSelectedEvoPackages().Contains(dependency);
+        }
+
+        private void SelectEvoPackageWithDependencies(string packageName)
+        {
+            SelectEvoPackageWithDependencies(packageName, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        }
+
+        private void SelectLegacyRuntimeMigrationPackages()
+        {
+            for (var i = 0; i < DefaultSelectedEvoPackageNames.Length; i++)
+            {
+                SelectEvoPackageWithDependencies(DefaultSelectedEvoPackageNames[i]);
+            }
+
+            if (IsEvoPackageInstalled(YandexPackageName))
+            {
+                SelectEvoPackageCategory("Yandex");
+            }
+
+            if (IsEvoPackageInstalled(CrazyGamesPackageName))
+            {
+                SelectEvoPackageCategory("CrazyGames");
+            }
+        }
+
+        private void SelectEvoPackageWithDependencies(string packageName, HashSet<string> visited)
+        {
+            var package = FindEvoPackage(packageName);
+            if (package == null || !visited.Add(package.Id))
+            {
+                return;
+            }
+
+            _selectedEvoPackageNames.Add(package.Id);
+            SelectExternalDependencies(package.ExternalDependencies);
+            if (string.Equals(package.Category, "Yandex", StringComparison.Ordinal))
+            {
+                _installPluginYgPackage = true;
+            }
+
+            for (var i = 0; i < package.Dependencies.Count; i++)
+            {
+                SelectEvoPackageWithDependencies(package.Dependencies[i], visited);
+            }
+        }
+
+        private void DeselectEvoPackageWithDependents(string packageName)
+        {
+            DeselectEvoPackageWithDependents(packageName, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        }
+
+        private void DeselectEvoPackageWithDependents(string packageName, HashSet<string> visited)
+        {
+            if (!visited.Add(packageName))
+            {
+                return;
+            }
+
+            var canonicalPackage = FindEvoPackage(packageName);
+            _selectedEvoPackageNames.Remove(canonicalPackage?.Id ?? packageName);
+            for (var i = 0; i < EvoPackages.Length; i++)
+            {
+                var package = EvoPackages[i];
+                if (package.Dependencies.Any(dependency => string.Equals(dependency, packageName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    DeselectEvoPackageWithDependents(package.Id, visited);
+                }
+            }
+        }
+
+        private void DeselectEvoPackagesRequiringExternalDependency(ExternalPackageDependency dependency)
+        {
+            var affectedPackages = EvoPackages
+                .Where(package => package.ExternalDependencies.Contains(dependency))
+                .OrderByDescending(package => GetEvoPackageInstallOrder(package.Id))
+                .Select(package => package.Id)
+                .ToArray();
+
+            for (var i = 0; i < affectedPackages.Length; i++)
+            {
+                DeselectEvoPackageWithDependents(affectedPackages[i]);
+            }
+        }
+
+        private void SelectExternalDependencies(IReadOnlyList<ExternalPackageDependency> dependencies)
+        {
+            for (var i = 0; i < dependencies.Count; i++)
+            {
+                SelectExternalDependency(dependencies[i]);
+            }
+        }
+
+        private void NormalizeExternalDependencySelection()
+        {
+            var selectedPackages = _selectedEvoPackageNames.ToArray();
+            for (var i = 0; i < selectedPackages.Length; i++)
+            {
+                var package = FindEvoPackage(selectedPackages[i]);
+                if (package == null)
+                {
+                    continue;
+                }
+
+                SelectExternalDependencies(package.ExternalDependencies);
+            }
+        }
+
+        private void SelectExternalDependency(ExternalPackageDependency dependency)
+        {
+            switch (dependency)
+            {
+                case ExternalPackageDependency.VContainer:
+                    _installVContainer = true;
+                    break;
+                case ExternalPackageDependency.UniTask:
+                    _installUniTask = true;
+                    break;
+                case ExternalPackageDependency.NuGetForUnity:
+                    _installNuGetForUnity = true;
+                    break;
+                case ExternalPackageDependency.ReactiveNuGets:
+                    _installNuGetForUnity = true;
+                    _installReactiveNuGets = true;
+                    break;
+                case ExternalPackageDependency.R3Unity:
+                    _installR3Unity = true;
+                    break;
+                case ExternalPackageDependency.Addressables:
+                    _installAddressables = true;
+                    break;
+                case ExternalPackageDependency.Localization:
+                    _installLocalization = true;
+                    break;
+                case ExternalPackageDependency.InputSystem:
+                    _installInputSystem = true;
+                    break;
+                case ExternalPackageDependency.Ugui:
+                    _installUgui = true;
+                    break;
+                case ExternalPackageDependency.PrimeTween:
+                    _installPrimeTween = true;
+                    break;
+                case ExternalPackageDependency.PluginYg:
+                    _installPluginYgPackage = true;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(dependency), dependency, null);
+            }
+        }
+
+        private bool IsExternalDependencySelectedOrInstalled(ExternalPackageDependency dependency)
+        {
+            switch (dependency)
+            {
+                case ExternalPackageDependency.VContainer:
+                    return _installVContainer || _vContainerInstalled;
+                case ExternalPackageDependency.UniTask:
+                    return _installUniTask || _uniTaskInstalled;
+                case ExternalPackageDependency.NuGetForUnity:
+                    return _installNuGetForUnity || _nuGetForUnityInstalled;
+                case ExternalPackageDependency.ReactiveNuGets:
+                    return _installReactiveNuGets || AreReactiveAssembliesReady() || AreReactivePackagesConfigReady();
+                case ExternalPackageDependency.R3Unity:
+                    return _installR3Unity || _r3UnityInstalled;
+                case ExternalPackageDependency.Addressables:
+                    return _installAddressables || _addressablesInstalled;
+                case ExternalPackageDependency.Localization:
+                    return _installLocalization || _localizationInstalled;
+                case ExternalPackageDependency.InputSystem:
+                    return _installInputSystem || _inputSystemInstalled;
+                case ExternalPackageDependency.Ugui:
+                    return _installUgui || _uguiInstalled;
+                case ExternalPackageDependency.PrimeTween:
+                    return _installPrimeTween || _primeTweenInstalled;
+                case ExternalPackageDependency.PluginYg:
+                    return _installPluginYgPackage || _pluginYgInstalled;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(dependency), dependency, null);
+            }
+        }
+
+        private bool ShouldInstallExternalDependency(ExternalPackageDependency dependency)
+        {
+            return IsExternalDependencySelected(dependency) ||
+                   IsExternalDependencyRequiredBySelectedEvoPackages(dependency) ||
+                   (dependency == ExternalPackageDependency.NuGetForUnity && IsExternalDependencyRequiredBySelectedEvoPackages(ExternalPackageDependency.ReactiveNuGets));
+        }
+
+        private bool ShouldConfigureReactiveNuGets()
+        {
+            return _installReactiveNuGets ||
+                   IsExternalDependencyRequiredBySelectedEvoPackages(ExternalPackageDependency.ReactiveNuGets);
+        }
+
+        private bool IsExternalDependencySelected(ExternalPackageDependency dependency)
+        {
+            switch (dependency)
+            {
+                case ExternalPackageDependency.VContainer:
+                    return _installVContainer;
+                case ExternalPackageDependency.UniTask:
+                    return _installUniTask;
+                case ExternalPackageDependency.NuGetForUnity:
+                    return _installNuGetForUnity;
+                case ExternalPackageDependency.ReactiveNuGets:
+                    return _installReactiveNuGets;
+                case ExternalPackageDependency.R3Unity:
+                    return _installR3Unity;
+                case ExternalPackageDependency.Addressables:
+                    return _installAddressables;
+                case ExternalPackageDependency.Localization:
+                    return _installLocalization;
+                case ExternalPackageDependency.InputSystem:
+                    return _installInputSystem;
+                case ExternalPackageDependency.Ugui:
+                    return _installUgui;
+                case ExternalPackageDependency.PrimeTween:
+                    return _installPrimeTween;
+                case ExternalPackageDependency.PluginYg:
+                    return _installPluginYgPackage;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(dependency), dependency, null);
+            }
+        }
+
+        private void SelectEvoPackageCategory(string category)
+        {
+            for (var i = 0; i < EvoPackages.Length; i++)
+            {
+                if (string.Equals(EvoPackages[i].Category, category, StringComparison.Ordinal))
+                {
+                    SelectEvoPackageWithDependencies(EvoPackages[i].Id);
+                }
+            }
+        }
+
+        private void DeselectEvoPackageCategory(string category)
+        {
+            for (var i = 0; i < EvoPackages.Length; i++)
+            {
+                if (string.Equals(EvoPackages[i].Category, category, StringComparison.Ordinal))
+                {
+                    DeselectEvoPackageWithDependents(EvoPackages[i].Id);
+                }
+            }
+        }
+
+        private static int GetEvoPackageInstallOrder(string packageName)
+        {
+            return GetEvoPackageInstallOrder(packageName, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        }
+
+        private static int GetEvoPackageDescriptorIndex(string packageName)
+        {
+            for (var i = 0; i < EvoPackages.Length; i++)
+            {
+                if (string.Equals(EvoPackages[i].Id, packageName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i;
+                }
+            }
+
+            return int.MaxValue;
+        }
+
+        private static int GetEvoPackageInstallOrder(string packageName, HashSet<string> visited)
+        {
+            if (!visited.Add(packageName))
+            {
+                return 0;
+            }
+
+            var package = FindEvoPackage(packageName);
+            if (package == null || package.Dependencies.Count == 0)
+            {
+                return 0;
+            }
+
+            var max = 0;
+            for (var i = 0; i < package.Dependencies.Count; i++)
+            {
+                max = Math.Max(max, GetEvoPackageInstallOrder(package.Dependencies[i], visited) + 1);
+            }
+
+            return max;
+        }
+
         private List<string> CollectSelectedUpmPackagesToInstall()
         {
             var foundation = CollectFoundationPackagesToInstall();
@@ -752,7 +1826,7 @@ namespace Evo.Infrastructure.Core.Editor
                 return foundation;
             }
 
-            if (_installReactiveNuGets && !AreReactiveAssembliesReady())
+            if (ShouldConfigureReactiveNuGets() && !AreReactiveAssembliesReady())
             {
                 return new List<string>();
             }
@@ -763,33 +1837,31 @@ namespace Evo.Infrastructure.Core.Editor
         private List<string> CollectFoundationPackagesToInstall()
         {
             var packages = new List<string>();
-            if (_installVContainer && !_vContainerInstalled) packages.Add(VContainerSource);
-            if (_installUniTask && !_uniTaskInstalled) packages.Add(UniTaskSource);
-            if (_installNuGetForUnity && !_nuGetForUnityInstalled) packages.Add(NuGetForUnitySource);
-            if (_installAddressables && !_addressablesInstalled) packages.Add(AddressablesSource);
-            if (_installLocalization && !_localizationInstalled) packages.Add(LocalizationSource);
-            if (_installInputSystem && !_inputSystemInstalled) packages.Add(InputSystemSource);
-            if (_installUgui && !_uguiInstalled) packages.Add(UguiSource);
-            if (_installPrimeTween && !_primeTweenInstalled) packages.Add(PrimeTweenSource);
+            if (ShouldInstallExternalDependency(ExternalPackageDependency.VContainer) && !_vContainerInstalled) packages.Add(VContainerSource);
+            if (ShouldInstallExternalDependency(ExternalPackageDependency.UniTask) && !_uniTaskInstalled) packages.Add(UniTaskSource);
+            if (ShouldInstallExternalDependency(ExternalPackageDependency.NuGetForUnity) && !_nuGetForUnityInstalled) packages.Add(NuGetForUnitySource);
+            if (ShouldInstallExternalDependency(ExternalPackageDependency.Addressables) && !_addressablesInstalled) packages.Add(AddressablesSource);
+            if (ShouldInstallExternalDependency(ExternalPackageDependency.Localization) && !_localizationInstalled) packages.Add(LocalizationSource);
+            if (ShouldInstallExternalDependency(ExternalPackageDependency.InputSystem) && !_inputSystemInstalled) packages.Add(InputSystemSource);
+            if (ShouldInstallExternalDependency(ExternalPackageDependency.Ugui) && !_uguiInstalled) packages.Add(UguiSource);
+            if (ShouldInstallExternalDependency(ExternalPackageDependency.PrimeTween) && !_primeTweenInstalled) packages.Add(PrimeTweenSource);
             return packages;
         }
 
         private List<string> CollectFrameworkPackagesToInstall()
         {
             var packages = new List<string>();
-            if (_installR3Unity && !_r3UnityInstalled) packages.Add(R3UnitySource);
-            if (_installRuntimeModule &&
-                (!_runtimeInstalled || _runtimeUpdateState == EvoPackageUpdateState.InstalledDifferentRevision) &&
-                IsRuntimeInstallReady(packages))
+            if (ShouldInstallExternalDependency(ExternalPackageDependency.R3Unity) && !_r3UnityInstalled) packages.Add(R3UnitySource);
+            if (IsSelectedEvoPackageInstallReady(packages))
             {
-                packages.Add($"{RuntimeGitUrl}#{RuntimeGitTag}");
-            }
-            if (_installYandexModule &&
-                !_yandexInstalled &&
-                _runtimeInstalled &&
-                (!_installPluginYgPackage || _pluginYgInstalled))
-            {
-                packages.Add($"{YandexGitUrl}#{YandexGitTag}");
+                var selectedPackages = CollectSelectedEvoPackageClosure()
+                    .Where(packageName => !IsEvoPackageInstalled(packageName))
+                    .OrderBy(GetEvoPackageInstallOrder)
+                    .ThenBy(GetEvoPackageDescriptorIndex);
+                foreach (var packageName in selectedPackages)
+                {
+                    packages.Add(GetEvoPackageSource(packageName));
+                }
             }
             return packages;
         }
@@ -1054,11 +2126,11 @@ namespace Evo.Infrastructure.Core.Editor
                 "Evo.Infrastructure.Runtime.Config.ProjectConfig, Assembly-CSharp",
                 ProjectConfigPath);
             CreateScriptableAsset(
-                "Evo.Infrastructure.Runtime.UI.UiSystemConfig, Evo.Infrastructure.Runtime",
+                "Evo.Infrastructure.Runtime.UI.UiSystemConfig, Evo.Infrastructure.UI",
                 UiSystemConfigPath);
             EnsureConfigCatalogAsset();
             CreateScriptableAsset(
-                "Evo.Infrastructure.Services.ResourceCatalog.ResourceCatalog, Evo.Infrastructure.Runtime",
+                "Evo.Infrastructure.Services.ResourceCatalog.ResourceCatalog, Evo.Infrastructure.Resources",
                 ResourceCatalogPath);
             CreateScriptableAsset(
                 "Evo.Infrastructure.Services.Yandex.YandexRuntimeConfig, Assembly-CSharp",
@@ -1098,7 +2170,7 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             CreateScriptableAsset(
-                "Evo.Infrastructure.Services.Config.ScriptableConfigCatalog, Evo.Infrastructure.Runtime",
+                "Evo.Infrastructure.Services.Config.ScriptableConfigCatalog, Evo.Infrastructure.Config",
                 ConfigCatalogPath);
         }
 
@@ -2552,8 +3624,6 @@ namespace Evo.Infrastructure.Core.Editor
                                          _inputSystemInstalled &&
                                          _uguiInstalled;
                 RefreshRuntimePackageState(packages);
-                _yandexInstalled = HasAnyPackage(packages, YandexPackageName, "com.evo.infrastructure.yandex") ||
-                                   ManifestHasAnyDependency(YandexPackageName);
                 _pluginYgInstalled = IsPluginYgInstalled();
                 _pluginYgDefineReady = IsPluginYgDefineReady();
                 if (_pluginYgInstalled)
@@ -2809,6 +3879,7 @@ namespace Evo.Infrastructure.Core.Editor
         private void ValidateTemplatesAndScaffoldScriptsState()
         {
             _templateValidationIssues.Clear();
+            _customScaffoldScriptPaths.Clear();
             _templatesReady = true;
             _scaffoldScriptsUpToDate = true;
 
@@ -2824,6 +3895,10 @@ namespace Evo.Infrastructure.Core.Editor
                 if (!IsScaffoldScriptUpToDate(StarterScriptTemplates[i]))
                 {
                     _scaffoldScriptsUpToDate = false;
+                }
+                else if (IsExistingScaffoldScriptCustomized(StarterScriptTemplates[i]))
+                {
+                    _customScaffoldScriptPaths.Add(StarterScriptTemplates[i].TargetPath);
                 }
             }
 
@@ -2865,16 +3940,42 @@ namespace Evo.Infrastructure.Core.Editor
                 if (!upToDate)
                 {
                     Debug.Log(
-                        $"[Evo Setup] Scaffold script differs from template: {template.TargetPath}. " +
+                        $"[Evo Setup] Scaffold script differs from template and will be preserved as project-owned: {template.TargetPath}. " +
                         $"Template={templatePath} ({GetFileLength(templatePath)} bytes), " +
                         $"Target={GetFileLength(template.TargetPath)} bytes.");
                 }
 
-                return upToDate;
+                return true;
             }
             catch (Exception ex)
             {
                 Debug.LogError($"[Evo Setup] Failed to compare scaffold script '{template.TargetPath}': {ex.Message}");
+                return false;
+            }
+        }
+
+        private static bool IsExistingScaffoldScriptCustomized(StarterScriptTemplate template)
+        {
+            if (!File.Exists(template.TargetPath))
+            {
+                return false;
+            }
+
+            var templatePath = GetTemplatePath(template.TemplateFileName);
+            if (!File.Exists(templatePath))
+            {
+                return false;
+            }
+
+            try
+            {
+                return !string.Equals(
+                    NormalizeText(File.ReadAllText(templatePath)),
+                    NormalizeText(File.ReadAllText(template.TargetPath)),
+                    StringComparison.Ordinal);
+            }
+            catch
+            {
                 return false;
             }
         }
@@ -2891,9 +3992,10 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void UpdateScaffoldScriptsFromTemplates()
         {
-            Debug.Log("[Evo Setup] Force-updating scaffold scripts from templates...");
+            Debug.Log("[Evo Setup] Creating missing scaffold scripts from templates...");
             var updated = new List<string>();
             var errors = new List<string>();
+            var skipped = new List<string>();
 
             for (var i = 0; i < StarterScriptTemplates.Length; i++)
             {
@@ -2940,15 +4042,11 @@ namespace Evo.Infrastructure.Core.Editor
                         continue;
                     }
 
-                    try
-                    {
-                        File.Delete(template.TargetPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        errors.Add($"Failed to delete old script '{template.TargetPath}': {ex.Message}");
-                        continue;
-                    }
+                    skipped.Add(Path.GetFileName(template.TargetPath));
+                    Debug.LogWarning(
+                        $"[Evo Setup] Scaffold script differs from template and was left untouched: {template.TargetPath}. " +
+                        "Update it manually if you want the new starter code.");
+                    continue;
                 }
 
                 try
@@ -2975,8 +4073,10 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             _statusLine = updated.Count == 0
-                ? "Scaffold scripts are already up to date."
-                : "Updated scaffold scripts: " + string.Join(", ", updated);
+                ? skipped.Count == 0
+                    ? "Scaffold scripts are already up to date."
+                    : "Scaffold scripts differ and were left untouched: " + string.Join(", ", skipped)
+                : "Created scaffold scripts: " + string.Join(", ", updated);
             Debug.Log("[Evo Setup] " + _statusLine);
         }
 
@@ -3258,17 +4358,76 @@ namespace Evo.Infrastructure.Core.Editor
 
         private void RefreshRuntimePackageState(IReadOnlyList<UnityEditor.PackageManager.PackageInfo> packages)
         {
-            var package = FindPackage(packages, RuntimePackageName, "com.evo.infrastructure.runtime");
-            _runtimeManifestDependency = GetManifestDependencyValue(RuntimePackageName);
-            _runtimeInstalled = package != null || !string.IsNullOrWhiteSpace(_runtimeManifestDependency);
-            _runtimeInstalledVersion = package != null ? package.version ?? string.Empty : string.Empty;
-            _runtimeInstalledPackageId = package != null ? package.packageId ?? string.Empty : string.Empty;
-            _runtimeUpdateState = ResolveEvoPackageUpdateState(
-                _runtimeInstalled,
-                _runtimeInstalledVersion,
-                _runtimeInstalledPackageId,
-                _runtimeManifestDependency,
-                RuntimeGitTag);
+            _installedEvoPackageNames.Clear();
+            var legacyRuntimePackage = FindPackage(packages, LegacyRuntimePackageName);
+            _legacyRuntimeManifestDependency = GetManifestDependencyValue(LegacyRuntimePackageName);
+            _legacyRuntimeInstalled = legacyRuntimePackage != null || !string.IsNullOrWhiteSpace(_legacyRuntimeManifestDependency);
+            for (var i = 0; i < EvoPackages.Length; i++)
+            {
+                var packageName = EvoPackages[i].Id;
+                var package = FindPackage(packages, packageName);
+                var manifestDependency = GetManifestDependencyValue(packageName);
+                if (package != null || !string.IsNullOrWhiteSpace(manifestDependency))
+                {
+                    _installedEvoPackageNames.Add(packageName);
+                }
+            }
+
+            var installedCount = 0;
+            var installedTargetCount = 0;
+            string firstDifferentRevision = null;
+
+            for (var i = 0; i < RuntimePackageNames.Length; i++)
+            {
+                var packageName = RuntimePackageNames[i];
+                var package = FindPackage(packages, packageName);
+                var manifestDependency = GetManifestDependencyValue(packageName);
+                var installed = package != null || !string.IsNullOrWhiteSpace(manifestDependency);
+                if (!installed)
+                {
+                    continue;
+                }
+
+                installedCount++;
+                var updateState = ResolveEvoPackageUpdateState(
+                    true,
+                    package != null ? package.version ?? string.Empty : string.Empty,
+                    package != null ? package.packageId ?? string.Empty : string.Empty,
+                    manifestDependency,
+                    RuntimeGitTag);
+
+                if (updateState == EvoPackageUpdateState.InstalledTarget)
+                {
+                    installedTargetCount++;
+                }
+                else if (string.IsNullOrWhiteSpace(firstDifferentRevision))
+                {
+                    firstDifferentRevision = !string.IsNullOrWhiteSpace(manifestDependency)
+                        ? manifestDependency
+                        : package != null ? package.packageId ?? package.version ?? packageName : packageName;
+                }
+            }
+
+            _runtimeInstalled = installedCount == RuntimePackageNames.Length;
+            _runtimeManifestDependency = $"{installedCount}/{RuntimePackageNames.Length} packages";
+            _runtimeInstalledVersion = _runtimeInstalled ? RuntimeGitTag.TrimStart('v', 'V') : string.Empty;
+            _runtimeInstalledPackageId = _runtimeInstalled ? "Evo Infrastructure feature packages" : string.Empty;
+
+            if (installedCount == 0)
+            {
+                _runtimeUpdateState = EvoPackageUpdateState.Missing;
+            }
+            else if (installedTargetCount == RuntimePackageNames.Length)
+            {
+                _runtimeUpdateState = EvoPackageUpdateState.InstalledTarget;
+            }
+            else
+            {
+                _runtimeManifestDependency = !string.IsNullOrWhiteSpace(firstDifferentRevision)
+                    ? $"{installedCount}/{RuntimePackageNames.Length} packages, {firstDifferentRevision}"
+                    : _runtimeManifestDependency;
+                _runtimeUpdateState = EvoPackageUpdateState.InstalledDifferentRevision;
+            }
         }
 
         private static EvoPackageUpdateState ResolveEvoPackageUpdateState(
@@ -3415,6 +4574,11 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             return json.Substring(valueStart + 1, valueEnd - valueStart - 1);
+        }
+
+        private static bool IsPackageDependencyPresent(string packageName)
+        {
+            return !string.IsNullOrWhiteSpace(GetManifestDependencyValue(packageName));
         }
 
         private static bool EqualsIgnoreCase(string source, string value)
@@ -3729,15 +4893,11 @@ namespace Evo.Infrastructure.Core.Editor
                     return;
                 }
 
-                if (LooksLikeLegacyMinimalScope(targetText))
-                {
-                    Debug.LogWarning($"[Evo Setup] Legacy/minimal scaffold script detected and will be replaced: {targetPath}");
-                }
-
-                Debug.Log(
-                    $"[Evo Setup] Replacing scaffold script from template: {targetPath}. " +
+                Debug.LogWarning(
+                    $"[Evo Setup] Scaffold script exists and differs from template, leaving it untouched: {targetPath}. " +
                     $"Template={templatePath} ({GetTextByteCount(templateText)} bytes), " +
-                    $"ExistingTarget={GetTextByteCount(targetText)} bytes.");
+                    $"ExistingTarget={GetTextByteCount(targetText)} bytes. Update manually if needed.");
+                return;
             }
             else
             {
@@ -3754,17 +4914,6 @@ namespace Evo.Infrastructure.Core.Editor
 
             File.WriteAllText(targetPath, templateText);
             Debug.Log($"[Evo Setup] Synced scaffold script from template: {targetPath}. NewTarget={GetFileLength(targetPath)} bytes.");
-        }
-
-        private static bool LooksLikeLegacyMinimalScope(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return false;
-            }
-
-            return text.IndexOf("public class RuntimeProjectLifetimeScope", StringComparison.Ordinal) >= 0 ||
-                   text.IndexOf("public class LoadingSceneLifetimeScope", StringComparison.Ordinal) >= 0;
         }
 
         private static long GetFileLength(string path)
@@ -3813,12 +4962,12 @@ namespace Evo.Infrastructure.Core.Editor
             _installPrimeTween = GetSelection(nameof(_installPrimeTween), _installPrimeTween);
             _installR3Unity = GetSelection(nameof(_installR3Unity), _installR3Unity);
             _installReactiveNuGets = GetSelection(nameof(_installReactiveNuGets), _installReactiveNuGets);
-            _installRuntimeModule = GetSelection(nameof(_installRuntimeModule), _installRuntimeModule);
+            LoadEvoPackageSelectionState();
             _installPluginYgPackage = GetSelection(nameof(_installPluginYgPackage), _installPluginYgPackage);
-            _installYandexModule = GetSelection(nameof(_installYandexModule), _installYandexModule);
             _installOdinPackage = GetSelection(nameof(_installOdinPackage), _installOdinPackage);
             _installProjectStructure = GetSelection(nameof(_installProjectStructure), _installProjectStructure);
             _installStarterScaffold = GetSelection(nameof(_installStarterScaffold), _installStarterScaffold);
+            NormalizeExternalDependencySelection();
         }
 
         private void SaveSelectionState()
@@ -3833,12 +4982,34 @@ namespace Evo.Infrastructure.Core.Editor
             SetSelection(nameof(_installPrimeTween), _installPrimeTween);
             SetSelection(nameof(_installR3Unity), _installR3Unity);
             SetSelection(nameof(_installReactiveNuGets), _installReactiveNuGets);
-            SetSelection(nameof(_installRuntimeModule), _installRuntimeModule);
+            SaveEvoPackageSelectionState();
             SetSelection(nameof(_installPluginYgPackage), _installPluginYgPackage);
-            SetSelection(nameof(_installYandexModule), _installYandexModule);
             SetSelection(nameof(_installOdinPackage), _installOdinPackage);
             SetSelection(nameof(_installProjectStructure), _installProjectStructure);
             SetSelection(nameof(_installStarterScaffold), _installStarterScaffold);
+        }
+
+        private void LoadEvoPackageSelectionState()
+        {
+            _selectedEvoPackageNames.Clear();
+            var value = SessionState.GetString(GetSelectionStateKey("EvoPackages"), string.Empty);
+            var source = string.IsNullOrWhiteSpace(value)
+                ? DefaultSelectedEvoPackageNames
+                : value.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+
+            for (var i = 0; i < source.Length; i++)
+            {
+                SelectEvoPackageWithDependencies(source[i]);
+            }
+        }
+
+        private void SaveEvoPackageSelectionState()
+        {
+            SessionState.SetString(
+                GetSelectionStateKey("EvoPackages"),
+                string.Join("|", _selectedEvoPackageNames
+                    .OrderBy(GetEvoPackageInstallOrder)
+                    .ThenBy(GetEvoPackageDescriptorIndex)));
         }
 
         private static bool GetSelection(string key, bool defaultValue)
@@ -3943,9 +5114,9 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            if (_installRuntimeModule && !_runtimeInstalled && !IsRuntimeInstallReady(null))
+            if (HasSelectedEvoPackagesToInstall() && !IsSelectedEvoPackageInstallReady(null))
             {
-                StopSetupWithError("Setup stopped: Runtime package prerequisites are not ready. Install selected runtime dependencies first.");
+                StopSetupWithError("Setup stopped: Evo feature package prerequisites are not ready. Install selected runtime dependencies first.");
                 return;
             }
 
@@ -3977,12 +5148,6 @@ namespace Evo.Infrastructure.Core.Editor
                 }
 
                 QueueRefreshBurst();
-                return;
-            }
-
-            if (_installYandexModule && !_yandexInstalled && !_runtimeInstalled)
-            {
-                StopSetupWithError("Setup stopped: Yandex package requires Evo Infrastructure Runtime first.");
                 return;
             }
 
@@ -4103,6 +5268,11 @@ namespace Evo.Infrastructure.Core.Editor
             return CollectSelectedUpmPackagesToInstall().Count > 0;
         }
 
+        private bool HasSelectedEvoPackagesToInstall()
+        {
+            return _selectedEvoPackageNames.Any(packageName => !IsEvoPackageInstalled(packageName));
+        }
+
         private bool HasSelectedSetupWork()
         {
             return HasSelectedUpmPackagesToInstall() ||
@@ -4161,19 +5331,21 @@ namespace Evo.Infrastructure.Core.Editor
             return false;
         }
 
-        private bool IsRuntimeInstallReady(ICollection<string> packagesBeingAdded)
+        private bool IsSelectedEvoPackageInstallReady(ICollection<string> packagesBeingAdded)
         {
+            var requiredDependencies = CollectRequiredExternalDependenciesForSelectedEvoPackages();
             var r3UnityWillBeReady = _r3UnityInstalled ||
                                      (packagesBeingAdded != null && packagesBeingAdded.Contains(R3UnitySource));
-            return (!_installVContainer || _vContainerInstalled) &&
-                   (!_installUniTask || _uniTaskInstalled) &&
-                   (!_installAddressables || _addressablesInstalled) &&
-                   (!_installLocalization || _localizationInstalled) &&
-                   (!_installInputSystem || _inputSystemInstalled) &&
-                   (!_installUgui || _uguiInstalled) &&
-                   (!_installPrimeTween || _primeTweenInstalled) &&
-                   AreReactiveAssembliesReady() &&
-                   (!_installR3Unity || r3UnityWillBeReady);
+            return (!requiredDependencies.Contains(ExternalPackageDependency.VContainer) || _vContainerInstalled) &&
+                   (!requiredDependencies.Contains(ExternalPackageDependency.UniTask) || _uniTaskInstalled) &&
+                   (!requiredDependencies.Contains(ExternalPackageDependency.Addressables) || _addressablesInstalled) &&
+                   (!requiredDependencies.Contains(ExternalPackageDependency.Localization) || _localizationInstalled) &&
+                   (!requiredDependencies.Contains(ExternalPackageDependency.InputSystem) || _inputSystemInstalled) &&
+                   (!requiredDependencies.Contains(ExternalPackageDependency.Ugui) || _uguiInstalled) &&
+                   (!requiredDependencies.Contains(ExternalPackageDependency.PrimeTween) || _primeTweenInstalled) &&
+                   (!requiredDependencies.Contains(ExternalPackageDependency.ReactiveNuGets) || AreReactiveAssembliesReady()) &&
+                   (!requiredDependencies.Contains(ExternalPackageDependency.R3Unity) || r3UnityWillBeReady) &&
+                   (!requiredDependencies.Contains(ExternalPackageDependency.PluginYg) || _pluginYgInstalled || _installPluginYgPackage);
         }
 
         private bool IsSelectedUpmPackagesReady()
@@ -4187,14 +5359,13 @@ namespace Evo.Infrastructure.Core.Editor
                    (!_installUgui || _uguiInstalled) &&
                    (!_installPrimeTween || _primeTweenInstalled) &&
                    (!_installR3Unity || _r3UnityInstalled) &&
-                   (!_installRuntimeModule || _runtimeUpdateState == EvoPackageUpdateState.InstalledTarget) &&
-                   (!_installPluginYgPackage || _pluginYgInstalled) &&
-                   (!_installYandexModule || _yandexInstalled);
+                   AreSelectedEvoPackagesInstalled() &&
+                   (!_installPluginYgPackage || _pluginYgInstalled);
         }
 
         private bool ArePackagesReadyForStarterScaffold()
         {
-            return _runtimeInstalled &&
+            return AreStarterEvoPackagesInstalled() &&
                    _vContainerInstalled &&
                    _uniTaskInstalled &&
                    _addressablesInstalled &&
@@ -4204,6 +5375,16 @@ namespace Evo.Infrastructure.Core.Editor
                    _primeTweenInstalled &&
                    _r3UnityInstalled &&
                    AreReactiveAssembliesReady();
+        }
+
+        private bool AreSelectedEvoPackagesInstalled()
+        {
+            return _selectedEvoPackageNames.All(IsEvoPackageInstalled);
+        }
+
+        private bool AreStarterEvoPackagesInstalled()
+        {
+            return DefaultSelectedEvoPackageNames.All(IsEvoPackageInstalled);
         }
 
         private static string GetOneClickStateKey()
@@ -4240,6 +5421,20 @@ namespace Evo.Infrastructure.Core.Editor
             {
                 TargetPath = targetPath;
                 TemplateFileName = templateFileName;
+            }
+        }
+
+        private readonly struct FeatureRegistrationSnippet
+        {
+            public readonly string PackageName;
+            public readonly string MethodName;
+            public readonly string Call;
+
+            public FeatureRegistrationSnippet(string packageName, string methodName, string call)
+            {
+                PackageName = packageName;
+                MethodName = methodName;
+                Call = call;
             }
         }
 

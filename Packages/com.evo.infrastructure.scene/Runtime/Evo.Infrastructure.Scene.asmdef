@@ -1,0 +1,20 @@
+{
+  "name": "Evo.Infrastructure.Scene",
+  "references": [
+    "Evo.Infrastructure.DI",
+    "Evo.Infrastructure.Debug",
+    "Evo.Infrastructure.Resources",
+    "Unity.Addressables",
+    "Unity.ResourceManager",
+    "VContainer"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

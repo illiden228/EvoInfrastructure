@@ -1,0 +1,21 @@
+{
+  "name": "Evo.Infrastructure.Audio",
+  "references": [
+    "Evo.Infrastructure.DI",
+    "Evo.Infrastructure.Debug",
+    "Evo.Infrastructure.Resources",
+    "UniTask",
+    "Unity.Addressables",
+    "Unity.ResourceManager",
+    "VContainer"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

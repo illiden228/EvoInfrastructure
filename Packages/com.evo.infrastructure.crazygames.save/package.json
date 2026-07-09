@@ -1,0 +1,13 @@
+{
+  "name": "com.evo.infrastructure.crazygames.save",
+  "version": "0.5.0",
+  "displayName": "Evo Infrastructure CrazyGames Save",
+  "description": "CrazyGames save and player auth adapters for Evo Infrastructure Save.",
+  "unity": "2022.3",
+  "author": { "name": "Evo" },
+  "dependencies": {
+    "com.evo.infrastructure.crazygames": "0.5.0",
+    "com.evo.infrastructure.save": "0.5.0",
+    "com.evo.infrastructure.di": "0.5.0"
+  }
+}

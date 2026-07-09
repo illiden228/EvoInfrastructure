@@ -1,13 +1,14 @@
 {
   "name": "com.evo.infrastructure.yandex",
-  "version": "0.4.12",
-  "displayName": "Evo Infrastructure Yandex",
-  "description": "Yandex integrations for Evo infrastructure: ads, analytics, leaderboard, save and platform info provider.",
+  "version": "0.5.0",
+  "displayName": "Evo Infrastructure Yandex Core",
+  "description": "Shared Yandex runtime configuration for Evo infrastructure platform adapter packages.",
   "unity": "2022.3",
   "author": {
     "name": "Evo"
   },
   "dependencies": {
-    "com.evo.infrastructure.runtime": "0.4.12"
+    "com.evo.infrastructure.config": "0.5.0",
+    "com.evo.infrastructure.di": "0.5.0"
   }
 }

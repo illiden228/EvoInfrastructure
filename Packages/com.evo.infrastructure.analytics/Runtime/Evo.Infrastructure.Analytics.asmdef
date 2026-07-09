@@ -1,0 +1,20 @@
+{
+  "name": "Evo.Infrastructure.Analytics",
+  "references": [
+    "Evo.Infrastructure.Config",
+    "Evo.Infrastructure.DI",
+    "Evo.Infrastructure.Debug",
+    "Evo.Infrastructure.Platform",
+    "UniTask",
+    "VContainer"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

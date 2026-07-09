@@ -1,0 +1,20 @@
+{
+  "name": "Evo.Infrastructure.Localization",
+  "references": [
+    "Evo.Infrastructure.DI",
+    "Evo.Infrastructure.Debug",
+    "UniTask",
+    "Unity.Localization",
+    "Unity.ResourceManager",
+    "VContainer"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

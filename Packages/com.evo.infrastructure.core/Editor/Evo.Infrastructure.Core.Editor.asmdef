@@ -1,6 +1,8 @@
 {
   "name": "Evo.Infrastructure.Core.Editor",
-  "references": [],
+  "references": [
+    "Unity.UGUI"
+  ],
   "includePlatforms": [
     "Editor"
   ],

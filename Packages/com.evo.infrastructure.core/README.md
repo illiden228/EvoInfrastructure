@@ -6,8 +6,26 @@ After installing this package open:
 `EvoTools/Setup`
 
 Wizard steps:
-1. Install dependencies (VContainer, UniTask, NuGetForUnity)
-2. Create project folder structure
-3. Add `R3` + `ObservableCollections` to NuGet packages.config
-4. Install main infrastructure package (`com.evo.infrastructure.runtime`) from git tag
-5. Create starter runtime scaffold (scenes + basic assets)
+1. Analyze installed packages and project state.
+2. Install selected Unity/vendor dependencies.
+3. Add reactive NuGet dependencies when selected.
+4. Install selected Evo feature packages from the configured git tag.
+5. Import optional SDK packages such as PluginYG2/Odin when selected.
+6. Create project folder structure.
+7. Create starter runtime scaffold when files are missing.
+
+Existing project `RuntimeProjectLifetimeScope` files are project-owned. The wizard should not overwrite manual edits; update feature registration manually when adding packages to an existing game.
+
+Legacy migration:
+
+- detects `com.evo.infrastructure.runtime`;
+- selects replacement feature packages;
+- removes only the old aggregate runtime package after prerequisites are ready;
+- leaves project scripts untouched.
+
+Asmdef tools:
+
+- `EvoTools/Asmdefs/Validate Evo asmdefs`
+- `EvoTools/Asmdefs/Generate or Update Evo asmdefs`
+
+Platform SDK packages are skipped by asmdef generation until their SDK assembly references are known.

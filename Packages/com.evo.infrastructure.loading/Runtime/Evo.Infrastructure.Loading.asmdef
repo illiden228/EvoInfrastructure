@@ -1,0 +1,27 @@
+{
+  "name": "Evo.Infrastructure.Loading",
+  "references": [
+    "Evo.Infrastructure.Analytics",
+    "Evo.Infrastructure.Config",
+    "Evo.Infrastructure.DI",
+    "Evo.Infrastructure.Debug",
+    "Evo.Infrastructure.Localization",
+    "Evo.Infrastructure.Platform",
+    "Evo.Infrastructure.Resources",
+    "Evo.Infrastructure.Save",
+    "Evo.Infrastructure.Scene",
+    "UniTask",
+    "Unity.Addressables",
+    "Unity.ResourceManager",
+    "VContainer"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Reflection;
+using Evo.Infrastructure.DI;
 using Evo.Infrastructure.Runtime.Loading;
 using Evo.Infrastructure.Runtime.UI;
 using Evo.Infrastructure.Services.Ads;
@@ -11,13 +11,10 @@ using Evo.Infrastructure.Services.Focus;
 using Evo.Infrastructure.Services.Leaderboard;
 using Evo.Infrastructure.Services.Localization;
 using Evo.Infrastructure.Services.PlatformInfo;
-using Evo.Infrastructure.Services.PlatformLifecycle;
 using Evo.Infrastructure.Services.ResourceCatalog;
-using Evo.Infrastructure.Services.ResourceLoader;
 using Evo.Infrastructure.Services.ResourceProvider;
 using Evo.Infrastructure.Services.Save;
 using Evo.Infrastructure.Services.SceneLoader;
-using Evo.Infrastructure.Services.ScenePayload;
 using Evo.Infrastructure.Services.UI;
 using UnityEngine;
 using VContainer;
@@ -39,105 +36,58 @@ namespace Game.Runtime.EntryPoint
 
         protected override void Configure(IContainerBuilder builder)
         {
-            if (resourceCatalog != null)
+            builder.RegisterEvoFeatures(features =>
             {
-                builder.RegisterInstance<IResourceCatalog>(resourceCatalog);
-            }
+                features.UseConfig(configCatalogs);
+                features.UsePlatform();
+                features.UseFocus();
+                features.UseResources(resourceCatalog);
+                features.UseScene(new SceneLoaderOptions());
+                features.UseLocalization();
+                features.UseAudio();
+                features.UseAds();
+                features.UseAnalytics();
+                features.UseLeaderboards();
+                features.UseSave(new SaveStorageOptions());
+                features.UseUi(uiSystemConfig);
+                features.UseLoading(new SceneTransitionOptions());
 
-            builder.RegisterInstance<IReadOnlyList<ScriptableConfigCatalog>>(configCatalogs ?? Array.Empty<ScriptableConfigCatalog>());
-            builder.Register<IConfigProvider, ScriptableObjectConfigProvider>(Lifetime.Singleton);
-            builder.Register<IConfigService, ConfigService>(Lifetime.Singleton);
+                RegisterOptionalYandex(features);
+                RegisterOptionalCrazyGames(features);
+            });
 
-            builder.Register<IPlatformInfoProvider, UnityPlatformInfoProvider>(Lifetime.Singleton);
-            builder.Register<IPlatformInfoService, PlatformInfoService>(Lifetime.Singleton);
-            builder.Register<IGamePlatformLifecycleProvider, NullGamePlatformLifecycleProvider>(Lifetime.Singleton);
-            builder.Register<IGamePlatformLifecycle, GamePlatformLifecycle>(Lifetime.Singleton);
-            builder.Register<IFocusService, FocusService>(Lifetime.Singleton);
-
-            builder.Register<IResourceLoaderService, AddressablesResourceLoaderService>(Lifetime.Singleton);
-            builder.RegisterInstance(new SceneLoaderOptions());
-            builder.RegisterInstance(new SceneTransitionOptions());
-            builder.Register<ISceneLoaderService, SceneLoaderService>(Lifetime.Singleton);
-            builder.Register<IResourceProviderService, ResourceProviderService>(Lifetime.Singleton);
-            builder.Register<IScenePayloadService, ScenePayloadService>(Lifetime.Singleton);
-            builder.Register<ILocalizationService, LocalizationService>(Lifetime.Singleton);
-            builder.Register<IAudioService, AudioService>(Lifetime.Singleton);
-            builder.Register<IAdsService, AdsService>(Lifetime.Singleton);
-            builder.Register<IAnalyticsService, AnalyticsService>(Lifetime.Singleton);
-            builder.Register<ILeaderboardService, LeaderboardService>(Lifetime.Singleton);
-            builder.Register<ISaveService, SaveService>(Lifetime.Singleton);
-            builder.RegisterInstance(new SaveStorageOptions());
-            builder.Register<ISaveBackend, FileSaveBackend>(Lifetime.Singleton);
-
-            if (uiSystemConfig != null)
-            {
-                builder.RegisterInstance(uiSystemConfig);
-                RegisterUiViewModels(builder, uiSystemConfig);
-            }
-
-            RegisterOptionalYandex(builder);
-            RegisterOptionalCrazyGames(builder);
-
-            builder.Register<IUiService, UiService>(Lifetime.Singleton);
-            builder.Register<ILoadingProgress, LoadingProgressReporter>(Lifetime.Singleton);
-            builder.Register<ISceneLoadingPipeline, SceneLoadingPipeline>(Lifetime.Singleton);
             builder.Register<Game.Runtime.Loading.LoadingViewModel>(Lifetime.Transient);
             builder.RegisterEntryPoint<Game.Runtime.Loading.LoadingViewSystem>(Lifetime.Singleton);
-            builder.Register<ILoadingStep, TargetFrameRateStep>(Lifetime.Singleton);
             builder.RegisterEntryPoint<RuntimeEntryPoint>();
         }
 
-        private static void RegisterUiViewModels(IContainerBuilder builder, UiSystemConfig config)
+        private void RegisterOptionalYandex(EvoFeatureRegistry features)
         {
-            if (builder == null || config == null || config.Views == null)
+            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Yandex.YandexPlatformFeatureExtensions", "UseYandexPlatform");
+            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Yandex.YandexAdsFeatureExtensions", "UseYandexAds");
+            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Yandex.YandexAnalyticsFeatureExtensions", "UseYandexAnalytics");
+            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Yandex.YandexSaveFeatureExtensions", "UseYandexSave");
+            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Yandex.YandexLeaderboardsFeatureExtensions", "UseYandexLeaderboards");
+        }
+
+        private void RegisterOptionalCrazyGames(EvoFeatureRegistry features)
+        {
+            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesPlatformFeatureExtensions", "UseCrazyGamesPlatform");
+            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesAdsFeatureExtensions", "UseCrazyGamesAds");
+            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesSaveFeatureExtensions", "UseCrazyGamesSave");
+            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesLeaderboardsFeatureExtensions", "UseCrazyGamesLeaderboards");
+        }
+
+        private void RegisterOptionalFeature(EvoFeatureRegistry features, string extensionsTypeName, string methodName)
+        {
+            var extensionsType = FindTypeByName(extensionsTypeName);
+            var method = extensionsType?.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
+            if (method == null)
             {
                 return;
             }
 
-            var registered = new HashSet<Type>();
-            for (var i = 0; i < config.Views.Count; i++)
-            {
-                var entry = config.Views[i];
-                var viewModelType = entry?.GetViewModelType();
-                if (viewModelType == null || registered.Contains(viewModelType))
-                {
-                    continue;
-                }
-
-                builder.Register(viewModelType, Lifetime.Transient);
-                registered.Add(viewModelType);
-            }
-        }
-
-        private void RegisterOptionalYandex(IContainerBuilder builder)
-        {
-            RegisterOptionalPlatformPackage(builder, "Evo.Infrastructure.Services.Yandex.YandexRuntimeInstaller");
-        }
-
-        private void RegisterOptionalCrazyGames(IContainerBuilder builder)
-        {
-            RegisterOptionalPlatformPackage(builder, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesRuntimeInstaller");
-        }
-
-        private void RegisterOptionalPlatformPackage(IContainerBuilder builder, string installerTypeName)
-        {
-            var installerType = FindTypeByName(installerTypeName);
-            var registerMethod = installerType?.GetMethod("Register", BindingFlags.Public | BindingFlags.Static);
-            if (registerMethod == null)
-            {
-                return;
-            }
-
-            var parameters = registerMethod.GetParameters();
-            if (parameters.Length >= 2)
-            {
-                var configProvider = new ScriptableObjectConfigProvider(configCatalogs ?? Array.Empty<ScriptableConfigCatalog>());
-                var configService = new ConfigService(new IConfigProvider[] { configProvider });
-                registerMethod.Invoke(null, new object[] { builder, configService });
-                return;
-            }
-
-            registerMethod.Invoke(null, new object[] { builder });
+            method.Invoke(null, new object[] { features });
         }
 
         private static Type FindTypeByName(string fullName)

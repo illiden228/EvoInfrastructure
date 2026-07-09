@@ -1,27 +1,26 @@
 # com.evo.infrastructure.crazygames
 
-CrazyGames-specific integrations for `com.evo.infrastructure.runtime`:
+CrazyGames core package for shared CrazySDK runtime config and helper logic.
 
-- CrazyGames ads adapter/factory
-- CrazyGames cloud save backend through `CrazySDK.Data`
-- CrazyGames player auth service
-- CrazyGames platform info provider
-- CrazyGames platform lifecycle provider
-- CrazyGames no-op leaderboard adapter
+Install feature adapters independently:
 
-## Required in target project
+- `com.evo.infrastructure.crazygames.platform`
+- `com.evo.infrastructure.crazygames.ads`
+- `com.evo.infrastructure.crazygames.save`
+- `com.evo.infrastructure.crazygames.leaderboards`
 
-- CrazySDK Unity package.
-- `CRAZY` scripting define symbol.
+Target projects must provide CrazySDK and the `CRAZY` scripting define.
 
-This package intentionally has no runtime asmdef. CrazySDK ships its own
-`CrazySDK.Runtime` assembly constrained by the `CRAZY` define. Keeping this
-package in the project scripts assembly lets it compile in projects where
-CrazySDK is installed, while all CrazySDK references remain guarded by
-`#if CRAZY` so projects and non-Crazy platform builds are not broken.
+CrazySDK is expected to be installed by the game project. It is not embedded into this package.
 
-Register adapters through:
+Important asmdef note:
 
-```csharp
-Evo.Infrastructure.Services.CrazyGames.CrazyGamesRuntimeInstaller.Register(builder, configService);
-```
+- CrazySDK usually has no asmdef by default.
+- Evo does not auto-generate asmdefs for CrazyGames packages until the project provides or selects a CrazySDK assembly.
+- If you want asmdef isolation, create a CrazySDK asmdef manually first, commonly with the `CRAZY` define constraint, then configure Evo Crazy asmdefs to reference it.
+
+Runtime behavior:
+
+- Direct CrazySDK calls are centralized in `CrazyGamesSdk`.
+- Adapter packages should call the Evo facade, not CrazySDK directly.
+- Feature registration can be present in a project even when the current build target is not CrazyGames. Backends should report unavailable outside supported runtime/define conditions.
