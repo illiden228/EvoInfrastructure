@@ -1,12 +1,12 @@
 {
   "name": "com.evo.infrastructure.save",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "displayName": "Evo Infrastructure Save",
   "description": "Save service, save envelope, and local save backends.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.di": "0.5.1",
-    "com.evo.infrastructure.debug": "0.5.1"
+    "com.evo.infrastructure.di": "0.5.2",
+    "com.evo.infrastructure.debug": "0.5.2"
   }
 }

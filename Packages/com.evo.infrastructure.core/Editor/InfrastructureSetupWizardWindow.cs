@@ -25,9 +25,9 @@ namespace Evo.Infrastructure.Core.Editor
         private const string LegacyRuntimePackageName = "com.evo.infrastructure.runtime";
         private const string EvoLatestReleaseApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/releases/latest";
         private const string EvoTagsApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/tags?per_page=1";
-        private const string RuntimeGitTag = "v0.5.1";
-        private const string YandexGitTag = "v0.5.1";
-        private const string CrazyGamesGitTag = "v0.5.1";
+        private const string RuntimeGitTag = "v0.5.2";
+        private const string YandexGitTag = "v0.5.2";
+        private const string CrazyGamesGitTag = "v0.5.2";
         private static readonly EvoPackageDescriptor[] EvoPackages =
         {
             new("com.evo.infrastructure.di", "DI", "Core", "Feature registry and VContainer helpers."),
@@ -43,7 +43,7 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.localization", "Localization", "Services", "Unity Localization wrapper.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.focus", "Focus", "Services", "Input focus service.", "com.evo.infrastructure.di"),
             new("com.evo.infrastructure.audio", "Audio", "Services", "Audio playback service.", "com.evo.infrastructure.resources", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
-            new("com.evo.infrastructure.pooling", "Pooling", "Services", "Generic and GameObject pooling helpers."),
+            new("com.evo.infrastructure.pooling", "Pooling", "Services", "Generic, keyed, async keyed and GameObject pooling helpers."),
             new("com.evo.infrastructure.loading", "Loading", "Runtime", "Startup/loading pipeline.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.localization", "com.evo.infrastructure.platform", "com.evo.infrastructure.resources", "com.evo.infrastructure.save", "com.evo.infrastructure.scene", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.ui", "UI", "Runtime", "UI runtime, views and UI service.", "com.evo.infrastructure.resources", "com.evo.infrastructure.scene", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.build", "Build", "Editor", "Build profiles and build pipeline editor tools.", "com.evo.infrastructure.config", "com.evo.infrastructure.platform"),
@@ -2066,6 +2066,8 @@ namespace Evo.Infrastructure.Core.Editor
                     return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.ReactiveNuGets, ExternalPackageDependency.InputSystem };
                 case "com.evo.infrastructure.audio":
                     return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.UniTask, ExternalPackageDependency.Addressables };
+                case "com.evo.infrastructure.pooling":
+                    return new[] { ExternalPackageDependency.UniTask };
                 case "com.evo.infrastructure.loading":
                     return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.UniTask, ExternalPackageDependency.Addressables, ExternalPackageDependency.Localization };
                 case "com.evo.infrastructure.ui":
