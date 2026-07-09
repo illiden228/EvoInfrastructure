@@ -6,6 +6,7 @@
     "Evo.Infrastructure.Config",
     "Evo.Infrastructure.Debug",
     "Evo.Infrastructure.Leaderboards",
+    "Evo.Infrastructure.Platform",
     "Evo.Infrastructure.Resources",
     "Evo.Infrastructure.Save",
     "Evo.Infrastructure.Scene",
@@ -13,7 +14,8 @@
     "Unity.Addressables",
     "Unity.Addressables.Editor",
     "Unity.Localization",
-    "Unity.Localization.Editor"
+    "Unity.Localization.Editor",
+    "Unity.ResourceManager"
   ],
   "includePlatforms": [
     "Editor"

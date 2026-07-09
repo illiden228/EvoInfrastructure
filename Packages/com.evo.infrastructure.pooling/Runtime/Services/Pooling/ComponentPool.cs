@@ -3,20 +3,20 @@ using UnityEngine;
 
 namespace Evo.Infrastructure.Services.Pooling
 {
-    public sealed class GameObjectPool : IDisposable
+    public sealed class ComponentPool<T> : IDisposable where T : Component
     {
-        private readonly GameObject _prefab;
         private readonly Transform _root;
+        private readonly T _prefab;
         private readonly PoolableCache _poolableCache = new();
-        private readonly Pool<GameObject> _pool;
+        private readonly Pool<T> _pool;
 
-        public GameObjectPool(GameObject prefab, int prewarmCount, int maxSize, Transform root = null)
+        public ComponentPool(T prefab, int prewarmCount, int maxSize, Transform root = null)
         {
             _prefab = prefab;
             _root = root;
             _pool = _prefab == null
                 ? null
-                : new Pool<GameObject>(
+                : new Pool<T>(
                     CreateInstance,
                     null,
                     OnRelease,
@@ -29,28 +29,21 @@ namespace Evo.Infrastructure.Services.Pooling
         public int ActiveCount => _pool?.ActiveCount ?? 0;
         public PoolStatistics Statistics => _pool?.Statistics ?? default;
 
-        public GameObject Get()
+        public T Get()
         {
             var instance = _pool?.Get();
-            PrepareForGet(instance, false, default, default, null, true);
+            PrepareForGet(instance, false, default, default);
             return instance;
         }
 
-        public GameObject Get(Vector3 position, Quaternion rotation)
+        public T Get(Vector3 position, Quaternion rotation)
         {
             var instance = _pool?.Get();
-            PrepareForGet(instance, true, position, rotation, null, true);
+            PrepareForGet(instance, true, position, rotation);
             return instance;
         }
 
-        public GameObject Get(Vector3 position, Quaternion rotation, Transform parent, bool worldPositionStays = true)
-        {
-            var instance = _pool?.Get();
-            PrepareForGet(instance, true, position, rotation, parent, worldPositionStays);
-            return instance;
-        }
-
-        public bool Release(GameObject instance)
+        public bool Release(T instance)
         {
             return _pool?.Release(instance) == true;
         }
@@ -66,56 +59,50 @@ namespace Evo.Infrastructure.Services.Pooling
             _poolableCache.Clear();
         }
 
-        private GameObject CreateInstance()
+        private T CreateInstance()
         {
             return UnityEngine.Object.Instantiate(_prefab, _root);
         }
 
-        private void PrepareForGet(
-            GameObject instance,
-            bool hasPose,
-            Vector3 position,
-            Quaternion rotation,
-            Transform parent,
-            bool worldPositionStays)
+        private void PrepareForGet(T instance, bool hasPose, Vector3 position, Quaternion rotation)
         {
             if (instance == null)
             {
                 return;
             }
 
-            instance.transform.SetParent(parent, worldPositionStays);
+            instance.transform.SetParent(null, true);
             if (hasPose)
             {
                 instance.transform.SetPositionAndRotation(position, rotation);
             }
 
-            instance.SetActive(true);
-            InvokePoolGet(instance);
+            instance.gameObject.SetActive(true);
+            InvokePoolGet(instance.gameObject);
         }
 
-        private void OnRelease(GameObject instance)
+        private void OnRelease(T instance)
         {
             if (instance == null)
             {
                 return;
             }
 
-            InvokePoolRelease(instance);
-            instance.SetActive(false);
+            InvokePoolRelease(instance.gameObject);
+            instance.gameObject.SetActive(false);
             instance.transform.SetParent(_root, true);
         }
 
-        private void OnDestroy(GameObject instance)
+        private void OnDestroy(T instance)
         {
             if (instance == null)
             {
                 return;
             }
 
-            InvokePoolDestroy(instance);
-            _poolableCache.Remove(instance);
-            UnityEngine.Object.Destroy(instance);
+            InvokePoolDestroy(instance.gameObject);
+            _poolableCache.Remove(instance.gameObject);
+            UnityEngine.Object.Destroy(instance.gameObject);
         }
 
         private void InvokePoolGet(GameObject instance)

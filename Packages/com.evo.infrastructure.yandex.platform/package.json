@@ -1,13 +1,13 @@
 {
   "name": "com.evo.infrastructure.yandex.platform",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "displayName": "Evo Infrastructure Yandex Platform",
   "description": "Yandex platform info and lifecycle providers for Evo Infrastructure Platform.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.yandex": "0.5.0",
-    "com.evo.infrastructure.platform": "0.5.0",
-    "com.evo.infrastructure.di": "0.5.0"
+    "com.evo.infrastructure.yandex": "0.5.1",
+    "com.evo.infrastructure.platform": "0.5.1",
+    "com.evo.infrastructure.di": "0.5.1"
   }
 }

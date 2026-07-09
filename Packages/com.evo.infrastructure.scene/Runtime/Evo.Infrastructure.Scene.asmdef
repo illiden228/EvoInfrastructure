@@ -4,6 +4,7 @@
     "Evo.Infrastructure.DI",
     "Evo.Infrastructure.Debug",
     "Evo.Infrastructure.Resources",
+    "UniTask",
     "Unity.Addressables",
     "Unity.ResourceManager",
     "VContainer"

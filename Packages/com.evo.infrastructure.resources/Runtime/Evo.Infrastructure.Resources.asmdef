@@ -3,6 +3,7 @@
   "references": [
     "Evo.Infrastructure.DI",
     "Evo.Infrastructure.Debug",
+    "UniTask",
     "Unity.Addressables",
     "Unity.ResourceManager",
     "VContainer"
