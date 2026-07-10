@@ -144,10 +144,9 @@ namespace Evo.Infrastructure.Services.SceneLoader
         public async UniTask ReloadActiveAsync(CancellationToken cancellationToken = default)
         {
             var activeScene = SceneManager.GetActiveScene();
-            EvoDebug.Log(
+            LogVerbose(
                 $"ReloadActiveAsync start. Active='{activeScene.name}', BuildIndex={activeScene.buildIndex}, " +
-                $"LastKey='{_lastSceneKey}', LastRefNull={_lastSceneReference == null}",
-                nameof(SceneLoaderService));
+                $"LastKey='{_lastSceneKey}', LastRefNull={_lastSceneReference == null}");
 
             if (_lastSceneReference != null)
             {
@@ -299,12 +298,11 @@ namespace Evo.Infrastructure.Services.SceneLoader
             var startedAtUtc = DateTime.UtcNow;
             var stopwatch = Stopwatch.StartNew();
 
-            EvoDebug.Log(
+            LogVerbose(
                 $"[SceneLoad:{operationId}] START ts={startedAtUtc:O} key='{info.SceneKey}' mode={info.Mode} " +
                 $"activateOnLoad={info.ActivateOnLoad} priority={info.Priority} source={info.Source} " +
                 $"isReload={info.IsReload} attempt={attempt}/{attempts} handleValid={handle.IsValid()} " +
-                $"status={(handle.IsValid() ? handle.Status.ToString() : "Invalid")}",
-                nameof(SceneLoaderService));
+                $"status={(handle.IsValid() ? handle.Status.ToString() : "Invalid")}");
 
             SceneLoadStarted?.Invoke(info);
             ReportProgress(handle, info, cancellationToken).Forget();
@@ -315,17 +313,15 @@ namespace Evo.Infrastructure.Services.SceneLoader
 
                 var loadDoneAtUtc = DateTime.UtcNow;
                 var loadedScene = handle.Result.Scene;
-                EvoDebug.Log(
+                LogVerbose(
                     $"[SceneLoad:{operationId}] LOAD_HANDLE_DONE ts={loadDoneAtUtc:O} elapsedMs={stopwatch.ElapsedMilliseconds} " +
                     $"key='{info.SceneKey}' status={handle.Status} percent={handle.PercentComplete:0.000} " +
-                    $"sceneValid={loadedScene.IsValid()} sceneLoaded={loadedScene.isLoaded} sceneName='{loadedScene.name}'",
-                    nameof(SceneLoaderService));
+                    $"sceneValid={loadedScene.IsValid()} sceneLoaded={loadedScene.isLoaded} sceneName='{loadedScene.name}'");
 
-                EvoDebug.Log(
+                LogVerbose(
                     info.ActivateOnLoad
                         ? $"[SceneLoad:{operationId}] ACTIVATION_MODE auto-by-addressables"
-                        : $"[SceneLoad:{operationId}] ACTIVATION_MODE deferred-manual",
-                    nameof(SceneLoaderService));
+                        : $"[SceneLoad:{operationId}] ACTIVATION_MODE deferred-manual");
 
                 SceneLoadProgress?.Invoke(new SceneLoadProgress(info, 1f));
                 SceneLoadFinished?.Invoke(info);
@@ -388,10 +384,9 @@ namespace Evo.Infrastructure.Services.SceneLoader
                         if (!finalizationWarningLogged)
                         {
                             finalizationWarningLogged = true;
-                            EvoDebug.LogWarning(
+                            LogVerbose(
                                 $"[SceneLoad:{operationId}] Scene handle reached progress={handle.PercentComplete:0.000} " +
-                                $"for key '{info.SceneKey}' but is not done yet. Waiting for Addressables/Unity finalization.",
-                                nameof(SceneLoaderService));
+                                $"for key '{info.SceneKey}' but is not done yet. Waiting for Addressables/Unity finalization.");
                         }
                     }
                 }
@@ -553,6 +548,14 @@ namespace Evo.Infrastructure.Services.SceneLoader
         private void OnApplicationFocusChanged(bool hasFocus)
         {
             _isApplicationFocused = hasFocus;
+        }
+
+        private void LogVerbose(string message)
+        {
+            if (_options.verboseLogging)
+            {
+                EvoDebug.Log(message, nameof(SceneLoaderService));
+            }
         }
 
         private static SceneLoaderOptions NormalizeOptions(SceneLoaderOptions options)

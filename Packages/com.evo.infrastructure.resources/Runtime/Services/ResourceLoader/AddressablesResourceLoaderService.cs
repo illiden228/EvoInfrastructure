@@ -13,6 +13,7 @@ namespace Evo.Infrastructure.Services.ResourceLoader
     public sealed class AddressablesResourceLoaderService : IResourceLoaderService, IDisposable
     {
         private readonly Dictionary<CacheKey, AsyncOperationHandle> _handles = new();
+        private readonly Dictionary<CacheKey, AsyncOperationHandle<SceneInstance>> _sceneUnloadHandles = new();
         private bool _initialized;
         private bool _initInProgress;
         private AsyncOperationHandle _initHandle;
@@ -310,34 +311,112 @@ namespace Evo.Infrastructure.Services.ResourceLoader
                 return;
             }
 
-            if (UnityEngine.SceneManagement.SceneManager.sceneCount <= 1)
+            var cacheKey = new CacheKey(key, typeof(SceneInstance));
+            if (!_handles.TryGetValue(cacheKey, out var handle))
             {
                 return;
             }
 
-            var cacheKey = new CacheKey(key, typeof(SceneInstance));
-            if (_handles.TryGetValue(cacheKey, out var handle))
+            if (!handle.IsValid())
             {
+                _handles.Remove(cacheKey);
+                return;
+            }
+
+            var typedHandle = handle.Convert<SceneInstance>();
+            try
+            {
+                await AwaitHandleCompletionAsync(typedHandle, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Cancellation only stops this caller's wait. The load handle remains cached so a
+                // later caller can finish unloading it without losing Addressables ownership.
+                throw;
+            }
+            catch (Exception ex)
+            {
+                if (_handles.TryGetValue(cacheKey, out var cached) && cached.Equals(handle))
+                {
+                    _handles.Remove(cacheKey);
+                }
+
                 if (handle.IsValid())
                 {
-                    var typedHandle = handle.Convert<SceneInstance>();
-                    if (typedHandle.Status == AsyncOperationStatus.Succeeded)
-                    {
-                        var loadedScene = typedHandle.Result.Scene;
-                        if (loadedScene.IsValid() && SceneManager.sceneCount <= 1)
-                        {
-                            return;
-                        }
-                    }
-
-                    _handles.Remove(cacheKey);
-                    await Addressables.UnloadSceneAsync(typedHandle, true)
-                        .ToUniTask(cancellationToken: cancellationToken);
+                    Addressables.Release(handle);
                 }
-                else
+
+                EvoDebug.LogError(
+                    $"Cannot unload scene '{key}' because its load operation failed. {ex.Message}",
+                    nameof(AddressablesResourceLoaderService));
+                throw;
+            }
+
+            var loadedScene = typedHandle.Result.Scene;
+            if (!loadedScene.IsValid() || !loadedScene.isLoaded)
+            {
+                if (_handles.TryGetValue(cacheKey, out var cached) && cached.Equals(handle))
                 {
                     _handles.Remove(cacheKey);
                 }
+
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
+
+                return;
+            }
+
+            if (SceneManager.sceneCount <= 1)
+            {
+                return;
+            }
+
+            AsyncOperationHandle<SceneInstance> unloadHandle;
+            try
+            {
+                unloadHandle = GetOrCreateSceneUnloadHandle(cacheKey, typedHandle);
+            }
+            catch (Exception ex)
+            {
+                EvoDebug.LogError(
+                    $"Could not start unloading scene '{key}'. {ex.Message}",
+                    nameof(AddressablesResourceLoaderService));
+                throw;
+            }
+
+            try
+            {
+                // Polling an AsyncOperationHandle is supported by Addressables on every Unity
+                // target. In particular, it avoids IEnumerator-yielding SceneInstance, which
+                // UniTask does not support, and does not depend on Task support in WebGL.
+                await AwaitHandleCompletionAsync(unloadHandle, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // The Addressables operation keeps running and remains registered for later callers.
+                throw;
+            }
+            catch (Exception)
+            {
+                // The completion callback logs a failed unload once and keeps the scene handle
+                // cached so the caller can retry after resolving the underlying issue.
+                throw;
+            }
+            finally
+            {
+                if (unloadHandle.IsDone &&
+                    _sceneUnloadHandles.TryGetValue(cacheKey, out var activeUnload) &&
+                    activeUnload.Equals(unloadHandle))
+                {
+                    _sceneUnloadHandles.Remove(cacheKey);
+                }
+            }
+
+            if (_handles.TryGetValue(cacheKey, out var cachedHandle) && cachedHandle.Equals(handle))
+            {
+                _handles.Remove(cacheKey);
             }
         }
 
@@ -400,6 +479,7 @@ namespace Evo.Infrastructure.Services.ResourceLoader
             }
 
             _handles.Clear();
+            _sceneUnloadHandles.Clear();
         }
 
         public void Dispose()
@@ -468,6 +548,42 @@ namespace Evo.Infrastructure.Services.ResourceLoader
                 throw handle.OperationException ?? new InvalidOperationException(
                     $"Addressables operation failed for handle type '{typeof(T).Name}'.");
             }
+        }
+
+        private AsyncOperationHandle<SceneInstance> GetOrCreateSceneUnloadHandle(
+            CacheKey cacheKey,
+            AsyncOperationHandle<SceneInstance> sceneHandle)
+        {
+            if (_sceneUnloadHandles.TryGetValue(cacheKey, out var existing) && existing.IsValid() && !existing.IsDone)
+            {
+                return existing;
+            }
+
+            var unloadHandle = Addressables.UnloadSceneAsync(sceneHandle, true);
+            _sceneUnloadHandles[cacheKey] = unloadHandle;
+            unloadHandle.Completed += operation =>
+            {
+                if (_sceneUnloadHandles.TryGetValue(cacheKey, out var activeUnload) && activeUnload.Equals(operation))
+                {
+                    _sceneUnloadHandles.Remove(cacheKey);
+                }
+
+                if (operation.Status == AsyncOperationStatus.Succeeded)
+                {
+                    if (_handles.TryGetValue(cacheKey, out var cachedSceneHandle) && cachedSceneHandle.Equals(sceneHandle))
+                    {
+                        _handles.Remove(cacheKey);
+                    }
+
+                    return;
+                }
+
+                EvoDebug.LogError(
+                    $"Failed to unload scene '{cacheKey.Key}'. " +
+                    $"{operation.OperationException?.Message ?? "Addressables unload operation failed."}",
+                    nameof(AddressablesResourceLoaderService));
+            };
+            return unloadHandle;
         }
 
         private async UniTask<T> AwaitHandleWithRelease<T>(

@@ -5,6 +5,7 @@ namespace Evo.Infrastructure.Services.SceneLoader
     [Serializable]
     public sealed class SceneLoaderOptions
     {
+        public bool verboseLogging;
         public bool enableTimeout = true;
         public float timeoutSeconds = 45f;
         public bool ignoreTimeoutWhenApplicationNotFocused = true;

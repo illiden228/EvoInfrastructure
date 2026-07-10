@@ -29,9 +29,9 @@ namespace Evo.Infrastructure.Core.Editor
         private const string EvoRepositoryUrl = "https://github.com/illiden228/EvoInfrastructure.git";
         private const string EvoLatestReleaseApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/releases/latest";
         private const string EvoTagsApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/tags?per_page=1";
-        private const string RuntimeGitTag = "v0.5.4";
-        private const string YandexGitTag = "v0.5.4";
-        private const string CrazyGamesGitTag = "v0.5.4";
+        private const string RuntimeGitTag = "v0.5.5";
+        private const string YandexGitTag = "v0.5.5";
+        private const string CrazyGamesGitTag = "v0.5.5";
         private static readonly EvoPackageDescriptor[] EvoPackages =
         {
             new("com.evo.infrastructure.di", "DI", "Core", "Feature registry and VContainer helpers."),
@@ -1130,7 +1130,7 @@ namespace Evo.Infrastructure.Core.Editor
                 scaffoldReady,
                 _scaffoldSetupRequested ? "Running" : scaffoldReady ? "Ready" : _starterScaffoldFilesPresent ? "Needs Repair" : "Missing",
                 GetStarterScaffoldStatusDetails(packagesReadyForScaffold),
-                scaffoldReady ? "Ready" : _pendingScaffoldPlan != null ? "Apply Plan" : "Preview Scaffold",
+                scaffoldReady ? "Ready" : _pendingScaffoldPlan != null ? "Apply Plan" : "Preview",
                 _stateAnalyzed && !_isInstalling && !_oneClickSetupRequested && !_scaffoldSetupRequested && !_isRefreshingState && packagesReadyForScaffold && !scaffoldReady,
                 StartStarterRuntimeScaffold);
             SetSelectionField(ref _installStarterScaffold, starterScaffoldSelected);
