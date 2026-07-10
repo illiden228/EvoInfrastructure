@@ -20,8 +20,43 @@ features.UseLoading(
         OperationRetryCount = 1,
         RetryDelaySeconds = 0.75f,
         StepOrderMode = LoadingStepOrderMode.Registration
+    },
+    new StartupLoadingOptions
+    {
+        Enabled = true
     });
 ```
+
+Application startup loading should use `IApplicationStartupLoadingPipeline`
+instead of manually running bootstrap steps and then calling
+`ISceneLoadingPipeline.LoadSceneAsync`. The startup pipeline shows the loading
+presentation before bootstrap steps when
+`AwaitLoadingPresentationBeforeSceneLoad` is enabled, sends `Ready`, `Started`
+and `Finished` exactly once, and runs bootstrap steps plus
+`ISceneLoadingPipeline.CreateSteps(startupScene, LoadSceneMode.Single)` as one
+continuous loading plan.
+
+```csharp
+public sealed class RuntimeEntryPoint : IAsyncStartable
+{
+    private readonly IReadOnlyList<ILoadingStep> _bootstrapSteps;
+    private readonly IApplicationStartupLoadingPipeline _startupLoading;
+    private readonly AssetReference _startupScene;
+
+    public UniTask StartAsync(CancellationToken cancellationToken)
+    {
+        return _startupLoading.LoadStartupAsync(
+            _bootstrapSteps,
+            _startupScene,
+            LoadSceneMode.Single,
+            cancellationToken: cancellationToken);
+    }
+}
+```
+
+Regular scene transitions after startup keep using
+`ISceneLoadingPipeline.LoadSceneAsync`; that method owns a separate lifecycle for
+post-start scene changes.
 
 Loading steps must observe the supplied cancellation token. Timeout failures are
 reported as `TimeoutException` with the active step or phase in the message.

@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.pooling",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "displayName": "Evo Infrastructure Pooling",
   "description": "Generic and GameObject pooling helpers.",
   "unity": "2022.3",

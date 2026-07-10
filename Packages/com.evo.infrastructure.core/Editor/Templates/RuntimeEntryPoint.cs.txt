@@ -13,36 +13,26 @@ namespace Game.Runtime.EntryPoint
     public sealed class RuntimeEntryPoint : IAsyncStartable
     {
         private readonly IReadOnlyList<ILoadingStep> _steps;
-        private readonly ILoadingProgress _progress;
-        private readonly LoadingExecutionOptions _executionOptions;
-        private readonly ISceneLoadingPipeline _sceneLoadingPipeline;
+        private readonly IApplicationStartupLoadingPipeline _startupLoadingPipeline;
         private readonly IConfigService _configService;
 
         public RuntimeEntryPoint(
             IReadOnlyList<ILoadingStep> steps,
-            ISceneLoadingPipeline sceneLoadingPipeline,
-            IConfigService configService,
-            ILoadingProgress progress,
-            LoadingExecutionOptions executionOptions)
+            IApplicationStartupLoadingPipeline startupLoadingPipeline,
+            IConfigService configService)
         {
             _steps = steps;
-            _progress = progress;
-            _executionOptions = executionOptions ?? new LoadingExecutionOptions();
-            _sceneLoadingPipeline = sceneLoadingPipeline;
+            _startupLoadingPipeline = startupLoadingPipeline;
             _configService = configService;
         }
 
         public async UniTask StartAsync(CancellationToken cancellationToken)
         {
-            var runner = new LoadingRunner(_executionOptions);
-            await runner.RunAsync(_steps, _progress, cancellationToken, notifyLifecycle: false);
-
             var startupScene = GetStartupScene();
-            if (startupScene != null &&
-                !string.IsNullOrEmpty(startupScene.AssetGUID) &&
-                _sceneLoadingPipeline != null)
+            if (_startupLoadingPipeline != null)
             {
-                await _sceneLoadingPipeline.LoadSceneAsync(
+                await _startupLoadingPipeline.LoadStartupAsync(
+                    _steps,
                     startupScene,
                     LoadSceneMode.Single,
                     cancellationToken: cancellationToken);

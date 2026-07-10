@@ -61,7 +61,8 @@ namespace Game.Runtime.EntryPoint
                         OperationRetryCount = 1,
                         RetryDelaySeconds = 0.75f,
                         StepOrderMode = LoadingStepOrderMode.Registration
-                    });
+                    },
+                    new StartupLoadingOptions());
 
                 RegisterOptionalYandex(features);
                 RegisterOptionalCrazyGames(features);

@@ -2,6 +2,7 @@
   "name": "Evo.Infrastructure.Loading.Editor.Tests",
   "references": [
     "Evo.Infrastructure.Loading",
+    "Unity.Addressables",
     "UniTask"
   ],
   "includePlatforms": [
