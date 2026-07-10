@@ -395,24 +395,19 @@ namespace Evo.Infrastructure.Services.ResourceLoader
             }
             catch (OperationCanceledException)
             {
+                CompleteSceneUnloadHandleIfDone(cacheKey, typedHandle, unloadHandle, false);
                 // The Addressables operation keeps running and remains registered for later callers.
                 throw;
             }
             catch (Exception)
             {
-                // The completion callback logs a failed unload once and keeps the scene handle
-                // cached so the caller can retry after resolving the underlying issue.
+                CompleteSceneUnloadHandleIfDone(cacheKey, typedHandle, unloadHandle, false);
+                // Keep the scene handle cached when unload failed so the caller can retry after
+                // resolving the underlying issue.
                 throw;
             }
-            finally
-            {
-                if (unloadHandle.IsDone &&
-                    _sceneUnloadHandles.TryGetValue(cacheKey, out var activeUnload) &&
-                    activeUnload.Equals(unloadHandle))
-                {
-                    _sceneUnloadHandles.Remove(cacheKey);
-                }
-            }
+
+            CompleteSceneUnloadHandleIfDone(cacheKey, typedHandle, unloadHandle, true);
 
             if (_handles.TryGetValue(cacheKey, out var cachedHandle) && cachedHandle.Equals(handle))
             {
@@ -479,6 +474,16 @@ namespace Evo.Infrastructure.Services.ResourceLoader
             }
 
             _handles.Clear();
+
+            foreach (var pair in _sceneUnloadHandles)
+            {
+                var handle = pair.Value;
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
+            }
+
             _sceneUnloadHandles.Clear();
         }
 
@@ -554,21 +559,35 @@ namespace Evo.Infrastructure.Services.ResourceLoader
             CacheKey cacheKey,
             AsyncOperationHandle<SceneInstance> sceneHandle)
         {
-            if (_sceneUnloadHandles.TryGetValue(cacheKey, out var existing) && existing.IsValid() && !existing.IsDone)
+            if (_sceneUnloadHandles.TryGetValue(cacheKey, out var existing) && existing.IsValid())
             {
                 return existing;
             }
 
-            var unloadHandle = Addressables.UnloadSceneAsync(sceneHandle, true);
+            var unloadHandle = Addressables.UnloadSceneAsync(sceneHandle, false);
             _sceneUnloadHandles[cacheKey] = unloadHandle;
-            unloadHandle.Completed += operation =>
-            {
-                if (_sceneUnloadHandles.TryGetValue(cacheKey, out var activeUnload) && activeUnload.Equals(operation))
-                {
-                    _sceneUnloadHandles.Remove(cacheKey);
-                }
+            return unloadHandle;
+        }
 
-                if (operation.Status == AsyncOperationStatus.Succeeded)
+        private void CompleteSceneUnloadHandleIfDone(
+            CacheKey cacheKey,
+            AsyncOperationHandle<SceneInstance> sceneHandle,
+            AsyncOperationHandle<SceneInstance> unloadHandle,
+            bool throwOnFailure)
+        {
+            if (!unloadHandle.IsValid() || !unloadHandle.IsDone)
+            {
+                return;
+            }
+
+            if (_sceneUnloadHandles.TryGetValue(cacheKey, out var activeUnload) && activeUnload.Equals(unloadHandle))
+            {
+                _sceneUnloadHandles.Remove(cacheKey);
+            }
+
+            try
+            {
+                if (unloadHandle.Status == AsyncOperationStatus.Succeeded)
                 {
                     if (_handles.TryGetValue(cacheKey, out var cachedSceneHandle) && cachedSceneHandle.Equals(sceneHandle))
                     {
@@ -578,12 +597,24 @@ namespace Evo.Infrastructure.Services.ResourceLoader
                     return;
                 }
 
+                var exception = unloadHandle.OperationException ?? new InvalidOperationException(
+                    $"Addressables unload operation failed for scene '{cacheKey.Key}'.");
                 EvoDebug.LogError(
-                    $"Failed to unload scene '{cacheKey.Key}'. " +
-                    $"{operation.OperationException?.Message ?? "Addressables unload operation failed."}",
+                    $"Failed to unload scene '{cacheKey.Key}'. {exception.Message}",
                     nameof(AddressablesResourceLoaderService));
-            };
-            return unloadHandle;
+
+                if (throwOnFailure)
+                {
+                    throw exception;
+                }
+            }
+            finally
+            {
+                if (unloadHandle.IsValid())
+                {
+                    Addressables.Release(unloadHandle);
+                }
+            }
         }
 
         private async UniTask<T> AwaitHandleWithRelease<T>(

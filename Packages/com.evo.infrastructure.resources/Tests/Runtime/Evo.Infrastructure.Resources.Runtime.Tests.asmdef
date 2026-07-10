@@ -1,0 +1,15 @@
+{
+  "name": "Evo.Infrastructure.Resources.Runtime.Tests",
+  "references": [
+    "Evo.Infrastructure.Resources",
+    "UniTask",
+    "Unity.Addressables",
+    "Unity.ResourceManager"
+  ],
+  "includePlatforms": [],
+  "autoReferenced": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "noEngineReferences": false
+}
