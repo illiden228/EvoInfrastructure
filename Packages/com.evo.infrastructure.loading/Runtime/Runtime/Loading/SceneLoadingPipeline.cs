@@ -418,6 +418,22 @@ namespace Evo.Infrastructure.Runtime.Loading
             }
         }
 
+        private static string GetReferenceKey(AssetReference reference)
+        {
+            if (reference == null)
+            {
+                return null;
+            }
+
+            if (!string.IsNullOrEmpty(reference.AssetGUID))
+            {
+                return reference.AssetGUID;
+            }
+
+            var runtimeKey = reference.RuntimeKey?.ToString();
+            return !string.IsNullOrEmpty(runtimeKey) ? runtimeKey : reference.AssetGUID;
+        }
+
         private sealed class SceneLoadingContext
         {
             public readonly AssetReference SceneReference;
@@ -447,27 +463,6 @@ namespace Evo.Infrastructure.Runtime.Loading
                 PreviousActiveScene = previousActiveScene;
                 ExecutionOptions = executionOptions ?? new LoadingExecutionOptions();
                 SceneKey = GetReferenceKey(sceneReference);
-            }
-
-            private static string GetReferenceKey(AssetReference reference)
-            {
-                if (reference == null)
-                {
-                    return null;
-                }
-
-                if (!string.IsNullOrEmpty(reference.AssetGUID))
-                {
-                    return reference.AssetGUID;
-                }
-
-                var runtimeKey = reference.RuntimeKey?.ToString();
-                if (!string.IsNullOrEmpty(runtimeKey))
-                {
-                    return runtimeKey;
-                }
-
-                return reference.AssetGUID;
             }
         }
 

@@ -716,14 +716,14 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             EditorGUILayout.HelpBox(
-                $"A newer EvoInfrastructure release is available: {_latestEvoGitTag}. Update core first; after Unity reloads, the new wizard can update the remaining Evo packages.",
+                $"A newer EvoInfrastructure release is available: {_latestEvoGitTag}. Update all installed Evo packages together to avoid an incompatible mixed-version state.",
                 MessageType.Info);
 
             EditorGUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
             using (new EditorGUI.DisabledScope(_isInstalling || _oneClickSetupRequested || _scaffoldSetupRequested || _addAndRemoveRequest != null))
             {
-                if (GUILayout.Button("Update Evo Core", GUILayout.Width(150f)))
+                if (GUILayout.Button("Update Evo Release", GUILayout.Width(160f)))
                 {
                     UpdateEvoCoreToLatest();
                 }
@@ -744,12 +744,19 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
-            var source = GetEvoPackageSource(CorePackageName, _latestEvoGitTag);
+            var sources = _installedEvoPackageNames
+                .Append(CorePackageName)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(GetEvoPackageInstallOrder)
+                .ThenBy(GetEvoPackageDescriptorIndex)
+                .Select(packageName => GetEvoPackageSource(packageName, _latestEvoGitTag))
+                .ToArray();
+
             _isInstalling = true;
-            _statusLine = "Updating Evo core to " + _latestEvoGitTag + "...";
-            Debug.Log($"[Evo Setup] Updating Evo core to {_latestEvoGitTag}: {source}");
+            _statusLine = "Updating installed Evo packages to " + _latestEvoGitTag + "...";
+            Debug.Log($"[Evo Setup] Updating installed Evo packages to {_latestEvoGitTag}:\n{string.Join("\n", sources)}");
             _operationRunner?.Start();
-            _addAndRemoveRequest = Client.AddAndRemove(new[] { source }, Array.Empty<string>());
+            _addAndRemoveRequest = Client.AddAndRemove(sources, Array.Empty<string>());
         }
 
         private void UpdateOutdatedEvoPackages()
