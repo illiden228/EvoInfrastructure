@@ -4,5 +4,6 @@ namespace Evo.Infrastructure.Runtime.Loading
     {
         public bool AwaitLoadingPresentationBeforeSceneLoad = true;
         public bool HideLoadingPresentationAfterLoadingFinished;
+        public string TransitionSceneName;
     }
 }

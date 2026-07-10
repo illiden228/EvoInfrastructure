@@ -352,6 +352,34 @@ namespace Evo.Infrastructure.Services.ResourceLoader
             return UnloadSceneAsync(key, cancellationToken);
         }
 
+        public void ReleaseSceneHandle(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+            {
+                return;
+            }
+
+            var cacheKey = new CacheKey(key, typeof(SceneInstance));
+            if (!_handles.TryGetValue(cacheKey, out var handle))
+            {
+                return;
+            }
+
+            _handles.Remove(cacheKey);
+            if (handle.IsValid())
+            {
+                Addressables.Release(handle);
+            }
+        }
+
+        public void ReleaseSceneHandle(AssetReference reference)
+        {
+            if (reference != null)
+            {
+                ReleaseSceneHandle(GetReferenceKey(reference));
+            }
+        }
+
         public void ReleaseAll()
         {
             foreach (var pair in _handles)

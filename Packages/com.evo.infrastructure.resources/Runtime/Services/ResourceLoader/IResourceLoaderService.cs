@@ -49,6 +49,8 @@ namespace Evo.Infrastructure.Services.ResourceLoader
         void Release<T>(AssetReference reference) where T : class;
         UniTask UnloadSceneAsync(string key, CancellationToken cancellationToken = default);
         UniTask UnloadSceneAsync(AssetReference reference, CancellationToken cancellationToken = default);
+        void ReleaseSceneHandle(string key);
+        void ReleaseSceneHandle(AssetReference reference);
         void ReleaseAll();
     }
 }

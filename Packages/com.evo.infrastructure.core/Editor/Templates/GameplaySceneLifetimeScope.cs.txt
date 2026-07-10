@@ -1,0 +1,13 @@
+using VContainer;
+using VContainer.Unity;
+
+namespace Game.Runtime.Gameplay
+{
+    public sealed class GameplaySceneLifetimeScope : LifetimeScope
+    {
+        protected override void Configure(IContainerBuilder builder)
+        {
+            // Register gameplay-scene services here.
+        }
+    }
+}

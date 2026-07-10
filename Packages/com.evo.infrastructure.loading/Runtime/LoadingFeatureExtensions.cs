@@ -8,10 +8,12 @@ namespace Evo.Infrastructure.Runtime.Loading
     {
         public static EvoFeatureRegistry UseLoading(
             this EvoFeatureRegistry features,
-            SceneTransitionOptions sceneTransitionOptions = null)
+            SceneTransitionOptions sceneTransitionOptions = null,
+            LoadingExecutionOptions executionOptions = null)
         {
             var builder = features.Builder;
             builder.RegisterInstance(sceneTransitionOptions ?? new SceneTransitionOptions());
+            builder.RegisterInstance(executionOptions ?? new LoadingExecutionOptions());
             builder.Register<ILoadingProgress, LoadingProgressReporter>(Lifetime.Singleton);
             builder.Register<ISceneLoadingPipeline, SceneLoadingPipeline>(Lifetime.Singleton);
             builder.Register<ILoadingStep, TargetFrameRateStep>(Lifetime.Transient);

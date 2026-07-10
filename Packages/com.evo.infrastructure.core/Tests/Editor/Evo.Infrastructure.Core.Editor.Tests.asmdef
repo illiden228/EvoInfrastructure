@@ -1,0 +1,14 @@
+{
+  "name": "Evo.Infrastructure.Core.Editor.Tests",
+  "references": [
+    "Evo.Infrastructure.Core.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "noEngineReferences": false
+}

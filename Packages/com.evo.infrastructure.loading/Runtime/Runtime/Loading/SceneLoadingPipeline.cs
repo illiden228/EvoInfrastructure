@@ -23,10 +23,12 @@ namespace Evo.Infrastructure.Runtime.Loading
         private readonly ILoadingProgress _progress;
         private readonly ILoadingPresentation _loadingPresentation;
         private readonly SceneTransitionOptions _transitionOptions;
+        private readonly LoadingExecutionOptions _executionOptions;
         private readonly string _transitionSceneName;
+        private readonly SemaphoreSlim _loadGate = new(1, 1);
 
         public SceneLoadingPipeline(ISceneLoaderService sceneLoader, ILoadingProgress progress, IConfigService configService)
-            : this(sceneLoader, progress, configService, null)
+            : this(sceneLoader, progress, configService, null, null)
         {
         }
 
@@ -35,13 +37,19 @@ namespace Evo.Infrastructure.Runtime.Loading
             ISceneLoaderService sceneLoader,
             ILoadingProgress progress,
             IConfigService configService,
-            IObjectResolver resolver)
+            IObjectResolver resolver,
+            LoadingExecutionOptions executionOptions)
         {
             _sceneLoader = sceneLoader;
             _progress = progress;
             _loadingPresentation = TryResolve<ILoadingPresentation>(resolver);
             _transitionOptions = TryResolve<SceneTransitionOptions>(resolver) ?? new SceneTransitionOptions();
-            _transitionSceneName = ResolveTransitionSceneName(configService);
+            _executionOptions = executionOptions ??
+                                TryResolve<LoadingExecutionOptions>(resolver) ??
+                                new LoadingExecutionOptions();
+            _transitionSceneName = !string.IsNullOrWhiteSpace(_transitionOptions.TransitionSceneName)
+                ? _transitionOptions.TransitionSceneName
+                : ResolveTransitionSceneName(configService);
         }
 
         public IReadOnlyList<ILoadingStep> CreateSteps(
@@ -50,7 +58,13 @@ namespace Evo.Infrastructure.Runtime.Loading
             bool activateOnLoad = true,
             int priority = 100)
         {
-            return CreateSteps(sceneReference, mode, activateOnLoad, priority, unloadPreviousAfterTargetLoad: true);
+            return CreateSteps(
+                sceneReference,
+                mode,
+                activateOnLoad,
+                priority,
+                unloadPreviousAfterTargetLoad: true,
+                previousActiveScene: SceneManager.GetActiveScene());
         }
 
         private IReadOnlyList<ILoadingStep> CreateSteps(
@@ -58,7 +72,8 @@ namespace Evo.Infrastructure.Runtime.Loading
             LoadSceneMode mode,
             bool activateOnLoad,
             int priority,
-            bool unloadPreviousAfterTargetLoad)
+            bool unloadPreviousAfterTargetLoad,
+            UnityEngine.SceneManagement.Scene previousActiveScene)
         {
             if (sceneReference == null)
             {
@@ -70,12 +85,15 @@ namespace Evo.Infrastructure.Runtime.Loading
                 mode,
                 activateOnLoad,
                 priority,
-                unloadPreviousAfterTargetLoad);
+                unloadPreviousAfterTargetLoad,
+                previousActiveScene,
+                _executionOptions);
 
             return new ILoadingStep[]
             {
                 new SceneLoadStep(_sceneLoader, context),
-                new SceneStepsStep(context)
+                new SceneStepsStep(context),
+                new SceneCommitStep(context)
             };
         }
 
@@ -91,22 +109,27 @@ namespace Evo.Infrastructure.Runtime.Loading
                 return;
             }
 
+            await _loadGate.WaitAsync(cancellationToken);
+            using var operationTimeout = CreateTimeoutTokenSource(
+                cancellationToken,
+                _executionOptions.EnableOperationTimeout
+                    ? _executionOptions.OperationTimeoutSeconds
+                    : 0f);
+            var operationToken = operationTimeout?.Token ?? cancellationToken;
+            var recoveryScene = SceneManager.GetActiveScene();
             var useTransition = mode == LoadSceneMode.Single && !string.IsNullOrEmpty(_transitionSceneName);
             var transitionSceneActivated = false;
 
             try
             {
-                await ShowLoadingPresentationIfNeeded(cancellationToken);
+                await ShowLoadingPresentationIfNeeded(operationToken);
+                _progress?.NotifyReady();
+                _progress?.NotifyStarted();
 
                 if (useTransition)
                 {
-                    var previousActiveScene = SceneManager.GetActiveScene();
-                    transitionSceneActivated = await LoadAndActivateTransitionSceneAsync(cancellationToken);
-                    if (transitionSceneActivated)
-                    {
-                        await UnloadPreviousActiveSceneBeforeTargetLoadAsync(previousActiveScene, cancellationToken);
-                    }
-                    else
+                    transitionSceneActivated = await LoadAndActivateTransitionSceneAsync(operationToken);
+                    if (!transitionSceneActivated)
                     {
                         EvoDebug.LogWarning(
                             $"Transition scene '{_transitionSceneName}' was not activated. Falling back to target-first scene load.",
@@ -114,24 +137,65 @@ namespace Evo.Infrastructure.Runtime.Loading
                     }
                 }
 
-                var runner = new LoadingRunner();
-                var steps = CreateSteps(
-                    sceneReference,
-                    mode,
-                    activateOnLoad,
-                    priority,
-                    unloadPreviousAfterTargetLoad: !transitionSceneActivated);
+                var attempts = Math.Max(0, _executionOptions.OperationRetryCount) + 1;
+                for (var attempt = 1; attempt <= attempts; attempt++)
+                {
+                    try
+                    {
+                        var runner = new LoadingRunner(_executionOptions);
+                        var steps = CreateSteps(
+                            sceneReference,
+                            mode,
+                            activateOnLoad,
+                            priority,
+                            unloadPreviousAfterTargetLoad: true,
+                            previousActiveScene: recoveryScene);
 
-                await runner.RunAsync(steps, _progress, cancellationToken);
+                        await runner.RunAsync(steps, _progress, operationToken, notifyLifecycle: false);
+                        break;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        await CleanupFailedTargetAsync(sceneReference, recoveryScene, CancellationToken.None);
+                        throw;
+                    }
+                    catch (Exception ex) when (attempt < attempts)
+                    {
+                        await CleanupFailedTargetAsync(sceneReference, recoveryScene, operationToken);
+                        EvoDebug.LogWarning(
+                            $"Scene loading pipeline attempt {attempt}/{attempts} failed. Retrying. {ex.GetType().Name}: {ex.Message}",
+                            SourceName);
+                        if (_executionOptions.RetryDelaySeconds > 0f)
+                        {
+                            await UniTask.Delay(
+                                TimeSpan.FromSeconds(_executionOptions.RetryDelaySeconds),
+                                cancellationToken: operationToken);
+                        }
+                    }
+                    catch
+                    {
+                        await CleanupFailedTargetAsync(sceneReference, recoveryScene, CancellationToken.None);
+                        throw;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (
+                !cancellationToken.IsCancellationRequested &&
+                operationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException(
+                    $"Scene loading pipeline timed out after {_executionOptions.OperationTimeoutSeconds:0.###} seconds.");
             }
             finally
             {
+                _progress?.NotifyFinished();
                 if (transitionSceneActivated)
                 {
                     await UnloadTransitionSceneAsync();
                 }
 
                 await HideLoadingPresentationIfNeeded();
+                _loadGate.Release();
             }
         }
 
@@ -144,7 +208,29 @@ namespace Evo.Infrastructure.Runtime.Loading
                 return;
             }
 
-            await _loadingPresentation.ShowAsync(cancellationToken);
+            using var timeout = CreateTimeoutTokenSource(
+                cancellationToken,
+                _executionOptions.PresentationTimeoutSeconds);
+            try
+            {
+                await _loadingPresentation.ShowAsync(timeout?.Token ?? cancellationToken);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                EvoDebug.LogWarning(
+                    $"Loading presentation timed out after {_executionOptions.PresentationTimeoutSeconds:0.###} seconds. Continuing without it.",
+                    SourceName);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EvoDebug.LogWarning(
+                    $"Loading presentation failed. Continuing without it. {ex.Message}",
+                    SourceName);
+            }
         }
 
         private async UniTask HideLoadingPresentationIfNeeded()
@@ -156,7 +242,23 @@ namespace Evo.Infrastructure.Runtime.Loading
                 return;
             }
 
-            await _loadingPresentation.HideAsync(CancellationToken.None);
+            using var timeout = CreateTimeoutTokenSource(
+                CancellationToken.None,
+                _executionOptions.PresentationTimeoutSeconds);
+            try
+            {
+                await _loadingPresentation.HideAsync(timeout?.Token ?? CancellationToken.None);
+            }
+            catch (OperationCanceledException) when (timeout != null && timeout.IsCancellationRequested)
+            {
+                EvoDebug.LogWarning(
+                    $"Loading presentation hide timed out after {_executionOptions.PresentationTimeoutSeconds:0.###} seconds.",
+                    SourceName);
+            }
+            catch (Exception ex)
+            {
+                EvoDebug.LogWarning($"Loading presentation hide failed or timed out. {ex.Message}", SourceName);
+            }
         }
 
         private async UniTask<bool> LoadAndActivateTransitionSceneAsync(CancellationToken cancellationToken)
@@ -181,7 +283,10 @@ namespace Evo.Infrastructure.Runtime.Loading
 
             try
             {
-                await transitionLoad.ToUniTask(cancellationToken: cancellationToken);
+                using var timeout = CreateTimeoutTokenSource(
+                    cancellationToken,
+                    _executionOptions.TransitionTimeoutSeconds);
+                await transitionLoad.ToUniTask(cancellationToken: timeout?.Token ?? cancellationToken);
                 var scene = SceneManager.GetSceneByName(_transitionSceneName);
                 if (!scene.IsValid() || !scene.isLoaded)
                 {
@@ -196,6 +301,13 @@ namespace Evo.Infrastructure.Runtime.Loading
                     SourceName);
 
                 return TrySetTransitionSceneActive(scene);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                EvoDebug.LogWarning(
+                    $"Transition scene load timed out after {_executionOptions.TransitionTimeoutSeconds:0.###} seconds.",
+                    SourceName);
+                return false;
             }
             catch (OperationCanceledException)
             {
@@ -231,42 +343,6 @@ namespace Evo.Infrastructure.Runtime.Loading
             return true;
         }
 
-        private async UniTask UnloadPreviousActiveSceneBeforeTargetLoadAsync(
-            UnityEngine.SceneManagement.Scene previousActiveScene,
-            CancellationToken cancellationToken)
-        {
-            if (!previousActiveScene.IsValid() ||
-                !previousActiveScene.isLoaded ||
-                string.Equals(previousActiveScene.name, _transitionSceneName, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            var transitionScene = SceneManager.GetSceneByName(_transitionSceneName);
-            if (!transitionScene.IsValid() || !transitionScene.isLoaded)
-            {
-                EvoDebug.LogWarning(
-                    $"Previous scene '{previousActiveScene.name}' was not unloaded before target load because transition scene is not loaded.",
-                    SourceName);
-                return;
-            }
-
-            var sceneName = previousActiveScene.name;
-            var unloadOperation = SceneManager.UnloadSceneAsync(previousActiveScene);
-            if (unloadOperation == null)
-            {
-                EvoDebug.LogWarning(
-                    $"Previous scene '{sceneName}' unload before target load failed to start.",
-                    SourceName);
-                return;
-            }
-
-            await unloadOperation.ToUniTask(cancellationToken: cancellationToken);
-            EvoDebug.Log(
-                $"Previous scene unloaded before target load: '{sceneName}'.",
-                SourceName);
-        }
-
         private async UniTask UnloadTransitionSceneAsync()
         {
             var scene = SceneManager.GetSceneByName(_transitionSceneName);
@@ -288,7 +364,11 @@ namespace Evo.Infrastructure.Runtime.Loading
                 var unloadOperation = SceneManager.UnloadSceneAsync(scene);
                 if (unloadOperation != null)
                 {
-                    await unloadOperation.ToUniTask(cancellationToken: CancellationToken.None);
+                    using var timeout = CreateTimeoutTokenSource(
+                        CancellationToken.None,
+                        _executionOptions.TransitionTimeoutSeconds);
+                    await unloadOperation.ToUniTask(
+                        cancellationToken: timeout?.Token ?? CancellationToken.None);
                     EvoDebug.Log(
                         $"Transition scene unloaded: '{_transitionSceneName}'.",
                         SourceName);
@@ -302,6 +382,42 @@ namespace Evo.Infrastructure.Runtime.Loading
             }
         }
 
+        private async UniTask CleanupFailedTargetAsync(
+            AssetReference sceneReference,
+            UnityEngine.SceneManagement.Scene recoveryScene,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var transitionScene = string.IsNullOrEmpty(_transitionSceneName)
+                    ? default
+                    : SceneManager.GetSceneByName(_transitionSceneName);
+                if (transitionScene.IsValid() && transitionScene.isLoaded)
+                {
+                    SceneManager.SetActiveScene(transitionScene);
+                }
+                else if (recoveryScene.IsValid() && recoveryScene.isLoaded)
+                {
+                    SceneManager.SetActiveScene(recoveryScene);
+                }
+
+                var key = GetReferenceKey(sceneReference);
+                if (!string.IsNullOrEmpty(key))
+                {
+                    using var timeout = CreateTimeoutTokenSource(
+                        cancellationToken,
+                        _executionOptions.TransitionTimeoutSeconds);
+                    await _sceneLoader.UnloadAsync(key, timeout?.Token ?? cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                EvoDebug.LogWarning(
+                    $"Failed target cleanup was not fully completed. {ex.Message}",
+                    SourceName);
+            }
+        }
+
         private sealed class SceneLoadingContext
         {
             public readonly AssetReference SceneReference;
@@ -309,6 +425,8 @@ namespace Evo.Infrastructure.Runtime.Loading
             public readonly bool ActivateOnLoad;
             public readonly int Priority;
             public readonly bool UnloadPreviousAfterTargetLoad;
+            public readonly UnityEngine.SceneManagement.Scene PreviousActiveScene;
+            public readonly LoadingExecutionOptions ExecutionOptions;
             public SceneInstance SceneInstance;
             public string SceneKey;
 
@@ -317,13 +435,17 @@ namespace Evo.Infrastructure.Runtime.Loading
                 LoadSceneMode mode,
                 bool activateOnLoad,
                 int priority,
-                bool unloadPreviousAfterTargetLoad)
+                bool unloadPreviousAfterTargetLoad,
+                UnityEngine.SceneManagement.Scene previousActiveScene,
+                LoadingExecutionOptions executionOptions)
             {
                 SceneReference = sceneReference;
                 Mode = mode;
                 ActivateOnLoad = activateOnLoad;
                 Priority = priority;
                 UnloadPreviousAfterTargetLoad = unloadPreviousAfterTargetLoad;
+                PreviousActiveScene = previousActiveScene;
+                ExecutionOptions = executionOptions ?? new LoadingExecutionOptions();
                 SceneKey = GetReferenceKey(sceneReference);
             }
 
@@ -372,10 +494,6 @@ namespace Evo.Infrastructure.Runtime.Loading
                     return;
                 }
 
-                var previousActiveSceneName = _sceneLoader?.CurrentSceneName;
-                var previousActiveScene = string.IsNullOrEmpty(previousActiveSceneName)
-                    ? default
-                    : SceneManager.GetSceneByName(previousActiveSceneName);
                 var loadMode = _context.Mode == LoadSceneMode.Single
                     ? LoadSceneMode.Additive
                     : _context.Mode;
@@ -422,16 +540,6 @@ namespace Evo.Infrastructure.Runtime.Loading
                         }
                     }
 
-                    if (_context.Mode == LoadSceneMode.Single &&
-                        _context.UnloadPreviousAfterTargetLoad &&
-                        previousActiveScene.IsValid() &&
-                        previousActiveScene.isLoaded &&
-                        previousActiveScene != _context.SceneInstance.Scene)
-                    {
-                        await SceneManager.UnloadSceneAsync(previousActiveScene)
-                            .ToUniTask(cancellationToken: cancellationToken);
-                    }
-
                     progress?.Report(1f);
                 }
                 finally
@@ -441,7 +549,41 @@ namespace Evo.Infrastructure.Runtime.Loading
             }
         }
 
-        private sealed class SceneStepsStep : ILoadingStep
+        private sealed class SceneCommitStep : ILoadingStep
+        {
+            private readonly SceneLoadingContext _context;
+
+            public SceneCommitStep(SceneLoadingContext context)
+            {
+                _context = context;
+            }
+
+            public string Message => "Finalizing scene transition";
+            public float Weight => 0.2f;
+            public int Order => 100;
+
+            public async UniTask Execute(IProgress<float> progress, CancellationToken cancellationToken)
+            {
+                progress?.Report(0f);
+                var previous = _context.PreviousActiveScene;
+                if (_context.Mode == LoadSceneMode.Single &&
+                    _context.UnloadPreviousAfterTargetLoad &&
+                    previous.IsValid() &&
+                    previous.isLoaded &&
+                    previous != _context.SceneInstance.Scene)
+                {
+                    var unload = SceneManager.UnloadSceneAsync(previous);
+                    if (unload != null)
+                    {
+                        await unload.ToUniTask(cancellationToken: cancellationToken);
+                    }
+                }
+
+                progress?.Report(1f);
+            }
+        }
+
+        private sealed class SceneStepsStep : ILoadingStep, ILoadingStepTimeout
         {
             private readonly SceneLoadingContext _context;
 
@@ -453,6 +595,7 @@ namespace Evo.Infrastructure.Runtime.Loading
             public string Message => "Initializing scene";
             public float Weight => 2f;
             public int Order => 10;
+            public float TimeoutSeconds => -1f;
 
             public async UniTask Execute(IProgress<float> progress, CancellationToken cancellationToken)
             {
@@ -463,6 +606,17 @@ namespace Evo.Infrastructure.Runtime.Loading
                     progress?.Report(1f);
                     return;
                 }
+
+                steps = LoadingStepOrdering.Prepare(
+                    steps,
+                    _context.ExecutionOptions.StepOrderMode);
+                EvoDebug.Log(
+                    LoadingStepOrdering.FormatPlan(
+                        steps,
+                        _context.ExecutionOptions.StepOrderMode,
+                        _context.ExecutionOptions,
+                        "Gameplay Loading Plan"),
+                    SourceName);
 
                 var totalWeight = GetTotalWeight(steps);
                 var completedWeight = 0f;
@@ -484,7 +638,12 @@ namespace Evo.Infrastructure.Runtime.Loading
                     }
 
                     ReportLocal(0f);
-                    await step.Execute(new Progress<float>(ReportLocal), cancellationToken);
+                    await LoadingStepExecution.ExecuteAsync(
+                        step,
+                        new Progress<float>(ReportLocal),
+                        _context.ExecutionOptions,
+                        cancellationToken,
+                        cancellationToken);
                     ReportLocal(1f);
                     completedWeight += weight;
                 }
@@ -495,7 +654,8 @@ namespace Evo.Infrastructure.Runtime.Loading
                 var scope = await WaitForSceneScopeAsync(cancellationToken);
                 if (scope == null || scope.Container == null)
                 {
-                    return null;
+                    throw new TimeoutException(
+                        $"Scene scope for '{_context.SceneInstance.Scene.name}' was not ready within 120 frames.");
                 }
 
                 try
@@ -513,9 +673,11 @@ namespace Evo.Infrastructure.Runtime.Loading
                     }
                     return list;
                 }
-                catch
+                catch (Exception ex)
                 {
-                    return null;
+                    throw new InvalidOperationException(
+                        $"Failed to resolve gameplay loading steps for scene '{_context.SceneInstance.Scene.name}'.",
+                        ex);
                 }
             }
 
@@ -598,7 +760,8 @@ namespace Evo.Infrastructure.Runtime.Loading
                 return null;
             }
 
-            var configType = FindTypeByName("Evo.Infrastructure.Runtime.Config.ProjectConfig");
+            var configType = FindTypeByName("Game.Runtime.Config.ProjectConfig") ??
+                             FindTypeByName("Evo.Infrastructure.Runtime.Config.ProjectConfig");
             if (configType == null)
             {
                 return null;
@@ -636,6 +799,20 @@ namespace Evo.Infrastructure.Runtime.Loading
             {
                 return null;
             }
+        }
+
+        private static CancellationTokenSource CreateTimeoutTokenSource(
+            CancellationToken parentToken,
+            float timeoutSeconds)
+        {
+            if (timeoutSeconds <= 0f)
+            {
+                return null;
+            }
+
+            var source = CancellationTokenSource.CreateLinkedTokenSource(parentToken);
+            source.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+            return source;
         }
 
         private static Type FindTypeByName(string fullName)

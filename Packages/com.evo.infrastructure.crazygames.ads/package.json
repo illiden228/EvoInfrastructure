@@ -1,13 +1,13 @@
 {
   "name": "com.evo.infrastructure.crazygames.ads",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "displayName": "Evo Infrastructure CrazyGames Ads",
   "description": "CrazyGames ads adapter for Evo Infrastructure Ads.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.crazygames": "0.5.3",
-    "com.evo.infrastructure.ads": "0.5.3",
-    "com.evo.infrastructure.di": "0.5.3"
+    "com.evo.infrastructure.crazygames": "0.5.4",
+    "com.evo.infrastructure.ads": "0.5.4",
+    "com.evo.infrastructure.di": "0.5.4"
   }
 }

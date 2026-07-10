@@ -1,34 +1,52 @@
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
 using UnityEditor;
-using UnityEngine.Localization;
-using UnityEngine.Localization.Settings;
-using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine;
+using UnityEngine.Localization.Tables;
 
 namespace Evo.Infrastructure.Editor.EvoTools
 {
     public static class EvoToolsLocalization
     {
-        private const string TABLE_NAME = "EvoTools";
-        private static bool _initialized;
-        private static bool _initInProgress;
-        private static AsyncOperationHandle _initHandle;
+        private const string LANGUAGE_PREFS_KEY = "Evo.Infrastructure.EditorTools.Language";
+        private const string ENGLISH_CODE = "en";
+        private const string RUSSIAN_CODE = "ru";
+        private const string LOCALIZATION_ROOT =
+            "Packages/com.evo.infrastructure.editor-tools/Editor/EvoTools/Localization";
 
-        public static Locale CurrentLocale => LocalizationSettings.SelectedLocale;
-
-        public static IReadOnlyList<Locale> GetAvailableLocales()
+        private static readonly string[] AvailableLanguageCodes =
         {
-            EnsureInitialized();
-            return LocalizationSettings.AvailableLocales.Locales;
+            ENGLISH_CODE,
+            RUSSIAN_CODE
+        };
+
+        private static readonly Dictionary<string, StringTable> Tables =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        public static string CurrentLanguageCode
+        {
+            get
+            {
+                var fallback = Application.systemLanguage == SystemLanguage.Russian
+                    ? RUSSIAN_CODE
+                    : ENGLISH_CODE;
+                return NormalizeLanguageCode(EditorPrefs.GetString(LANGUAGE_PREFS_KEY, fallback));
+            }
         }
 
-        public static void SetLocale(Locale locale)
+        public static IReadOnlyList<string> GetAvailableLanguageCodes()
         {
-            EnsureInitialized();
-            if (locale != null)
-            {
-                LocalizationSettings.SelectedLocale = locale;
-            }
+            return AvailableLanguageCodes;
+        }
+
+        public static string GetLanguageDisplayName(string languageCode)
+        {
+            return NormalizeLanguageCode(languageCode) == RUSSIAN_CODE ? "Русский" : "English";
+        }
+
+        public static void SetLanguage(string languageCode)
+        {
+            EditorPrefs.SetString(LANGUAGE_PREFS_KEY, NormalizeLanguageCode(languageCode));
         }
 
         public static string Get(string key)
@@ -38,62 +56,51 @@ namespace Evo.Infrastructure.Editor.EvoTools
 
         public static string Get(string key, string fallback)
         {
-            if (string.IsNullOrEmpty(key))
+            if (string.IsNullOrWhiteSpace(key))
             {
                 return fallback;
             }
 
-            EnsureInitialized();
-            var value = LocalizationSettings.StringDatabase.GetLocalizedString(TABLE_NAME, key);
-            return IsMissingTranslation(value, key) ? fallback : value;
+            var languageCode = CurrentLanguageCode;
+            var value = GetFromTable(languageCode, key);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            if (!string.Equals(languageCode, ENGLISH_CODE, StringComparison.OrdinalIgnoreCase))
+            {
+                value = GetFromTable(ENGLISH_CODE, key);
+            }
+
+            return string.IsNullOrWhiteSpace(value) ? fallback : value;
         }
 
-        private static bool IsMissingTranslation(string value, string key)
+        private static string GetFromTable(string languageCode, string key)
         {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return true;
-            }
-
-            if (string.Equals(value, key, StringComparison.Ordinal))
-            {
-                return true;
-            }
-
-            return value.StartsWith("No translation found for", StringComparison.OrdinalIgnoreCase);
+            var table = LoadTable(languageCode);
+            return table?.GetEntry(key)?.LocalizedValue;
         }
 
-        private static void EnsureInitialized()
+        private static StringTable LoadTable(string languageCode)
         {
-            if (_initialized)
+            languageCode = NormalizeLanguageCode(languageCode);
+            if (Tables.TryGetValue(languageCode, out var cached) && cached != null)
             {
-                return;
+                return cached;
             }
 
-            var handle = LocalizationSettings.InitializationOperation;
-            if (handle.IsValid() && !handle.IsDone)
-            {
-                HookInitialize(handle);
-                return;
-            }
-
-            _initialized = true;
+            var path = $"{LOCALIZATION_ROOT}/EvoTools_{languageCode}.asset";
+            var table = AssetDatabase.LoadAssetAtPath<StringTable>(path);
+            Tables[languageCode] = table;
+            return table;
         }
 
-        private static void HookInitialize(AsyncOperationHandle handle)
+        private static string NormalizeLanguageCode(string languageCode)
         {
-            if (_initInProgress && _initHandle.Equals(handle))
-            {
-                return;
-            }
-
-            _initInProgress = true;
-            _initHandle = handle;
-            handle.Completed += _ =>
-            {
-                _initInProgress = false;
-                _initialized = true;
-            };
+            return string.Equals(languageCode, RUSSIAN_CODE, StringComparison.OrdinalIgnoreCase)
+                ? RUSSIAN_CODE
+                : ENGLISH_CODE;
         }
     }
 }

@@ -232,22 +232,20 @@ namespace Evo.Infrastructure.Services.SceneLoader
 
             for (var attempt = 1; attempt <= attempts; attempt++)
             {
-                var handle = createHandle();
                 try
                 {
+                    var handle = createHandle();
                     return await LoadWithEvents(handle, info, attempt, attempts, cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {
-                    throw;
-                }
-                catch (TimeoutException)
-                {
+                    ReleaseFailedSceneHandle(info);
                     throw;
                 }
                 catch (Exception ex)
                 {
                     lastException = ex;
+                    ReleaseFailedSceneHandle(info);
                     if (attempt >= attempts)
                     {
                         break;
@@ -267,6 +265,27 @@ namespace Evo.Infrastructure.Services.SceneLoader
             }
 
             throw lastException ?? new InvalidOperationException($"Scene load failed for key '{info.SceneKey}'.");
+        }
+
+        private void ReleaseFailedSceneHandle(SceneLoadInfo info)
+        {
+            try
+            {
+                if (info.Source == SceneLoadSource.Reference && _lastSceneReference != null)
+                {
+                    _resourceLoader.ReleaseSceneHandle(_lastSceneReference);
+                }
+                else
+                {
+                    _resourceLoader.ReleaseSceneHandle(info.SceneKey);
+                }
+            }
+            catch (Exception ex)
+            {
+                EvoDebug.LogWarning(
+                    $"Failed to release scene handle for '{info.SceneKey}' before retry. {ex.Message}",
+                    nameof(SceneLoaderService));
+            }
         }
 
         private async UniTask<SceneInstance> LoadWithEvents(

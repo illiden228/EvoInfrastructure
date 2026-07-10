@@ -7,7 +7,6 @@ using UnityEditor;
 using EvoDebug = Evo.Infrastructure.Services.Debug.EvoDebug;
 using UnityEditor.Localization;
 using UnityEngine;
-using UnityEngine.Localization;
 
 namespace Evo.Infrastructure.Editor.EvoTools
 {
@@ -31,8 +30,8 @@ namespace Evo.Infrastructure.Editor.EvoTools
         [ShowInInspector]
         [ReadOnly]
         [LabelText("@EvoToolsLocalization.Get(\"evotools_settings.locale\", \"Language\")")]
-        private string CurrentLocaleName =>
-            Settings != null && Settings.Locale != null ? Settings.Locale.LocaleName : "-";
+        private string CurrentLocaleName => EvoToolsLocalization.GetLanguageDisplayName(
+            EvoToolsLocalization.CurrentLanguageCode);
 
         [Title("@EvoToolsLocalization.Get(\"evotools_settings.title.save\", \"Save Tools\")")]
         [ShowInInspector]
@@ -76,10 +75,6 @@ namespace Evo.Infrastructure.Editor.EvoTools
         {
             base.OnEnable();
             Settings = LoadOrCreateSettings();
-            if (Settings != null)
-            {
-                Settings.ApplyLocale();
-            }
         }
 
         [OnInspectorGUI]
@@ -90,8 +85,8 @@ namespace Evo.Infrastructure.Editor.EvoTools
                 return;
             }
 
-            var locales = EvoToolsLocalization.GetAvailableLocales();
-            if (locales == null || locales.Count == 0)
+            var languageCodes = EvoToolsLocalization.GetAvailableLanguageCodes();
+            if (languageCodes == null || languageCodes.Count == 0)
             {
                 EditorGUILayout.HelpBox(
                     EvoToolsLocalization.Get("evotools_settings.warning.no_locales", "No locales found."),
@@ -104,29 +99,28 @@ namespace Evo.Infrastructure.Editor.EvoTools
                 EvoToolsLocalization.Get("evotools_settings.title.localization", "Localization"),
                 EditorStyles.boldLabel);
 
-            var names = locales.Select(l => l.LocaleName).ToArray();
-            var currentIndex = GetLocaleIndex(locales, Settings.Locale);
+            var names = languageCodes.Select(EvoToolsLocalization.GetLanguageDisplayName).ToArray();
+            var currentIndex = GetLanguageIndex(languageCodes, EvoToolsLocalization.CurrentLanguageCode);
             var columns = Mathf.Min(3, names.Length);
             var newIndex = GUILayout.SelectionGrid(currentIndex, names, columns);
 
-            if (newIndex != currentIndex && newIndex >= 0 && newIndex < locales.Count)
+            if (newIndex != currentIndex && newIndex >= 0 && newIndex < languageCodes.Count)
             {
-                Undo.RecordObject(Settings, "Change EvoTools Locale");
-                Settings.SetLocale(locales[newIndex]);
-                EditorUtility.SetDirty(Settings);
+                EvoToolsLocalization.SetLanguage(languageCodes[newIndex]);
+                Repaint();
             }
         }
 
-        private static int GetLocaleIndex(IReadOnlyList<Locale> locales, Locale current)
+        private static int GetLanguageIndex(IReadOnlyList<string> languageCodes, string current)
         {
-            if (current == null)
+            if (string.IsNullOrWhiteSpace(current))
             {
                 return 0;
             }
 
-            for (var i = 0; i < locales.Count; i++)
+            for (var i = 0; i < languageCodes.Count; i++)
             {
-                if (locales[i] == current)
+                if (string.Equals(languageCodes[i], current, System.StringComparison.OrdinalIgnoreCase))
                 {
                     return i;
                 }

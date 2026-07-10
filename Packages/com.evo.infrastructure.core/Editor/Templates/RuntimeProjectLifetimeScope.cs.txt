@@ -50,7 +50,18 @@ namespace Game.Runtime.EntryPoint
                 features.UseLeaderboards();
                 features.UseSave(new SaveStorageOptions());
                 features.UseUi(uiSystemConfig);
-                features.UseLoading(new SceneTransitionOptions());
+                features.UseLoading(
+                    new SceneTransitionOptions(),
+                    new LoadingExecutionOptions
+                    {
+                        StepTimeoutSeconds = 45f,
+                        OperationTimeoutSeconds = 180f,
+                        PresentationTimeoutSeconds = 15f,
+                        TransitionTimeoutSeconds = 30f,
+                        OperationRetryCount = 1,
+                        RetryDelaySeconds = 0.75f,
+                        StepOrderMode = LoadingStepOrderMode.Registration
+                    });
 
                 RegisterOptionalYandex(features);
                 RegisterOptionalCrazyGames(features);

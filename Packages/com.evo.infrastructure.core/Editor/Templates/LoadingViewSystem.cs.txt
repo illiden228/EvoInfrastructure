@@ -1,10 +1,11 @@
 using System;
 using System.Threading;
+using Cysharp.Threading.Tasks;
 using Evo.Infrastructure.Runtime.Config;
 using Evo.Infrastructure.Runtime.Loading;
 using Evo.Infrastructure.Services.Config;
+using Evo.Infrastructure.Services.Debug;
 using Evo.Infrastructure.Services.ResourceLoader;
-using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -22,22 +23,24 @@ namespace Game.Runtime.Loading
         private readonly IResourceLoaderService _resourceLoader;
         private readonly ILoadingProgress _loadingProgress;
         private readonly AssetReference _loadingScene;
-        private bool _loadingSceneBusy;
-        private bool _pendingShow;
-        private bool _pendingHide;
+        private readonly LoadingExecutionOptions _loadingOptions;
+        private readonly SemaphoreSlim _transitionLock = new(1, 1);
         private AsyncOperationHandle<SceneInstance> _loadingHandle;
         private bool _hasLoadingHandle;
         private double _showStartedAt;
         private LoadingScreenView _loadingScreenView;
-        private bool _isVisible;
+
+        public bool IsVisible { get; private set; }
 
         public LoadingViewSystem(
             IResourceLoaderService resourceLoader,
             IConfigService configService,
-            ILoadingProgress loadingProgress)
+            ILoadingProgress loadingProgress,
+            LoadingExecutionOptions loadingOptions)
         {
             _resourceLoader = resourceLoader;
             _loadingProgress = loadingProgress;
+            _loadingOptions = loadingOptions ?? new LoadingExecutionOptions();
 
             if (configService != null && configService.TryGet<ProjectConfig>(out var config))
             {
@@ -49,6 +52,7 @@ namespace Game.Runtime.Loading
         {
             if (_loadingProgress == null)
             {
+                EvoDebug.LogWarning("LoadingSceneSystem skipped: ILoadingProgress is null.", nameof(LoadingViewSystem));
                 return;
             }
 
@@ -58,26 +62,13 @@ namespace Game.Runtime.Loading
 
         public void Dispose()
         {
-            if (_loadingProgress == null)
+            if (_loadingProgress != null)
             {
-                return;
+                _loadingProgress.Ready -= OnReady;
+                _loadingProgress.Finished -= OnFinished;
             }
 
-            _loadingProgress.Ready -= OnReady;
-            _loadingProgress.Finished -= OnFinished;
-        }
-
-        public bool IsVisible => _isVisible;
-
-        public UniTask ShowAsync(CancellationToken cancellationToken)
-        {
-            _showStartedAt = Time.realtimeSinceStartupAsDouble;
-            return ShowLoadingSceneAsync(cancellationToken);
-        }
-
-        public UniTask HideAsync(CancellationToken cancellationToken)
-        {
-            return HideLoadingSceneAsync(cancellationToken);
+            _transitionLock.Dispose();
         }
 
         private void OnReady()
@@ -90,56 +81,87 @@ namespace Game.Runtime.Loading
             HideAsync(CancellationToken.None).Forget();
         }
 
-        private async UniTask ShowLoadingSceneAsync(CancellationToken cancellationToken)
+        public UniTask ShowAsync(CancellationToken cancellationToken)
         {
-            if (_loadingScene == null || _resourceLoader == null || (_hasLoadingHandle && _loadingHandle.IsValid()))
+            return ShowLoadingSceneAsync(cancellationToken);
+        }
+
+        public UniTask HideAsync(CancellationToken cancellationToken)
+        {
+            return HideLoadingSceneAsync(cancellationToken);
+        }
+
+        private async UniTask ShowLoadingSceneAsync(CancellationToken cancellationToken = default)
+        {
+            if (_loadingScene == null)
             {
                 return;
             }
 
-            if (_loadingSceneBusy)
+            using var timeout = CreatePresentationTimeout(cancellationToken);
+            var operationToken = timeout.Token;
+            var lockTaken = false;
+            try
             {
-                _pendingShow = true;
-                await UniTask.WaitUntil(() => !_loadingSceneBusy, cancellationToken: cancellationToken);
-                _pendingShow = false;
-                if (_hasLoadingHandle && _loadingHandle.IsValid())
+                await _transitionLock.WaitAsync(operationToken);
+                lockTaken = true;
+                if (IsVisible)
                 {
                     return;
                 }
-            }
 
-            _loadingSceneBusy = true;
-            try
-            {
-                _loadingHandle = _resourceLoader.LoadSceneHandle(_loadingScene, LoadSceneMode.Additive, true, 100);
-                _hasLoadingHandle = _loadingHandle.IsValid();
+                _showStartedAt = Time.realtimeSinceStartupAsDouble;
+                EvoDebug.Log("LoadingSceneSystem loading LoadingScene.", nameof(LoadingViewSystem));
+                if (!_hasLoadingHandle || !_loadingHandle.IsValid())
+                {
+                    _loadingHandle = _resourceLoader.LoadSceneHandle(_loadingScene, LoadSceneMode.Additive, true, 100);
+                    _hasLoadingHandle = _loadingHandle.IsValid();
+                }
+
                 if (_hasLoadingHandle)
                 {
-                    await _loadingHandle.Task.AsUniTask().AttachExternalCancellation(cancellationToken);
+                    await _loadingHandle.Task.AsUniTask().AttachExternalCancellation(operationToken);
                     _loadingScreenView = FindLoadingView(_loadingHandle.Result.Scene);
-                    if (_loadingScreenView != null)
+                    if (_loadingScreenView == null)
                     {
-                        await _loadingScreenView.PlayShowAsync(cancellationToken);
+                        throw new InvalidOperationException("LoadingScene does not contain LoadingScreenView.");
                     }
 
-                    _isVisible = true;
+                    await _loadingScreenView.PlayShowAsync(operationToken);
+                    await UniTask.Yield(PlayerLoopTiming.Update);
                 }
+                else
+                {
+                    EvoDebug.LogWarning(
+                        "LoadingScene handle is invalid. Target loading will continue without presentation.",
+                        nameof(LoadingViewSystem));
+                    return;
+                }
+
+                IsVisible = true;
             }
             catch (OperationCanceledException)
             {
-                throw;
+                ResetLoadingHandle(release: true);
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+
+                EvoDebug.LogWarning(
+                    $"Loading presentation timed out after {_loadingOptions.PresentationTimeoutSeconds:0.###} seconds. Target loading will continue without it.",
+                    nameof(LoadingViewSystem));
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"LoadingSceneSystem failed to load LoadingScene. {ex.Message}");
+                ResetLoadingHandle(release: true);
+                EvoDebug.LogError($"LoadingSceneSystem failed to load LoadingScene. {ex.Message}", nameof(LoadingViewSystem));
             }
             finally
             {
-                _loadingSceneBusy = false;
-                if (_pendingHide)
+                if (lockTaken)
                 {
-                    _pendingHide = false;
-                    HideLoadingSceneAsync(cancellationToken).Forget();
+                    _transitionLock.Release();
                 }
             }
         }
@@ -148,53 +170,67 @@ namespace Game.Runtime.Loading
         {
             if (_loadingScene == null)
             {
-                _loadingProgress?.NotifyHidden();
                 return;
             }
 
-            if (_loadingSceneBusy)
-            {
-                _pendingHide = true;
-                await UniTask.WaitUntil(() => !_loadingSceneBusy, cancellationToken: cancellationToken);
-                _pendingHide = false;
-            }
-
-            _loadingSceneBusy = true;
+            using var timeout = CreatePresentationTimeout(cancellationToken);
+            var operationToken = timeout.Token;
+            var lockTaken = false;
             try
             {
+                await _transitionLock.WaitAsync(operationToken);
+                lockTaken = true;
+                if (!IsVisible && !(_hasLoadingHandle && _loadingHandle.IsValid()))
+                {
+                    return;
+                }
+
                 _loadingProgress?.Report(1f, "Finalizing", 0, 0);
-                await WaitMinimumVisibleDurationAsync(cancellationToken);
-                await UniTask.Delay(TimeSpan.FromSeconds(FINAL_PROGRESS_HOLD_SECONDS), cancellationToken: cancellationToken);
+                await WaitMinimumVisibleDurationAsync(operationToken);
+                await UniTask.Delay(
+                    TimeSpan.FromSeconds(FINAL_PROGRESS_HOLD_SECONDS),
+                    DelayType.UnscaledDeltaTime,
+                    PlayerLoopTiming.Update,
+                    operationToken);
 
                 if (_loadingScreenView != null)
                 {
-                    await _loadingScreenView.PlayHideAsync(cancellationToken);
+                    await _loadingScreenView.PlayHideAsync(operationToken);
                 }
 
+                EvoDebug.Log("LoadingSceneSystem unloading LoadingScene.", nameof(LoadingViewSystem));
                 if (_hasLoadingHandle && _loadingHandle.IsValid())
                 {
-                    await Addressables.UnloadSceneAsync(_loadingHandle, true).Task.AsUniTask();
+                    await _resourceLoader.UnloadSceneAsync(_loadingScene, operationToken);
                 }
-                else if (_resourceLoader != null)
+                else
                 {
-                    await _resourceLoader.UnloadSceneAsync(_loadingScene, cancellationToken);
+                    await _resourceLoader.UnloadSceneAsync(_loadingScene, operationToken);
                 }
             }
             catch (OperationCanceledException)
             {
-                throw;
+                ResetLoadingHandle(release: true);
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+
+                EvoDebug.LogWarning(
+                    $"Loading presentation hide timed out after {_loadingOptions.PresentationTimeoutSeconds:0.###} seconds.",
+                    nameof(LoadingViewSystem));
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"LoadingSceneSystem failed to unload LoadingScene. {ex.Message}");
+                EvoDebug.LogWarning($"LoadingSceneSystem failed to unload LoadingScene. {ex.Message}", nameof(LoadingViewSystem));
             }
             finally
             {
-                _loadingSceneBusy = false;
-                _hasLoadingHandle = false;
-                _isVisible = false;
-                _loadingHandle = default;
-                _loadingScreenView = null;
+                ResetLoadingHandle(release: false);
+                if (lockTaken)
+                {
+                    _transitionLock.Release();
+                }
             }
 
             _loadingProgress?.NotifyHidden();
@@ -229,7 +265,34 @@ namespace Game.Runtime.Loading
                 return;
             }
 
-            await UniTask.Delay(TimeSpan.FromSeconds(delay), cancellationToken: cancellationToken);
+            await UniTask.Delay(
+                TimeSpan.FromSeconds(delay),
+                DelayType.UnscaledDeltaTime,
+                PlayerLoopTiming.Update,
+                cancellationToken);
+        }
+
+        private CancellationTokenSource CreatePresentationTimeout(CancellationToken cancellationToken)
+        {
+            var source = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            if (_loadingOptions.PresentationTimeoutSeconds > 0f)
+            {
+                source.CancelAfter(TimeSpan.FromSeconds(_loadingOptions.PresentationTimeoutSeconds));
+            }
+            return source;
+        }
+
+        private void ResetLoadingHandle(bool release)
+        {
+            if (release && _hasLoadingHandle && _loadingHandle.IsValid())
+            {
+                _resourceLoader.ReleaseSceneHandle(_loadingScene);
+            }
+
+            IsVisible = false;
+            _hasLoadingHandle = false;
+            _loadingHandle = default;
+            _loadingScreenView = null;
         }
     }
 }

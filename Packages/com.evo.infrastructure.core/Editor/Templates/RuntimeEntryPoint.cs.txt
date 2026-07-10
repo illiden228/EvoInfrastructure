@@ -14,7 +14,7 @@ namespace Game.Runtime.EntryPoint
     {
         private readonly IReadOnlyList<ILoadingStep> _steps;
         private readonly ILoadingProgress _progress;
-        private readonly LoadingRunner _runner;
+        private readonly LoadingExecutionOptions _executionOptions;
         private readonly ISceneLoadingPipeline _sceneLoadingPipeline;
         private readonly IConfigService _configService;
 
@@ -22,30 +22,31 @@ namespace Game.Runtime.EntryPoint
             IReadOnlyList<ILoadingStep> steps,
             ISceneLoadingPipeline sceneLoadingPipeline,
             IConfigService configService,
-            ILoadingProgress progress)
+            ILoadingProgress progress,
+            LoadingExecutionOptions executionOptions)
         {
             _steps = steps;
             _progress = progress;
-            _runner = new LoadingRunner();
+            _executionOptions = executionOptions ?? new LoadingExecutionOptions();
             _sceneLoadingPipeline = sceneLoadingPipeline;
             _configService = configService;
         }
 
         public async UniTask StartAsync(CancellationToken cancellationToken)
         {
-            var allSteps = new List<ILoadingStep>();
-            if (_steps != null)
-            {
-                allSteps.AddRange(_steps);
-            }
+            var runner = new LoadingRunner(_executionOptions);
+            await runner.RunAsync(_steps, _progress, cancellationToken, notifyLifecycle: false);
 
             var startupScene = GetStartupScene();
-            if (startupScene != null && !string.IsNullOrEmpty(startupScene.AssetGUID) && _sceneLoadingPipeline != null)
+            if (startupScene != null &&
+                !string.IsNullOrEmpty(startupScene.AssetGUID) &&
+                _sceneLoadingPipeline != null)
             {
-                allSteps.AddRange(_sceneLoadingPipeline.CreateSteps(startupScene, LoadSceneMode.Single));
+                await _sceneLoadingPipeline.LoadSceneAsync(
+                    startupScene,
+                    LoadSceneMode.Single,
+                    cancellationToken: cancellationToken);
             }
-
-            await _runner.RunAsync(allSteps, _progress, cancellationToken);
         }
 
         private AssetReferenceScene GetStartupScene()

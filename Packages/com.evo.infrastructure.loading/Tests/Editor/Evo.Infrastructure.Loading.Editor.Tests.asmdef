@@ -1,0 +1,14 @@
+{
+  "name": "Evo.Infrastructure.Loading.Editor.Tests",
+  "references": [
+    "Evo.Infrastructure.Loading",
+    "UniTask"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

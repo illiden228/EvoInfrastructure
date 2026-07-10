@@ -90,7 +90,7 @@ namespace Evo.Infrastructure.Core.Editor
         {
             new("com.evo.infrastructure.analytics.adjust", "Runtime/Sdk/Evo.Infrastructure.Analytics.Adjust.Sdk.asmdef", "AdjustSdk.Scripts", "EVO_ADJUST_SDK", "com.adjust.sdk"),
             new("com.evo.infrastructure.analytics.appmetrica", "Runtime/Sdk/Evo.Infrastructure.Analytics.AppMetrica.Sdk.asmdef", "AppMetrica", "EVO_APPMETRICA_SDK", "io.appmetrica.analytics"),
-            new("com.evo.infrastructure.analytics.firebase", "Runtime/Sdk/Evo.Infrastructure.Analytics.Firebase.Sdk.asmdef", "Firebase.Analytics", "EVO_FIREBASE_ANALYTICS_SDK", null),
+            new("com.evo.infrastructure.analytics.firebase", "Runtime/Sdk/Evo.Infrastructure.Analytics.Firebase.Sdk.asmdef", "Firebase.Analytics", "EVO_FIREBASE_ANALYTICS_SDK", null, false),
             new("com.evo.infrastructure.ads.applovin", "Runtime/Sdk/Evo.Infrastructure.Ads.AppLovin.Sdk.asmdef", "MaxSdk.Scripts", "EVO_APPLOVIN_MAX_SDK", "com.applovin.mediation.ads")
         };
 
@@ -167,10 +167,12 @@ namespace Evo.Infrastructure.Core.Editor
                     (asmdef?.versionDefines ?? Array.Empty<VersionDefineModel>()).Any(value =>
                         string.Equals(value.name, requirement.VersionDefinePackage, StringComparison.Ordinal) &&
                         string.Equals(value.define, requirement.Define, StringComparison.Ordinal));
-                if (asmdef == null || !(asmdef.references ?? Array.Empty<string>()).Contains(requirement.SdkAssembly) ||
+                var hasSdkReference = !requirement.RequireAsmdefReference ||
+                    (asmdef?.references ?? Array.Empty<string>()).Contains(requirement.SdkAssembly);
+                if (asmdef == null || !hasSdkReference ||
                     !(asmdef.defineConstraints ?? Array.Empty<string>()).Contains(requirement.Define) || !hasVersionDefine)
                 {
-                    report.Add($"Invalid guarded SDK asmdef: {path}. Expected reference '{requirement.SdkAssembly}', constraint '{requirement.Define}', and its package version define when applicable.");
+                    report.Add($"Invalid guarded SDK asmdef: {path}. Expected SDK binding for '{requirement.SdkAssembly}', constraint '{requirement.Define}', and its package version define when applicable.");
                 }
             }
         }
@@ -358,14 +360,22 @@ namespace Evo.Infrastructure.Core.Editor
             public readonly string SdkAssembly;
             public readonly string Define;
             public readonly string VersionDefinePackage;
+            public readonly bool RequireAsmdefReference;
 
-            public SdkAsmdefRequirement(string packageId, string relativePath, string sdkAssembly, string define, string versionDefinePackage)
+            public SdkAsmdefRequirement(
+                string packageId,
+                string relativePath,
+                string sdkAssembly,
+                string define,
+                string versionDefinePackage,
+                bool requireAsmdefReference = true)
             {
                 PackageId = packageId;
                 RelativePath = relativePath;
                 SdkAssembly = sdkAssembly;
                 Define = define;
                 VersionDefinePackage = versionDefinePackage;
+                RequireAsmdefReference = requireAsmdefReference;
             }
         }
     }

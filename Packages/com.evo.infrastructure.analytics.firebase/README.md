@@ -1,6 +1,6 @@
 # Evo Firebase Analytics
 
-Install the Firebase Unity SDK (`Firebase.App` and `Firebase.Analytics`) separately; it is not bundled with this package. Because the official Unity SDK can be imported as Assets rather than UPM, add `EVO_FIREBASE_ANALYTICS_SDK` to Scripting Define Symbols after the two assemblies are present. The SDK bridge asmdef is excluded otherwise, so projects remain compile-safe.
+Install the Firebase Unity SDK (`Firebase.App` and `Firebase.Analytics`) separately; it is not bundled with this package. The Evo Setup wizard detects both UPM assemblies and the official precompiled DLLs imported under `Assets`, then offers to enable `EVO_FIREBASE_ANALYTICS_SDK`. The SDK bridge asmdef is excluded otherwise, so projects remain compile-safe.
 
 ```csharp
 features.UseAnalytics();

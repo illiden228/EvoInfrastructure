@@ -8,18 +8,35 @@ namespace Evo.Infrastructure.Runtime.Loading
 {
     public sealed class LoadingRunner
     {
+        private readonly LoadingExecutionOptions _options;
+
+        public LoadingRunner(LoadingExecutionOptions options = null)
+        {
+            _options = options ?? new LoadingExecutionOptions();
+        }
+
         public async UniTask RunAsync(
             IReadOnlyList<ILoadingStep> steps,
             ILoadingProgress progress,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool notifyLifecycle = true)
         {
             if (progress == null)
             {
                 return;
             }
 
-            progress.NotifyReady();
-            progress.NotifyStarted();
+            using var operationCts = CreateTimeoutTokenSource(
+                cancellationToken,
+                _options.EnableOperationTimeout,
+                _options.OperationTimeoutSeconds);
+            var operationToken = operationCts?.Token ?? cancellationToken;
+
+            if (notifyLifecycle)
+            {
+                progress.NotifyReady();
+                progress.NotifyStarted();
+            }
             try
             {
                 if (steps == null || steps.Count == 0)
@@ -28,7 +45,14 @@ namespace Evo.Infrastructure.Runtime.Loading
                     return;
                 }
 
-                var ordered = OrderSteps(steps);
+                var ordered = LoadingStepOrdering.Prepare(steps, _options.StepOrderMode);
+                EvoDebug.Log(
+                    LoadingStepOrdering.FormatPlan(
+                        ordered,
+                        _options.StepOrderMode,
+                        _options,
+                        "Loading Plan"),
+                    "Loading");
                 var totalWeight = GetTotalWeight(ordered);
                 if (totalWeight <= 0f)
                 {
@@ -66,7 +90,12 @@ namespace Evo.Infrastructure.Runtime.Loading
 
                     ReportLocal(0f);
                     var localProgress = new ImmediateProgress(ReportLocal);
-                    await step.Execute(localProgress, cancellationToken);
+                    await LoadingStepExecution.ExecuteAsync(
+                        step,
+                        localProgress,
+                        _options,
+                        operationToken,
+                        cancellationToken);
                     ReportLocal(1f);
                     stepActive = false;
 
@@ -76,40 +105,26 @@ namespace Evo.Infrastructure.Runtime.Loading
             }
             finally
             {
-                progress.NotifyFinished();
+                if (notifyLifecycle)
+                {
+                    progress.NotifyFinished();
+                }
             }
         }
 
-        private static List<ILoadingStep> OrderSteps(IReadOnlyList<ILoadingStep> steps)
+        private static CancellationTokenSource CreateTimeoutTokenSource(
+            CancellationToken parentToken,
+            bool enabled,
+            float timeoutSeconds)
         {
-            var list = new List<ILoadingStep>(steps.Count);
-            for (var i = 0; i < steps.Count; i++)
+            if (!enabled || timeoutSeconds <= 0f)
             {
-                list.Add(steps[i]);
+                return null;
             }
 
-            list.Sort(CompareSteps);
-            return list;
-        }
-
-        private static int CompareSteps(ILoadingStep x, ILoadingStep y)
-        {
-            if (ReferenceEquals(x, y))
-            {
-                return 0;
-            }
-
-            if (x == null)
-            {
-                return 1;
-            }
-
-            if (y == null)
-            {
-                return -1;
-            }
-
-            return x.Order.CompareTo(y.Order);
+            var source = CancellationTokenSource.CreateLinkedTokenSource(parentToken);
+            source.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+            return source;
         }
 
         private static float GetTotalWeight(IReadOnlyList<ILoadingStep> steps)
