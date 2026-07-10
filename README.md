@@ -64,7 +64,11 @@ Directly installing an arbitrary feature or platform adapter package by git path
 - `Packages/com.evo.infrastructure.save`
 - `Packages/com.evo.infrastructure.ads`
 - `Packages/com.evo.infrastructure.analytics`
+- `Packages/com.evo.infrastructure.analytics.firebase`
+- `Packages/com.evo.infrastructure.analytics.appmetrica`
+- `Packages/com.evo.infrastructure.analytics.adjust`
 - `Packages/com.evo.infrastructure.leaderboards`
+- `Packages/com.evo.infrastructure.ads.applovin`
 - `Packages/com.evo.infrastructure.localization`
 - `Packages/com.evo.infrastructure.pooling`
 - `Packages/com.evo.infrastructure.build`

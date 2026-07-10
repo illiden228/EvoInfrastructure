@@ -1,0 +1,8 @@
+{
+  "name": "Evo.Infrastructure.Analytics.Adjust.Sdk",
+  "references": ["Evo.Infrastructure.Analytics", "Evo.Infrastructure.Analytics.Adjust", "Evo.Infrastructure.Config", "Evo.Infrastructure.Debug", "AdjustSdk.Scripts"],
+  "autoReferenced": true,
+  "defineConstraints": ["EVO_ADJUST_SDK"],
+  "versionDefines": [{"name":"com.adjust.sdk","expression":"","define":"EVO_ADJUST_SDK"}],
+  "noEngineReferences": false
+}

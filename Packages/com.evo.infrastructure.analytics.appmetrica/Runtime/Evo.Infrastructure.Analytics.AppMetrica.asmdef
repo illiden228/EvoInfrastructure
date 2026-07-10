@@ -1,0 +1,7 @@
+{
+  "name": "Evo.Infrastructure.Analytics.AppMetrica",
+  "references": ["Evo.Infrastructure.Analytics", "Evo.Infrastructure.Config", "Evo.Infrastructure.DI", "Evo.Infrastructure.Debug", "VContainer"],
+  "autoReferenced": true,
+  "noEngineReferences": false,
+  "versionDefines": [{"name":"io.appmetrica.analytics","expression":"","define":"EVO_APPMETRICA_SDK"}]
+}

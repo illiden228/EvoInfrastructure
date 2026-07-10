@@ -1,0 +1,8 @@
+{
+  "name": "Evo.Infrastructure.Analytics.Editor.Tests",
+  "references": ["Evo.Infrastructure.Analytics", "UniTask"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": false,
+  "optionalUnityReferences": ["TestAssemblies"],
+  "noEngineReferences": false
+}

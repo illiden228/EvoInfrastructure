@@ -234,6 +234,13 @@ The setup wizard installs these into the Unity project rather than pinning them 
 
 ## Asmdef Notes
 
+SDK adapter packages use two Unity assemblies: a package API/config assembly and a nested SDK bridge assembly. The bridge is guarded by a package `versionDefine` plus `defineConstraints`, and references the vendor assembly explicitly. Firebase is commonly imported as DLL assets, so its bridge uses the manually diagnosed `EVO_FIREBASE_ANALYTICS_SDK` define instead of a UPM version define.
+
+- `com.evo.infrastructure.analytics.firebase` -> analytics, config, DI, debug; external `Firebase.App` and `Firebase.Analytics`
+- `com.evo.infrastructure.analytics.appmetrica` -> analytics, config, DI, debug; external `io.appmetrica.analytics` / `AppMetrica`
+- `com.evo.infrastructure.analytics.adjust` -> analytics, config, DI, debug; external `com.adjust.sdk` / `AdjustSdk.Scripts`
+- `com.evo.infrastructure.ads.applovin` -> ads, analytics, config, DI, debug; external `com.applovin.mediation.ads` / `MaxSdk.Scripts`
+
 Most non-platform Evo packages have or can generate package-local asmdefs.
 
 Platform SDK packages are different:

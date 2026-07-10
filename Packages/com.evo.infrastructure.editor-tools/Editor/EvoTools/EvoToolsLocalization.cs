@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using UnityEditor;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
@@ -44,7 +45,22 @@ namespace Evo.Infrastructure.Editor.EvoTools
 
             EnsureInitialized();
             var value = LocalizationSettings.StringDatabase.GetLocalizedString(TABLE_NAME, key);
-            return string.IsNullOrEmpty(value) ? fallback : value;
+            return IsMissingTranslation(value, key) ? fallback : value;
+        }
+
+        private static bool IsMissingTranslation(string value, string key)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return true;
+            }
+
+            if (string.Equals(value, key, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return value.StartsWith("No translation found for", StringComparison.OrdinalIgnoreCase);
         }
 
         private static void EnsureInitialized()

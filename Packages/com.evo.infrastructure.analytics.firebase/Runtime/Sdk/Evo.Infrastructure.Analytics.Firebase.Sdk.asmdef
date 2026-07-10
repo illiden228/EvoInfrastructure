@@ -1,0 +1,7 @@
+{
+  "name": "Evo.Infrastructure.Analytics.Firebase.Sdk",
+  "references": ["Evo.Infrastructure.Analytics", "Evo.Infrastructure.Analytics.Firebase", "Evo.Infrastructure.Config", "Evo.Infrastructure.Debug", "UniTask", "Firebase.App", "Firebase.Analytics"],
+  "autoReferenced": true,
+  "defineConstraints": ["EVO_FIREBASE_ANALYTICS_SDK", "!UNITY_WEBGL"],
+  "noEngineReferences": false
+}

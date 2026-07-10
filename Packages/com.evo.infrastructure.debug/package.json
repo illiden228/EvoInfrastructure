@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.debug",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "displayName": "Evo Infrastructure Debug",
   "description": "Debug logging helpers for Evo Infrastructure.",
   "unity": "2022.3",

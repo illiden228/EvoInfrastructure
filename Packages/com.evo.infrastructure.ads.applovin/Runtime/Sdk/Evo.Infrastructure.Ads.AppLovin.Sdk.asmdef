@@ -1,0 +1,8 @@
+{
+  "name": "Evo.Infrastructure.Ads.AppLovin.Sdk",
+  "references": ["Evo.Infrastructure.Ads", "Evo.Infrastructure.Ads.AppLovin", "Evo.Infrastructure.Analytics", "Evo.Infrastructure.Config", "Evo.Infrastructure.Debug", "UniTask", "MaxSdk.Scripts"],
+  "autoReferenced": true,
+  "defineConstraints": ["EVO_APPLOVIN_MAX_SDK"],
+  "versionDefines": [{"name":"com.applovin.mediation.ads","expression":"","define":"EVO_APPLOVIN_MAX_SDK"}],
+  "noEngineReferences": false
+}

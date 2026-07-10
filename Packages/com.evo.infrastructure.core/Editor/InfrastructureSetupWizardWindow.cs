@@ -11,6 +11,7 @@ using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
 using UnityEditor.SceneManagement;
+using UnityEditor.Compilation;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -26,9 +27,9 @@ namespace Evo.Infrastructure.Core.Editor
         private const string EvoRepositoryUrl = "https://github.com/illiden228/EvoInfrastructure.git";
         private const string EvoLatestReleaseApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/releases/latest";
         private const string EvoTagsApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/tags?per_page=1";
-        private const string RuntimeGitTag = "v0.5.2";
-        private const string YandexGitTag = "v0.5.2";
-        private const string CrazyGamesGitTag = "v0.5.2";
+        private const string RuntimeGitTag = "v0.5.3";
+        private const string YandexGitTag = "v0.5.3";
+        private const string CrazyGamesGitTag = "v0.5.3";
         private static readonly EvoPackageDescriptor[] EvoPackages =
         {
             new("com.evo.infrastructure.di", "DI", "Core", "Feature registry and VContainer helpers."),
@@ -39,7 +40,11 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.scene", "Scene", "Core", "Scene loading and payload services.", "com.evo.infrastructure.resources", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.save", "Save", "Services", "Save contracts, service and local backends.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.analytics", "Analytics", "Services", "Analytics service and adapter routing.", "com.evo.infrastructure.config", "com.evo.infrastructure.platform", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.analytics.firebase", "Firebase Analytics", "SDK Adapters", "Firebase Analytics adapter; Firebase Unity SDK is installed separately.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.analytics.appmetrica", "AppMetrica Analytics", "SDK Adapters", "AppMetrica analytics adapter; io.appmetrica.analytics is installed separately.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.analytics.adjust", "Adjust Analytics", "SDK Adapters", "Adjust analytics adapter; com.adjust.sdk is installed separately.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.ads", "Ads", "Services", "Ads service, cooldown helpers and adapter routing.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.platform", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.ads.applovin", "AppLovin Ads", "SDK Adapters", "AppLovin MAX ads adapter; com.applovin.mediation.ads is installed separately.", "com.evo.infrastructure.ads", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.leaderboards", "Leaderboards", "Services", "Leaderboard service and adapter contract.", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.localization", "Localization", "Services", "Unity Localization wrapper.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.focus", "Focus", "Services", "Input focus service.", "com.evo.infrastructure.di"),
@@ -160,6 +165,10 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.audio", "UseAudio", "features.UseAudio();"),
             new("com.evo.infrastructure.ads", "UseAds", "features.UseAds();"),
             new("com.evo.infrastructure.analytics", "UseAnalytics", "features.UseAnalytics();"),
+            new("com.evo.infrastructure.analytics.firebase", "UseFirebaseAnalytics", "features.UseFirebaseAnalytics();"),
+            new("com.evo.infrastructure.analytics.appmetrica", "UseAppMetricaAnalytics", "features.UseAppMetricaAnalytics();"),
+            new("com.evo.infrastructure.analytics.adjust", "UseAdjustAnalytics", "features.UseAdjustAnalytics();"),
+            new("com.evo.infrastructure.ads.applovin", "UseAppLovinAds", "features.UseAppLovinAds();"),
             new("com.evo.infrastructure.leaderboards", "UseLeaderboards", "features.UseLeaderboards();"),
             new("com.evo.infrastructure.save", "UseSave", "features.UseSave(new SaveStorageOptions());"),
             new("com.evo.infrastructure.ui", "UseUi", "features.UseUi(uiSystemConfig);"),
@@ -432,6 +441,7 @@ namespace Evo.Infrastructure.Core.Editor
             SetSelectionField(ref _installOdinPackage, odinSelected);
             DrawYandexSdkDiagnostics();
             DrawCrazySdkDiagnostics();
+            DrawAdapterSdkDiagnostics();
             DrawOdinAsmdefDiagnostics();
 
             EditorGUILayout.Space(4f);
@@ -933,6 +943,68 @@ namespace Evo.Infrastructure.Core.Editor
                 _statusLine = "Copied missing Evo feature registration calls to clipboard.";
             }
             EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawAdapterSdkDiagnostics()
+        {
+            DrawAdapterSdkDiagnostic("com.evo.infrastructure.analytics.firebase", "Firebase Analytics", "Firebase.Analytics", "FirebaseAnalyticsAdapterConfig", "EVO_FIREBASE_ANALYTICS_SDK");
+            DrawAdapterSdkDiagnostic("com.evo.infrastructure.analytics.appmetrica", "AppMetrica", "AppMetrica", "AppMetricaAnalyticsAdapterConfig", null);
+            DrawAdapterSdkDiagnostic("com.evo.infrastructure.analytics.adjust", "Adjust", "AdjustSdk.Scripts", "AdjustAnalyticsAdapterConfig", null);
+            DrawAdapterSdkDiagnostic("com.evo.infrastructure.ads.applovin", "AppLovin MAX", "MaxSdk.Scripts", "AppLovinAdsAdapterConfig", null);
+            var stale = CountStaleConfigCatalogEntries();
+            if (stale > 0)
+                EditorGUILayout.HelpBox($"Config catalogs contain {stale} stale TypeName entries pointing to Evo.Infrastructure.Runtime. Run EvoTools/Configs/Rebuild Config Catalogs.", MessageType.Error);
+        }
+
+        private void DrawAdapterSdkDiagnostic(string packageId, string sdkLabel, string assemblyName, string configTypeName, string requiredDefine)
+        {
+            if (!_installedEvoPackageNames.Contains(packageId)) return;
+            var assemblyInstalled = CompilationPipeline.GetAssemblies().Any(a => string.Equals(a.name, assemblyName, StringComparison.Ordinal));
+            if (!assemblyInstalled)
+                EditorGUILayout.HelpBox($"{sdkLabel} adapter package is installed, but SDK assembly '{assemblyName}' was not found. The adapter remains compile-safe and unavailable until the SDK is installed.", MessageType.Warning);
+            if (!string.IsNullOrEmpty(requiredDefine) && assemblyInstalled && !HasDefine(requiredDefine))
+            {
+                EditorGUILayout.HelpBox($"{sdkLabel} SDK was found, but '{requiredDefine}' is missing. Add it to Scripting Define Symbols for the active build target.", MessageType.Warning);
+                if (GUILayout.Button($"Enable {sdkLabel} SDK bridge", GUILayout.Width(220f)))
+                    AddDefine(requiredDefine);
+            }
+            if (AssetDatabase.FindAssets($"t:{configTypeName}").Length == 0)
+                EditorGUILayout.HelpBox($"{sdkLabel} adapter config is missing. Create or migrate {configTypeName} before enabling the adapter.", MessageType.Warning);
+        }
+
+        private static bool HasDefine(string define)
+        {
+            var group = EditorUserBuildSettings.selectedBuildTargetGroup;
+            var symbols = PlayerSettings.GetScriptingDefineSymbolsForGroup(group);
+            return symbols.Split(';').Any(value => string.Equals(value.Trim(), define, StringComparison.Ordinal));
+        }
+
+        private static void AddDefine(string define)
+        {
+            var group = EditorUserBuildSettings.selectedBuildTargetGroup;
+            var values = PlayerSettings.GetScriptingDefineSymbolsForGroup(group)
+                .Split(';')
+                .Select(value => value.Trim())
+                .Where(value => !string.IsNullOrEmpty(value))
+                .ToList();
+            if (values.Contains(define, StringComparer.Ordinal)) return;
+            values.Add(define);
+            PlayerSettings.SetScriptingDefineSymbolsForGroup(group, string.Join(";", values));
+        }
+
+        private static int CountStaleConfigCatalogEntries()
+        {
+            var count = 0;
+            foreach (var guid in AssetDatabase.FindAssets("t:ScriptableConfigCatalog"))
+            {
+                var asset = AssetDatabase.LoadMainAssetAtPath(AssetDatabase.GUIDToAssetPath(guid));
+                if (asset == null) continue;
+                var entries = new SerializedObject(asset).FindProperty("entries");
+                if (entries == null || !entries.isArray) continue;
+                for (var i = 0; i < entries.arraySize; i++)
+                    if (entries.GetArrayElementAtIndex(i).FindPropertyRelative("TypeName")?.stringValue.Contains("Evo.Infrastructure.Runtime") == true) count++;
+            }
+            return count;
         }
 
         private void DrawProjectRuntimeActions()

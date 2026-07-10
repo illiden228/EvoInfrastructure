@@ -19,7 +19,11 @@ namespace Evo.Infrastructure.Core.Editor
         {
             ["com.evo.infrastructure.ads"] = "Evo.Infrastructure.Ads",
             ["com.evo.infrastructure.analytics"] = "Evo.Infrastructure.Analytics",
+            ["com.evo.infrastructure.analytics.adjust"] = "Evo.Infrastructure.Analytics.Adjust",
+            ["com.evo.infrastructure.analytics.appmetrica"] = "Evo.Infrastructure.Analytics.AppMetrica",
+            ["com.evo.infrastructure.analytics.firebase"] = "Evo.Infrastructure.Analytics.Firebase",
             ["com.evo.infrastructure.audio"] = "Evo.Infrastructure.Audio",
+            ["com.evo.infrastructure.ads.applovin"] = "Evo.Infrastructure.Ads.AppLovin",
             ["com.evo.infrastructure.build"] = "Evo.Infrastructure.Build.Editor",
             ["com.evo.infrastructure.config"] = "Evo.Infrastructure.Config",
             ["com.evo.infrastructure.core"] = "Evo.Infrastructure.Core.Editor",
@@ -82,6 +86,14 @@ namespace Evo.Infrastructure.Core.Editor
             ["com.evo.infrastructure.ui"] = new[] { "ObservableCollections", "ObservableCollections.R3", "PrimeTween.Runtime", "R3", "R3.Unity", "UniTask", "Unity.Addressables", "Unity.InputSystem", "Unity.ResourceManager", "Unity.TextMeshPro", "VContainer" }
         };
 
+        private static readonly SdkAsmdefRequirement[] SdkAsmdefs =
+        {
+            new("com.evo.infrastructure.analytics.adjust", "Runtime/Sdk/Evo.Infrastructure.Analytics.Adjust.Sdk.asmdef", "AdjustSdk.Scripts", "EVO_ADJUST_SDK", "com.adjust.sdk"),
+            new("com.evo.infrastructure.analytics.appmetrica", "Runtime/Sdk/Evo.Infrastructure.Analytics.AppMetrica.Sdk.asmdef", "AppMetrica", "EVO_APPMETRICA_SDK", "io.appmetrica.analytics"),
+            new("com.evo.infrastructure.analytics.firebase", "Runtime/Sdk/Evo.Infrastructure.Analytics.Firebase.Sdk.asmdef", "Firebase.Analytics", "EVO_FIREBASE_ANALYTICS_SDK", null),
+            new("com.evo.infrastructure.ads.applovin", "Runtime/Sdk/Evo.Infrastructure.Ads.AppLovin.Sdk.asmdef", "MaxSdk.Scripts", "EVO_APPLOVIN_MAX_SDK", "com.applovin.mediation.ads")
+        };
+
         [MenuItem("EvoTools/Asmdefs/Validate Evo asmdefs")]
         public static void ValidateAsmdefs()
         {
@@ -134,7 +146,33 @@ namespace Evo.Infrastructure.Core.Editor
                 }
             }
 
+            ValidateSdkAsmdefs(report);
+
             return report;
+        }
+
+        private static void ValidateSdkAsmdefs(List<string> report)
+        {
+            foreach (var requirement in SdkAsmdefs)
+            {
+                var path = Path.Combine(PackagesRoot, requirement.PackageId, requirement.RelativePath).Replace("\\", "/");
+                if (!File.Exists(path))
+                {
+                    report.Add($"Missing guarded SDK asmdef: {path}");
+                    continue;
+                }
+
+                var asmdef = JsonUtility.FromJson<AsmdefModel>(File.ReadAllText(path));
+                var hasVersionDefine = string.IsNullOrEmpty(requirement.VersionDefinePackage) ||
+                    (asmdef?.versionDefines ?? Array.Empty<VersionDefineModel>()).Any(value =>
+                        string.Equals(value.name, requirement.VersionDefinePackage, StringComparison.Ordinal) &&
+                        string.Equals(value.define, requirement.Define, StringComparison.Ordinal));
+                if (asmdef == null || !(asmdef.references ?? Array.Empty<string>()).Contains(requirement.SdkAssembly) ||
+                    !(asmdef.defineConstraints ?? Array.Empty<string>()).Contains(requirement.Define) || !hasVersionDefine)
+                {
+                    report.Add($"Invalid guarded SDK asmdef: {path}. Expected reference '{requirement.SdkAssembly}', constraint '{requirement.Define}', and its package version define when applicable.");
+                }
+            }
         }
 
         private static void EnsureAsmdef(
@@ -311,6 +349,24 @@ namespace Evo.Infrastructure.Core.Editor
             public string name;
             public string expression;
             public string define;
+        }
+
+        private readonly struct SdkAsmdefRequirement
+        {
+            public readonly string PackageId;
+            public readonly string RelativePath;
+            public readonly string SdkAssembly;
+            public readonly string Define;
+            public readonly string VersionDefinePackage;
+
+            public SdkAsmdefRequirement(string packageId, string relativePath, string sdkAssembly, string define, string versionDefinePackage)
+            {
+                PackageId = packageId;
+                RelativePath = relativePath;
+                SdkAssembly = sdkAssembly;
+                Define = define;
+                VersionDefinePackage = versionDefinePackage;
+            }
         }
     }
 }
