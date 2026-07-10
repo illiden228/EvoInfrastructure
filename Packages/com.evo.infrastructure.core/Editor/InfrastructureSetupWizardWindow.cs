@@ -333,7 +333,8 @@ namespace Evo.Infrastructure.Core.Editor
             Unknown = 0,
             Missing = 1,
             InstalledTarget = 2,
-            InstalledDifferentRevision = 3
+            InstalledDifferentRevision = 3,
+            InstalledNewerRevision = 4
         }
 
         private enum ExternalPackageDependency
@@ -657,6 +658,16 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
+            if (HasRemoteEvoUpdate())
+            {
+                EditorGUILayout.Space(4f);
+                EditorGUILayout.HelpBox(
+                    $"Update Evo core to {_latestEvoGitTag} first. Package updates to the older bundled target " +
+                    $"{RuntimeGitTag} are disabled to prevent accidental downgrades.",
+                    MessageType.Info);
+                return;
+            }
+
             EditorGUILayout.Space(4f);
             EditorGUILayout.HelpBox(
                 $"Evo package updates are available for tag {RuntimeGitTag}:\n" +
@@ -749,6 +760,7 @@ namespace Evo.Infrastructure.Core.Editor
             }
 
             var packages = _outdatedEvoPackageNames
+                .Where(packageName => !EqualsIgnoreCase(packageName, CorePackageName))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(GetEvoPackageInstallOrder)
                 .ThenBy(GetEvoPackageDescriptorIndex)
@@ -5369,7 +5381,6 @@ namespace Evo.Infrastructure.Core.Editor
             _legacyRuntimeManifestDependency = GetManifestDependencyValue(LegacyRuntimePackageName);
             _legacyRuntimeInstalled = legacyRuntimePackage != null || !string.IsNullOrWhiteSpace(_legacyRuntimeManifestDependency);
 
-            TrackEvoPackageUpdateState(packages, CorePackageName);
             for (var i = 0; i < EvoPackages.Length; i++)
             {
                 var packageName = EvoPackages[i].Id;
@@ -5481,6 +5492,13 @@ namespace Evo.Infrastructure.Core.Editor
                 ContainsIgnoreCase(manifestDependency, targetTag))
             {
                 return EvoPackageUpdateState.InstalledTarget;
+            }
+
+            if (TryParseGitTagVersion(version, out var installedVersion) &&
+                TryParseGitTagVersion(targetTag, out var targetVersionNumber) &&
+                installedVersion.CompareTo(targetVersionNumber) > 0)
+            {
+                return EvoPackageUpdateState.InstalledNewerRevision;
             }
 
             return EvoPackageUpdateState.InstalledDifferentRevision;
