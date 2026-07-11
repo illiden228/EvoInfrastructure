@@ -1,0 +1,10 @@
+{
+  "name": "Evo.Infrastructure.Purchases.RuStore.EditorTests",
+  "references": [
+    "Evo.Infrastructure.Purchases.RuStore"
+  ],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": false,
+  "noEngineReferences": false
+}

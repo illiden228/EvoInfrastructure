@@ -1,0 +1,8 @@
+{
+  "name": "Evo.Infrastructure.Purchases.Editor.Tests",
+  "references": ["Evo.Infrastructure.Purchases", "Evo.Infrastructure.Config", "UniTask"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": false,
+  "optionalUnityReferences": ["TestAssemblies"],
+  "noEngineReferences": false
+}

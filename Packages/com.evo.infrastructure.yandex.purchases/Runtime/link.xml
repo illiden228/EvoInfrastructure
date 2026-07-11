@@ -1,0 +1,7 @@
+<linker>
+  <!-- PluginYG2 is project source and therefore normally belongs to Assembly-CSharp. -->
+  <assembly fullname="Assembly-CSharp">
+    <type fullname="YG.YG2" preserve="all" ignoreIfMissing="1" />
+    <type fullname="YG.Utils.Pay.Purchase" preserve="all" ignoreIfMissing="1" />
+  </assembly>
+</linker>

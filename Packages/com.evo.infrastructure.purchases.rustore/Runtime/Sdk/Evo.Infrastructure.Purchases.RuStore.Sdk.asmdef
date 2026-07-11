@@ -1,0 +1,17 @@
+{
+  "name": "Evo.Infrastructure.Purchases.RuStore.Sdk",
+  "references": [
+    "Evo.Infrastructure.Purchases",
+    "Evo.Infrastructure.Purchases.RuStore",
+    "Evo.Infrastructure.Config",
+    "Evo.Infrastructure.Debug",
+    "UniTask",
+    "RuStorePay"
+  ],
+  "autoReferenced": true,
+  "defineConstraints": ["EVO_RUSTORE_PAY_SDK"],
+  "versionDefines": [
+    { "name": "ru.rustore.pay", "expression": "[10.2.0,11.0.0)", "define": "EVO_RUSTORE_PAY_SDK" }
+  ],
+  "noEngineReferences": false
+}

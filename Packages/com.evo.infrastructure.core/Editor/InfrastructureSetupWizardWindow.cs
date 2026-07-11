@@ -29,9 +29,9 @@ namespace Evo.Infrastructure.Core.Editor
         private const string EvoRepositoryUrl = "https://github.com/illiden228/EvoInfrastructure.git";
         private const string EvoLatestReleaseApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/releases/latest";
         private const string EvoTagsApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/tags?per_page=1";
-        private const string RuntimeGitTag = "v0.5.6";
-        private const string YandexGitTag = "v0.5.6";
-        private const string CrazyGamesGitTag = "v0.5.6";
+        private const string RuntimeGitTag = "v0.5.7";
+        private const string YandexGitTag = "v0.5.7";
+        private const string CrazyGamesGitTag = "v0.5.7";
         private static readonly EvoPackageDescriptor[] EvoPackages =
         {
             new("com.evo.infrastructure.di", "DI", "Core", "Feature registry and VContainer helpers."),
@@ -41,6 +41,9 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.resources", "Resources", "Core", "Addressables resource catalog, loader and provider.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.scene", "Scene", "Core", "Scene loading and payload services.", "com.evo.infrastructure.resources", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.save", "Save", "Services", "Save contracts, service and local backends.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.purchases", "Purchase Core", "Services", "Store-independent purchase catalog, fulfillment and adapter routing.", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.purchases.unityiap", "Unity IAP", "SDK Adapters", "Unity IAP purchase adapter; com.unity.purchasing is installed as a package dependency.", "com.evo.infrastructure.purchases", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.purchases.rustore", "RuStore Purchases", "SDK Adapters", "RuStore Pay SDK adapter; a Unity-compatible Pay SDK is installed separately.", "com.evo.infrastructure.purchases", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.analytics", "Analytics", "Services", "Analytics service and adapter routing.", "com.evo.infrastructure.config", "com.evo.infrastructure.platform", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.analytics.firebase", "Firebase Analytics", "SDK Adapters", "Firebase Analytics adapter; Firebase Unity SDK is installed separately.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.analytics.appmetrica", "AppMetrica Analytics", "SDK Adapters", "AppMetrica analytics adapter; io.appmetrica.analytics is installed separately.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
@@ -62,6 +65,7 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.yandex.analytics", "Yandex Analytics", "Yandex", "Yandex Metrica analytics adapter.", YandexPackageName, "com.evo.infrastructure.analytics", "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
             new("com.evo.infrastructure.yandex.save", "Yandex Save", "Yandex", "Yandex cloud save and player auth adapters.", YandexPackageName, "com.evo.infrastructure.save", "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
             new("com.evo.infrastructure.yandex.leaderboards", "Yandex Leaderboards", "Yandex", "Yandex leaderboard adapter.", YandexPackageName, "com.evo.infrastructure.leaderboards", "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.yandex.purchases", "Yandex Purchases", "Yandex", "PluginYG2 Payments purchase adapter.", YandexPackageName, "com.evo.infrastructure.purchases", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new(CrazyGamesPackageName, "CrazyGames Core", "CrazyGames", "Shared CrazySDK runtime config and SDK helper.", "com.evo.infrastructure.config", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.crazygames.platform", "CrazyGames Platform", "CrazyGames", "CrazyGames platform info and lifecycle providers.", CrazyGamesPackageName, "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
             new("com.evo.infrastructure.crazygames.ads", "CrazyGames Ads", "CrazyGames", "CrazyGames ads adapter.", CrazyGamesPackageName, "com.evo.infrastructure.ads", "com.evo.infrastructure.di"),
@@ -83,6 +87,7 @@ namespace Evo.Infrastructure.Core.Editor
             "com.evo.infrastructure.loading",
             "com.evo.infrastructure.ui",
             "com.evo.infrastructure.save",
+            "com.evo.infrastructure.purchases",
             "com.evo.infrastructure.analytics",
             "com.evo.infrastructure.ads",
             "com.evo.infrastructure.leaderboards",
@@ -177,6 +182,9 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.ads.applovin", "UseAppLovinAds", "features.UseAppLovinAds();"),
             new("com.evo.infrastructure.leaderboards", "UseLeaderboards", "features.UseLeaderboards();"),
             new("com.evo.infrastructure.save", "UseSave", "features.UseSave(new SaveStorageOptions());"),
+            new("com.evo.infrastructure.purchases", "UsePurchases", "features.UsePurchases();"),
+            new("com.evo.infrastructure.purchases.unityiap", "UseUnityIapPurchases", "features.UseUnityIapPurchases();"),
+            new("com.evo.infrastructure.purchases.rustore", "UseRuStorePurchases", "features.UseRuStorePurchases();"),
             new("com.evo.infrastructure.ui", "UseUi", "features.UseUi(uiSystemConfig);"),
             new("com.evo.infrastructure.loading", "UseLoading", "features.UseLoading(new SceneTransitionOptions());"),
             new("com.evo.infrastructure.yandex.platform", "UseYandexPlatform", "features.UseYandexPlatform();"),
@@ -184,6 +192,7 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.yandex.analytics", "UseYandexAnalytics", "features.UseYandexAnalytics();"),
             new("com.evo.infrastructure.yandex.save", "UseYandexSave", "features.UseYandexSave();"),
             new("com.evo.infrastructure.yandex.leaderboards", "UseYandexLeaderboards", "features.UseYandexLeaderboards();"),
+            new("com.evo.infrastructure.yandex.purchases", "UseYandexPurchases", "features.UseYandexPurchases();"),
             new("com.evo.infrastructure.crazygames.platform", "UseCrazyGamesPlatform", "features.UseCrazyGamesPlatform();"),
             new("com.evo.infrastructure.crazygames.ads", "UseCrazyGamesAds", "features.UseCrazyGamesAds();"),
             new("com.evo.infrastructure.crazygames.save", "UseCrazyGamesSave", "features.UseCrazyGamesSave();"),
@@ -1049,9 +1058,30 @@ namespace Evo.Infrastructure.Core.Editor
             DrawAdapterSdkDiagnostic("com.evo.infrastructure.analytics.appmetrica", "AppMetrica", "AppMetrica", "AppMetricaAnalyticsAdapterConfig", null);
             DrawAdapterSdkDiagnostic("com.evo.infrastructure.analytics.adjust", "Adjust", "AdjustSdk.Scripts", "AdjustAnalyticsAdapterConfig", null);
             DrawAdapterSdkDiagnostic("com.evo.infrastructure.ads.applovin", "AppLovin MAX", "MaxSdk.Scripts", "AppLovinAdsAdapterConfig", null);
+            DrawPurchaseDiagnostics();
             var stale = _cachedStaleConfigCatalogEntries;
             if (stale > 0)
                 EditorGUILayout.HelpBox($"Config catalogs contain {stale} stale TypeName entries pointing to Evo.Infrastructure.Runtime. Run EvoTools/Configs/Rebuild Config Catalogs.", MessageType.Error);
+        }
+
+        private void DrawPurchaseDiagnostics()
+        {
+            if (_installedEvoPackageNames.Contains("com.evo.infrastructure.purchases"))
+            {
+                if (AssetDatabase.FindAssets("t:PurchaseCatalogConfig").Length == 0)
+                    EditorGUILayout.HelpBox("PurchaseCatalogConfig is missing. Store products cannot be mapped to logical offers and grants.", MessageType.Warning);
+                if (AssetDatabase.FindAssets("t:PurchaseRoutingConfig").Length == 0)
+                    EditorGUILayout.HelpBox("PurchaseRoutingConfig is missing. No purchase adapter can be selected safely.", MessageType.Warning);
+            }
+
+            DrawAdapterSdkDiagnostic("com.evo.infrastructure.purchases.unityiap", "Unity IAP", "Unity.Purchasing", "PurchaseCatalogConfig", null);
+            DrawAdapterSdkDiagnostic("com.evo.infrastructure.purchases.rustore", "RuStore Pay", "RuStorePay", "RuStorePurchaseAdapterConfig", null);
+            if (_installedEvoPackageNames.Contains("com.evo.infrastructure.purchases.rustore") &&
+                !Application.unityVersion.StartsWith("6000", StringComparison.Ordinal))
+                EditorGUILayout.HelpBox("RuStore Pay 10.5 requires Unity 6000. On Unity 2022.3 install an official Pay SDK release whose package manifest explicitly supports 2022.3; deprecated RuStore BillingClient is not supported.", MessageType.Warning);
+
+            if (_installedEvoPackageNames.Contains("com.evo.infrastructure.yandex.purchases") && !HasDefine("Payments_yg"))
+                EditorGUILayout.HelpBox("Yandex Purchases requires the PluginYG2 Payments module and its Payments_yg define. The adapter remains unavailable without them.", MessageType.Warning);
         }
 
         private void DrawAdapterSdkDiagnostic(string packageId, string sdkLabel, string assemblyName, string configTypeName, string requiredDefine)
@@ -1651,6 +1681,8 @@ namespace Evo.Infrastructure.Core.Editor
             CacheAdapterSdkDiagnostic("com.evo.infrastructure.analytics.appmetrica", "AppMetrica", "AppMetricaAnalyticsAdapterConfig");
             CacheAdapterSdkDiagnostic("com.evo.infrastructure.analytics.adjust", "AdjustSdk.Scripts", "AdjustAnalyticsAdapterConfig");
             CacheAdapterSdkDiagnostic("com.evo.infrastructure.ads.applovin", "MaxSdk.Scripts", "AppLovinAdsAdapterConfig");
+            CacheAdapterSdkDiagnostic("com.evo.infrastructure.purchases.unityiap", "Unity.Purchasing", "PurchaseCatalogConfig");
+            CacheAdapterSdkDiagnostic("com.evo.infrastructure.purchases.rustore", "RuStorePay", "RuStorePurchaseAdapterConfig");
             _cachedStaleConfigCatalogEntries = CountStaleConfigCatalogEntries();
         }
 
@@ -2366,6 +2398,9 @@ namespace Evo.Infrastructure.Core.Editor
                     return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.UniTask, ExternalPackageDependency.Addressables };
                 case "com.evo.infrastructure.save":
                 case "com.evo.infrastructure.analytics":
+                case "com.evo.infrastructure.purchases":
+                case "com.evo.infrastructure.purchases.unityiap":
+                case "com.evo.infrastructure.purchases.rustore":
                     return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.UniTask };
                 case "com.evo.infrastructure.ads":
                     return new[] { ExternalPackageDependency.VContainer, ExternalPackageDependency.UniTask, ExternalPackageDependency.ReactiveNuGets };
@@ -2389,6 +2424,7 @@ namespace Evo.Infrastructure.Core.Editor
                 case "com.evo.infrastructure.yandex.analytics":
                 case "com.evo.infrastructure.yandex.save":
                 case "com.evo.infrastructure.yandex.leaderboards":
+                case "com.evo.infrastructure.yandex.purchases":
                     return new[] { ExternalPackageDependency.PluginYg };
                 default:
                     return Array.Empty<ExternalPackageDependency>();

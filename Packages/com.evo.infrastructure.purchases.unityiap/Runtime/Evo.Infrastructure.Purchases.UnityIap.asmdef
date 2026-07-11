@@ -1,0 +1,11 @@
+{
+  "name": "Evo.Infrastructure.Purchases.UnityIap",
+  "references": [
+    "Evo.Infrastructure.Purchases",
+    "Evo.Infrastructure.DI",
+    "Evo.Infrastructure.Debug",
+    "VContainer"
+  ],
+  "autoReferenced": true,
+  "noEngineReferences": false
+}

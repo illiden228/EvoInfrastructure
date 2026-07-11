@@ -1,0 +1,12 @@
+{
+  "name": "Evo.Infrastructure.Purchases",
+  "references": [
+    "Evo.Infrastructure.Config",
+    "Evo.Infrastructure.Debug",
+    "Evo.Infrastructure.DI",
+    "UniTask",
+    "VContainer"
+  ],
+  "autoReferenced": true,
+  "noEngineReferences": false
+}

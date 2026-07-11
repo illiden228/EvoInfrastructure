@@ -1,0 +1,12 @@
+{
+  "name": "Evo.Infrastructure.Yandex.Purchases",
+  "references": [
+    "Evo.Infrastructure.Purchases",
+    "Evo.Infrastructure.Debug",
+    "Evo.Infrastructure.DI",
+    "UniTask",
+    "VContainer"
+  ],
+  "autoReferenced": true,
+  "noEngineReferences": false
+}

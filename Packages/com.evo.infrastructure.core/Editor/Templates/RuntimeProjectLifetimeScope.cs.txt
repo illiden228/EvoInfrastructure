@@ -11,6 +11,7 @@ using Evo.Infrastructure.Services.Focus;
 using Evo.Infrastructure.Services.Leaderboard;
 using Evo.Infrastructure.Services.Localization;
 using Evo.Infrastructure.Services.PlatformInfo;
+using Evo.Infrastructure.Services.Purchases;
 using Evo.Infrastructure.Services.ResourceCatalog;
 using Evo.Infrastructure.Services.ResourceProvider;
 using Evo.Infrastructure.Services.Save;
@@ -49,6 +50,7 @@ namespace Game.Runtime.EntryPoint
                 features.UseAnalytics();
                 features.UseLeaderboards();
                 features.UseSave(new SaveStorageOptions());
+                features.UsePurchases();
                 features.UseUi(uiSystemConfig);
                 features.UseLoading(
                     new SceneTransitionOptions(),
@@ -66,6 +68,7 @@ namespace Game.Runtime.EntryPoint
 
                 RegisterOptionalYandex(features);
                 RegisterOptionalCrazyGames(features);
+                RegisterOptionalPurchaseAdapters(features);
             });
 
             builder.Register<Game.Runtime.Loading.LoadingViewModel>(Lifetime.Transient);
@@ -80,6 +83,7 @@ namespace Game.Runtime.EntryPoint
             RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Yandex.YandexAnalyticsFeatureExtensions", "UseYandexAnalytics");
             RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Yandex.YandexSaveFeatureExtensions", "UseYandexSave");
             RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Yandex.YandexLeaderboardsFeatureExtensions", "UseYandexLeaderboards");
+            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Purchases.Yandex.YandexPurchasesFeatureExtensions", "UseYandexPurchases");
         }
 
         private void RegisterOptionalCrazyGames(EvoFeatureRegistry features)
@@ -88,6 +92,18 @@ namespace Game.Runtime.EntryPoint
             RegisterOptionalFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesAdsFeatureExtensions", "UseCrazyGamesAds");
             RegisterOptionalFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesSaveFeatureExtensions", "UseCrazyGamesSave");
             RegisterOptionalFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesLeaderboardsFeatureExtensions", "UseCrazyGamesLeaderboards");
+        }
+
+        private void RegisterOptionalPurchaseAdapters(EvoFeatureRegistry features)
+        {
+            RegisterOptionalFeature(
+                features,
+                "Evo.Infrastructure.Services.Purchases.UnityIap.UnityIapPurchaseFeatureExtensions",
+                "UseUnityIapPurchases");
+            RegisterOptionalFeature(
+                features,
+                "Evo.Infrastructure.Services.Purchases.RuStore.RuStorePurchasesFeatureExtensions",
+                "UseRuStorePurchases");
         }
 
         private void RegisterOptionalFeature(EvoFeatureRegistry features, string extensionsTypeName, string methodName)
@@ -99,7 +115,15 @@ namespace Game.Runtime.EntryPoint
                 return;
             }
 
-            method.Invoke(null, new object[] { features });
+            var parameters = method.GetParameters();
+            var arguments = new object[parameters.Length];
+            arguments[0] = features;
+            for (var i = 1; i < parameters.Length; i++)
+            {
+                arguments[i] = parameters[i].HasDefaultValue ? parameters[i].DefaultValue : null;
+            }
+
+            method.Invoke(null, arguments);
         }
 
         private static Type FindTypeByName(string fullName)

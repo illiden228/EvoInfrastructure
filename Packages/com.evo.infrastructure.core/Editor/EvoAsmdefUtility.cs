@@ -41,6 +41,9 @@ namespace Evo.Infrastructure.Core.Editor
             ["com.evo.infrastructure.localization"] = "Evo.Infrastructure.Localization",
             ["com.evo.infrastructure.platform"] = "Evo.Infrastructure.Platform",
             ["com.evo.infrastructure.pooling"] = "Evo.Infrastructure.Pooling",
+            ["com.evo.infrastructure.purchases"] = "Evo.Infrastructure.Purchases",
+            ["com.evo.infrastructure.purchases.rustore"] = "Evo.Infrastructure.Purchases.RuStore",
+            ["com.evo.infrastructure.purchases.unityiap"] = "Evo.Infrastructure.Purchases.UnityIap",
             ["com.evo.infrastructure.resources"] = "Evo.Infrastructure.Resources",
             ["com.evo.infrastructure.save"] = "Evo.Infrastructure.Save",
             ["com.evo.infrastructure.scene"] = "Evo.Infrastructure.Scene",
@@ -50,7 +53,8 @@ namespace Evo.Infrastructure.Core.Editor
             ["com.evo.infrastructure.yandex.analytics"] = "Evo.Infrastructure.Yandex.Analytics",
             ["com.evo.infrastructure.yandex.leaderboards"] = "Evo.Infrastructure.Yandex.Leaderboards",
             ["com.evo.infrastructure.yandex.platform"] = "Evo.Infrastructure.Yandex.Platform",
-            ["com.evo.infrastructure.yandex.save"] = "Evo.Infrastructure.Yandex.Save"
+            ["com.evo.infrastructure.yandex.save"] = "Evo.Infrastructure.Yandex.Save",
+            ["com.evo.infrastructure.yandex.purchases"] = "Evo.Infrastructure.Yandex.Purchases"
         };
 
         private static readonly HashSet<string> PackagesWaitingForSdkFacade = new(StringComparer.OrdinalIgnoreCase)
@@ -80,10 +84,14 @@ namespace Evo.Infrastructure.Core.Editor
             ["com.evo.infrastructure.loading"] = new[] { "UniTask", "VContainer" },
             ["com.evo.infrastructure.localization"] = new[] { "UniTask", "Unity.Localization", "VContainer" },
             ["com.evo.infrastructure.platform"] = new[] { "VContainer" },
+            ["com.evo.infrastructure.purchases"] = new[] { "UniTask", "VContainer" },
+            ["com.evo.infrastructure.purchases.rustore"] = new[] { "VContainer" },
+            ["com.evo.infrastructure.purchases.unityiap"] = new[] { "VContainer" },
             ["com.evo.infrastructure.resources"] = new[] { "UniTask", "Unity.Addressables", "Unity.ResourceManager", "VContainer" },
             ["com.evo.infrastructure.save"] = new[] { "UniTask", "VContainer" },
             ["com.evo.infrastructure.scene"] = new[] { "UniTask", "VContainer" },
-            ["com.evo.infrastructure.ui"] = new[] { "ObservableCollections", "ObservableCollections.R3", "PrimeTween.Runtime", "R3", "R3.Unity", "UniTask", "Unity.Addressables", "Unity.InputSystem", "Unity.ResourceManager", "Unity.TextMeshPro", "VContainer" }
+            ["com.evo.infrastructure.ui"] = new[] { "ObservableCollections", "ObservableCollections.R3", "PrimeTween.Runtime", "R3", "R3.Unity", "UniTask", "Unity.Addressables", "Unity.InputSystem", "Unity.ResourceManager", "Unity.TextMeshPro", "VContainer" },
+            ["com.evo.infrastructure.yandex.purchases"] = new[] { "UniTask", "VContainer" }
         };
 
         private static readonly SdkAsmdefRequirement[] SdkAsmdefs =
@@ -91,7 +99,9 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.analytics.adjust", "Runtime/Sdk/Evo.Infrastructure.Analytics.Adjust.Sdk.asmdef", "AdjustSdk.Scripts", "EVO_ADJUST_SDK", "com.adjust.sdk"),
             new("com.evo.infrastructure.analytics.appmetrica", "Runtime/Sdk/Evo.Infrastructure.Analytics.AppMetrica.Sdk.asmdef", "AppMetrica", "EVO_APPMETRICA_SDK", "io.appmetrica.analytics"),
             new("com.evo.infrastructure.analytics.firebase", "Runtime/Sdk/Evo.Infrastructure.Analytics.Firebase.Sdk.asmdef", "Firebase.Analytics", "EVO_FIREBASE_ANALYTICS_SDK", null, false),
-            new("com.evo.infrastructure.ads.applovin", "Runtime/Sdk/Evo.Infrastructure.Ads.AppLovin.Sdk.asmdef", "MaxSdk.Scripts", "EVO_APPLOVIN_MAX_SDK", "com.applovin.mediation.ads")
+            new("com.evo.infrastructure.ads.applovin", "Runtime/Sdk/Evo.Infrastructure.Ads.AppLovin.Sdk.asmdef", "MaxSdk.Scripts", "EVO_APPLOVIN_MAX_SDK", "com.applovin.mediation.ads"),
+            new("com.evo.infrastructure.purchases.unityiap", "Runtime/Sdk/Evo.Infrastructure.Purchases.UnityIap.Sdk.asmdef", "Unity.Purchasing", "EVO_UNITY_IAP_V5", "com.unity.purchasing"),
+            new("com.evo.infrastructure.purchases.rustore", "Runtime/Sdk/Evo.Infrastructure.Purchases.RuStore.Sdk.asmdef", "RuStorePay", "EVO_RUSTORE_PAY_SDK", "ru.rustore.pay")
         };
 
         [MenuItem("EvoTools/Asmdefs/Validate Evo asmdefs")]

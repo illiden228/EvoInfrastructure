@@ -62,6 +62,9 @@ Directly installing an arbitrary feature or platform adapter package by git path
 - `Packages/com.evo.infrastructure.ui`
 - `Packages/com.evo.infrastructure.audio`
 - `Packages/com.evo.infrastructure.save`
+- `Packages/com.evo.infrastructure.purchases`
+- `Packages/com.evo.infrastructure.purchases.unityiap`
+- `Packages/com.evo.infrastructure.purchases.rustore`
 - `Packages/com.evo.infrastructure.ads`
 - `Packages/com.evo.infrastructure.analytics`
 - `Packages/com.evo.infrastructure.analytics.firebase`
@@ -79,6 +82,7 @@ Directly installing an arbitrary feature or platform adapter package by git path
 - `Packages/com.evo.infrastructure.yandex.analytics`
 - `Packages/com.evo.infrastructure.yandex.save`
 - `Packages/com.evo.infrastructure.yandex.leaderboards`
+- `Packages/com.evo.infrastructure.yandex.purchases`
 - `Packages/com.evo.infrastructure.crazygames`
 - `Packages/com.evo.infrastructure.crazygames.platform`
 - `Packages/com.evo.infrastructure.crazygames.ads`
