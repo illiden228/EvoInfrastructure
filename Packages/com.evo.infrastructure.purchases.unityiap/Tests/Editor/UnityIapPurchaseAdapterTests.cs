@@ -26,7 +26,7 @@ namespace Evo.Infrastructure.Purchases.UnityIap.Tests
         {
             using var adapter = new UnityIapPurchaseAdapter();
 
-            var result = adapter.PurchaseAsync("offer", "store-product", CancellationToken.None)
+            var result = adapter.PurchaseAsync("product", "store-product", CancellationToken.None)
                 .GetAwaiter().GetResult();
 
             Assert.That(result.Status, Is.EqualTo(PurchaseStatus.NotInitialized));

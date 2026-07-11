@@ -37,7 +37,7 @@ namespace Evo.Infrastructure.Services.Purchases.Tests
             adapter.InitializeAsync(Array.Empty<PurchaseAdapterProductDefinition>(), CancellationToken.None)
                 .AsTask().GetAwaiter().GetResult();
 
-            var result = adapter.PurchaseAsync("offer", "store-id", CancellationToken.None)
+            var result = adapter.PurchaseAsync("product", "store-id", CancellationToken.None)
                 .AsTask().GetAwaiter().GetResult();
 
             Assert.That(result.Status, Is.EqualTo(PurchaseStatus.Unavailable));

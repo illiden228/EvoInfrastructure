@@ -32,7 +32,7 @@ namespace Evo.Infrastructure.Purchases.Tests
         {
             var catalog = ScriptableObject.CreateInstance<PurchaseCatalogConfig>();
             JsonUtility.FromJsonOverwrite(
-                "{\"offers\":[" +
+                "{\"products\":[" +
                 "{\"id\":\"coins\",\"defaultStoreProductId\":\"coins.a\"}," +
                 "{\"id\":\"COINS\",\"defaultStoreProductId\":\"coins.b\"}]}",
                 catalog);
@@ -47,17 +47,17 @@ namespace Evo.Infrastructure.Purchases.Tests
         {
             var catalog = ScriptableObject.CreateInstance<PurchaseCatalogConfig>();
             JsonUtility.FromJsonOverwrite(
-                "{\"offers\":[{\"id\":\"offer\",\"enabled\":true,\"overrides\":[" +
+                "{\"products\":[{\"id\":\"product\",\"enabled\":true,\"overrides\":[" +
                 "{\"adapterId\":\"mock\",\"platforms\":6,\"storeProductId\":\"broad\"}," +
                 "{\"adapterId\":\"mock\",\"platforms\":2,\"storeProductId\":\"exact\"}]}]}",
                 catalog);
 
-            var offers = PurchaseCatalogResolver.Resolve(
+            var products = PurchaseCatalogResolver.Resolve(
                 catalog,
                 "mock",
                 RuntimePlatform.Android);
 
-            Assert.That(offers.Single().StoreProductId, Is.EqualTo("exact"));
+            Assert.That(products.Single().StoreProductId, Is.EqualTo("exact"));
             Object.DestroyImmediate(catalog);
         }
 
@@ -80,7 +80,7 @@ namespace Evo.Infrastructure.Purchases.Tests
             var catalog = ScriptableObject.CreateInstance<PurchaseCatalogConfig>();
             var routing = ScriptableObject.CreateInstance<PurchaseRoutingConfig>();
             JsonUtility.FromJsonOverwrite(
-                "{\"offers\":[{\"id\":\"starter\",\"enabled\":true," +
+                "{\"products\":[{\"id\":\"starter\",\"enabled\":true," +
                 "\"fulfillmentKey\":\"starter\"," +
                 "\"defaultStoreProductId\":\"store.starter\"}]}",
                 catalog);

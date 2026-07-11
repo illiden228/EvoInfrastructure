@@ -4,12 +4,12 @@ namespace Evo.Infrastructure.Services.Purchases
 {
     public readonly struct PurchaseTransaction
     {
-        public PurchaseTransaction(string transactionId, string offerId, string storeProductId, string adapterId,
+        public PurchaseTransaction(string transactionId, string productId, string storeProductId, string adapterId,
             string receipt = null, string purchaseToken = null, string orderId = null, decimal price = 0,
             string currencyCode = null, DateTimeOffset purchaseTime = default, bool isRestored = false)
         {
             TransactionId = transactionId;
-            OfferId = offerId;
+            ProductId = productId;
             StoreProductId = storeProductId;
             AdapterId = adapterId;
             Receipt = receipt;
@@ -21,7 +21,7 @@ namespace Evo.Infrastructure.Services.Purchases
             IsRestored = isRestored;
         }
         public string TransactionId { get; }
-        public string OfferId { get; }
+        public string ProductId { get; }
         public string StoreProductId { get; }
         public string AdapterId { get; }
         public string Receipt { get; }

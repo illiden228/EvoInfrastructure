@@ -7,19 +7,19 @@ namespace Evo.Infrastructure.Services.Purchases
 {
     public static class PurchaseCatalogResolver
     {
-        public static IReadOnlyList<PurchaseOffer> Resolve(
+        public static IReadOnlyList<PurchaseProduct> Resolve(
             PurchaseCatalogConfig catalog,
             string adapterId,
             RuntimePlatform platform)
         {
-            if (catalog?.Offers == null)
+            if (catalog?.Products == null)
             {
-                return Array.Empty<PurchaseOffer>();
+                return Array.Empty<PurchaseProduct>();
             }
 
             var mask = ToMask(platform);
-            var result = new List<PurchaseOffer>(catalog.Offers.Count);
-            foreach (var definition in catalog.Offers)
+            var result = new List<PurchaseProduct>(catalog.Products.Count);
+            foreach (var definition in catalog.Products)
             {
                 if (definition == null || string.IsNullOrWhiteSpace(definition.Id))
                 {
@@ -37,7 +37,7 @@ namespace Evo.Infrastructure.Services.Purchases
                 var storeId = !string.IsNullOrWhiteSpace(target?.StoreProductId)
                     ? target.StoreProductId
                     : definition.DefaultStoreProductId;
-                result.Add(new PurchaseOffer(
+                result.Add(new PurchaseProduct(
                     definition.Id,
                     storeId,
                     definition.FulfillmentKey,

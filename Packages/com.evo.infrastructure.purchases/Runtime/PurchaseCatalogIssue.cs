@@ -5,16 +5,16 @@ namespace Evo.Infrastructure.Services.Purchases
 {
     public readonly struct PurchaseCatalogIssue
     {
-        public PurchaseCatalogIssue(PurchaseCatalogIssueSeverity severity, string offerId, string message)
+        public PurchaseCatalogIssue(PurchaseCatalogIssueSeverity severity, string productId, string message)
         {
             Severity = severity;
-            OfferId = offerId;
+            ProductId = productId;
             Message = message;
         }
         public PurchaseCatalogIssueSeverity Severity { get; }
-        public string OfferId { get; }
+        public string ProductId { get; }
         public string Message { get; }
-        public override string ToString() => string.IsNullOrEmpty(OfferId) ? Message : $"{OfferId}: {Message}";
+        public override string ToString() => string.IsNullOrEmpty(ProductId) ? Message : $"{ProductId}: {Message}";
     }
 }
 

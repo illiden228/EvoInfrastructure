@@ -10,12 +10,12 @@ namespace Evo.Infrastructure.Services.Purchases
         bool IsInitialized { get; }
         bool IsAvailable { get; }
         string ActiveAdapterId { get; }
-        IReadOnlyList<PurchaseOffer> Offers { get; }
+        IReadOnlyList<PurchaseProduct> Products { get; }
         event Action CatalogChanged;
         event Action<PurchaseTransaction> PurchaseCompleted;
         UniTask InitializeAsync(CancellationToken cancellationToken = default);
-        bool TryGetOffer(string offerId, out PurchaseOffer offer);
-        UniTask<PurchaseResult> PurchaseAsync(string offerId, CancellationToken cancellationToken = default);
+        bool TryGetProduct(string productId, out PurchaseProduct product);
+        UniTask<PurchaseResult> PurchaseAsync(string productId, CancellationToken cancellationToken = default);
         UniTask<IReadOnlyList<PurchaseResult>> RestoreAsync(CancellationToken cancellationToken = default);
     }
 }

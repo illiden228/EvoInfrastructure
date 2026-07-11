@@ -8,82 +8,82 @@ namespace Evo.Infrastructure.Services.Purchases
         public static IReadOnlyList<PurchaseCatalogIssue> Validate(PurchaseCatalogConfig catalog)
         {
             var issues = new List<PurchaseCatalogIssue>();
-            if (catalog?.Offers == null)
+            if (catalog?.Products == null)
             {
                 return issues;
             }
 
             var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var defaultStoreIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var offer in catalog.Offers)
+            foreach (var product in catalog.Products)
             {
-                if (offer == null)
+                if (product == null)
                 {
                     continue;
                 }
 
-                if (string.IsNullOrWhiteSpace(offer.Id))
+                if (string.IsNullOrWhiteSpace(product.Id))
                 {
                     issues.Add(new PurchaseCatalogIssue(
                         PurchaseCatalogIssueSeverity.Error,
                         null,
-                        "Offer has an empty logical ID."));
+                        "Product has an empty logical ID."));
                     continue;
                 }
 
-                if (!ids.Add(offer.Id))
+                if (!ids.Add(product.Id))
                 {
                     issues.Add(new PurchaseCatalogIssue(
                         PurchaseCatalogIssueSeverity.Error,
-                        offer.Id,
+                        product.Id,
                         "Logical ID is duplicated."));
                 }
 
-                if (string.IsNullOrWhiteSpace(offer.FulfillmentKey))
+                if (string.IsNullOrWhiteSpace(product.FulfillmentKey))
                 {
                     issues.Add(new PurchaseCatalogIssue(
                         PurchaseCatalogIssueSeverity.Error,
-                        offer.Id,
+                        product.Id,
                         "Fulfillment key is empty."));
                 }
 
-                if (string.IsNullOrWhiteSpace(offer.DefaultStoreProductId) &&
-                    (offer.Overrides == null || offer.Overrides.Count == 0))
+                if (string.IsNullOrWhiteSpace(product.DefaultStoreProductId) &&
+                    (product.Overrides == null || product.Overrides.Count == 0))
                 {
                     issues.Add(new PurchaseCatalogIssue(
                         PurchaseCatalogIssueSeverity.Warning,
-                        offer.Id,
+                        product.Id,
                         "No default or target-specific store product ID is configured."));
                 }
 
-                if (!string.IsNullOrWhiteSpace(offer.DefaultStoreProductId) &&
-                    !defaultStoreIds.Add(offer.DefaultStoreProductId))
+                if (!string.IsNullOrWhiteSpace(product.DefaultStoreProductId) &&
+                    !defaultStoreIds.Add(product.DefaultStoreProductId))
                 {
                     issues.Add(new PurchaseCatalogIssue(
                         PurchaseCatalogIssueSeverity.Error,
-                        offer.Id,
-                        $"Default store product ID '{offer.DefaultStoreProductId}' is mapped by multiple offers."));
+                        product.Id,
+                        $"Default store product ID '{product.DefaultStoreProductId}' is mapped by multiple products."));
                 }
 
-                ValidateOverrides(offer, issues);
+                ValidateOverrides(product, issues);
             }
 
             return issues;
         }
 
         private static void ValidateOverrides(
-            PurchaseOfferDefinition offer,
+            PurchaseProductDefinition product,
             ICollection<PurchaseCatalogIssue> issues)
         {
-            if (offer.Overrides == null)
+            if (product.Overrides == null)
             {
                 return;
             }
 
             var selectors = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            for (var index = 0; index < offer.Overrides.Count; index++)
+            for (var index = 0; index < product.Overrides.Count; index++)
             {
-                var target = offer.Overrides[index];
+                var target = product.Overrides[index];
                 if (target == null)
                 {
                     continue;
@@ -94,7 +94,7 @@ namespace Evo.Infrastructure.Services.Purchases
                 {
                     issues.Add(new PurchaseCatalogIssue(
                         PurchaseCatalogIssueSeverity.Error,
-                        offer.Id,
+                        product.Id,
                             $"Duplicate target override selector '{selector}'."));
                 }
 
@@ -102,23 +102,23 @@ namespace Evo.Infrastructure.Services.Purchases
                 {
                     issues.Add(new PurchaseCatalogIssue(
                         PurchaseCatalogIssueSeverity.Warning,
-                        offer.Id,
+                        product.Id,
                         $"Target override '{selector}' has no store product ID."));
                 }
 
-                ValidateOverlappingOverride(offer, target, index, issues);
+                ValidateOverlappingOverride(product, target, index, issues);
             }
         }
 
         private static void ValidateOverlappingOverride(
-            PurchaseOfferDefinition offer,
+            PurchaseProductDefinition product,
             PurchaseTargetOverride target,
             int targetIndex,
             ICollection<PurchaseCatalogIssue> issues)
         {
             for (var otherIndex = 0; otherIndex < targetIndex; otherIndex++)
             {
-                var other = offer.Overrides[otherIndex];
+                var other = product.Overrides[otherIndex];
                 if (other == null ||
                     other.Priority != target.Priority ||
                     !string.Equals(other.AdapterId, target.AdapterId, StringComparison.OrdinalIgnoreCase) ||
@@ -130,7 +130,7 @@ namespace Evo.Infrastructure.Services.Purchases
 
                 issues.Add(new PurchaseCatalogIssue(
                     PurchaseCatalogIssueSeverity.Error,
-                    offer.Id,
+                    product.Id,
                     $"Target overrides {otherIndex} and {targetIndex} overlap for adapter " +
                     $"'{target.AdapterId}' with the same priority."));
                 return;

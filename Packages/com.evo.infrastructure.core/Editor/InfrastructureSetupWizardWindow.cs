@@ -1089,7 +1089,7 @@ namespace Evo.Infrastructure.Core.Editor
             if (_installedEvoPackageNames.Contains("com.evo.infrastructure.purchases"))
             {
                 if (AssetDatabase.FindAssets("t:PurchaseCatalogConfig").Length == 0)
-                    EditorGUILayout.HelpBox("PurchaseCatalogConfig is missing. Store products cannot be mapped to logical offers and grants.", MessageType.Warning);
+                    EditorGUILayout.HelpBox("PurchaseCatalogConfig is missing. Store products cannot be mapped to logical products and grants.", MessageType.Warning);
                 if (AssetDatabase.FindAssets("t:PurchaseRoutingConfig").Length == 0)
                     EditorGUILayout.HelpBox("PurchaseRoutingConfig is missing. No purchase adapter can be selected safely.", MessageType.Warning);
             }

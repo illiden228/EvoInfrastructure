@@ -15,7 +15,7 @@ namespace Evo.Infrastructure.Services.Purchases.UnityIap
         internal const string Id = "unity-iap";
         private const string Source = "Unity IAP Purchase Adapter";
 
-        private readonly Dictionary<string, string> _offerByStoreId = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _productByStoreId = new(StringComparer.Ordinal);
         private readonly Dictionary<string, PendingOrder> _pendingByTransactionId = new(StringComparer.Ordinal);
         private readonly HashSet<string> _confirmedTransactionIds = new(StringComparer.Ordinal);
         private readonly List<PurchaseStoreProduct> _products = new();
@@ -84,7 +84,7 @@ namespace Evo.Infrastructure.Services.Purchases.UnityIap
         }
 
         public async UniTask<PurchaseAdapterResult> PurchaseAsync(
-            string offerId,
+            string productId,
             string storeProductId,
             CancellationToken cancellationToken)
         {
@@ -93,7 +93,7 @@ namespace Evo.Infrastructure.Services.Purchases.UnityIap
             if (!_isAvailable || _controller == null)
                 return new PurchaseAdapterResult(PurchaseStatus.Unavailable);
             if (string.IsNullOrWhiteSpace(storeProductId))
-                return new PurchaseAdapterResult(PurchaseStatus.InvalidOffer);
+                return new PurchaseAdapterResult(PurchaseStatus.InvalidProduct);
             if (_activePurchase != null)
                 return new PurchaseAdapterResult(PurchaseStatus.StoreFailure, error: "Another purchase is already in progress.");
 
@@ -188,17 +188,17 @@ namespace Evo.Infrastructure.Services.Purchases.UnityIap
         private List<ProductDefinition> BuildDefinitions(IReadOnlyList<PurchaseAdapterProductDefinition> products)
         {
             var definitions = new List<ProductDefinition>();
-            _offerByStoreId.Clear();
+            _productByStoreId.Clear();
             if (products == null)
                 return definitions;
 
             foreach (var product in products)
             {
-                if (string.IsNullOrWhiteSpace(product.OfferId) || string.IsNullOrWhiteSpace(product.StoreProductId) ||
-                    _offerByStoreId.ContainsKey(product.StoreProductId))
+                if (string.IsNullOrWhiteSpace(product.ProductId) || string.IsNullOrWhiteSpace(product.StoreProductId) ||
+                    _productByStoreId.ContainsKey(product.StoreProductId))
                     continue;
 
-                _offerByStoreId.Add(product.StoreProductId, product.OfferId);
+                _productByStoreId.Add(product.StoreProductId, product.ProductId);
                 definitions.Add(new ProductDefinition(product.StoreProductId, ConvertType(product.ProductType)));
             }
 
@@ -324,13 +324,13 @@ namespace Evo.Infrastructure.Services.Purchases.UnityIap
         private PurchaseTransaction ToConfirmedEntitlementTransaction(ConfirmedOrder order, Product product)
         {
             var storeId = product.definition.storeSpecificId ?? string.Empty;
-            _offerByStoreId.TryGetValue(storeId, out var offerId);
+            _productByStoreId.TryGetValue(storeId, out var productId);
             var metadata = product.metadata;
             // Confirmed non-consumables and subscriptions are entitlements, not pending orders.
             // Unity IAP may omit TransactionID/Receipt here, so use a stable entitlement identity.
             return new PurchaseTransaction(
                 "unity-iap-entitlement:" + storeId,
-                offerId ?? string.Empty,
+                productId ?? string.Empty,
                 storeId,
                 Id,
                 order?.Info?.Receipt,
@@ -343,11 +343,11 @@ namespace Evo.Infrastructure.Services.Purchases.UnityIap
         {
             var product = FirstProduct(order);
             var storeId = product?.definition?.storeSpecificId ?? string.Empty;
-            _offerByStoreId.TryGetValue(storeId, out var offerId);
+            _productByStoreId.TryGetValue(storeId, out var productId);
             var metadata = product?.metadata;
             return new PurchaseTransaction(
                 ResolveTransactionId(order, storeId),
-                offerId ?? string.Empty,
+                productId ?? string.Empty,
                 storeId,
                 Id,
                 order?.Info?.Receipt,

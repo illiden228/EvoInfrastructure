@@ -12,7 +12,7 @@ namespace Evo.Infrastructure.Services.Purchases
         bool IsAvailable { get; }
         IReadOnlyList<PurchaseStoreProduct> Products { get; }
         UniTask InitializeAsync(IReadOnlyList<PurchaseAdapterProductDefinition> products, CancellationToken cancellationToken);
-        UniTask<PurchaseAdapterResult> PurchaseAsync(string offerId, string storeProductId, CancellationToken cancellationToken);
+        UniTask<PurchaseAdapterResult> PurchaseAsync(string productId, string storeProductId, CancellationToken cancellationToken);
         UniTask<IReadOnlyList<PurchaseTransaction>> RestoreAsync(CancellationToken cancellationToken);
         UniTask<bool> ConfirmAsync(PurchaseTransaction transaction, CancellationToken cancellationToken);
     }

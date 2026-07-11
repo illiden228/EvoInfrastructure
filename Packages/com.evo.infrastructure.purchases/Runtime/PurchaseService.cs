@@ -16,7 +16,7 @@ namespace Evo.Infrastructure.Services.Purchases
         private readonly IReadOnlyList<IPurchaseFulfillmentHandler> _handlers;
         private readonly IConfigService _configs;
         private readonly PurchaseServiceOptions _options;
-        private readonly List<PurchaseOffer> _offers = new();
+        private readonly List<PurchaseProduct> _products = new();
         private IPurchaseAdapter _adapter;
         private bool _initializing;
         private UniTaskCompletionSource _initializationCompletion;
@@ -31,9 +31,9 @@ namespace Evo.Infrastructure.Services.Purchases
         }
 
         public bool IsInitialized { get; private set; }
-        public bool IsAvailable => IsInitialized && _adapter?.IsAvailable == true && _offers.Any(x => x.IsAvailable);
+        public bool IsAvailable => IsInitialized && _adapter?.IsAvailable == true && _products.Any(x => x.IsAvailable);
         public string ActiveAdapterId => _adapter?.AdapterId ?? string.Empty;
-        public IReadOnlyList<PurchaseOffer> Offers => _offers;
+        public IReadOnlyList<PurchaseProduct> Products => _products;
         public event Action CatalogChanged;
         public event Action<PurchaseTransaction> PurchaseCompleted;
 
@@ -93,13 +93,13 @@ namespace Evo.Infrastructure.Services.Purchases
             }
         }
 
-        public bool TryGetOffer(string offerId, out PurchaseOffer offer)
+        public bool TryGetProduct(string productId, out PurchaseProduct product)
         {
-            offer = _offers.FirstOrDefault(x => string.Equals(x.Id, offerId, StringComparison.OrdinalIgnoreCase));
-            return offer != null;
+            product = _products.FirstOrDefault(x => string.Equals(x.Id, productId, StringComparison.OrdinalIgnoreCase));
+            return product != null;
         }
 
-        public async UniTask<PurchaseResult> PurchaseAsync(string offerId, CancellationToken cancellationToken = default)
+        public async UniTask<PurchaseResult> PurchaseAsync(string productId, CancellationToken cancellationToken = default)
         {
             if (!IsInitialized)
             {
@@ -111,12 +111,12 @@ namespace Evo.Infrastructure.Services.Purchases
                 return new PurchaseResult(PurchaseStatus.Unavailable);
             }
 
-            if (!TryGetOffer(offerId, out var offer))
+            if (!TryGetProduct(productId, out var product))
             {
-                return new PurchaseResult(PurchaseStatus.InvalidOffer);
+                return new PurchaseResult(PurchaseStatus.InvalidProduct);
             }
 
-            if (!offer.IsAvailable)
+            if (!product.IsAvailable)
             {
                 return new PurchaseResult(PurchaseStatus.ProductUnavailable);
             }
@@ -124,7 +124,7 @@ namespace Evo.Infrastructure.Services.Purchases
             try
             {
                 using var timeout = CreateTimeout(cancellationToken, _options.PurchaseTimeoutSeconds);
-                var result = await _adapter.PurchaseAsync(offer.Id, offer.StoreProductId, timeout.Token)
+                var result = await _adapter.PurchaseAsync(product.Id, product.StoreProductId, timeout.Token)
                     .AttachExternalCancellation(timeout.Token);
                 if (timeout.IsCancellationRequested)
                 {
@@ -134,7 +134,7 @@ namespace Evo.Infrastructure.Services.Purchases
                 }
 
                 return result.Success
-                    ? await FulfillAndConfirmAsync(offer, result.Transaction, timeout.Token)
+                    ? await FulfillAndConfirmAsync(product, result.Transaction, timeout.Token)
                     : new PurchaseResult(result.Status, result.Transaction, result.Error);
             }
             catch (OperationCanceledException)
@@ -175,18 +175,18 @@ namespace Evo.Infrastructure.Services.Purchases
 
                     try
                     {
-                        if (!TryGetOffer(transaction.OfferId, out var offer))
+                        if (!TryGetProduct(transaction.ProductId, out var product))
                         {
-                            offer = _offers.FirstOrDefault(candidate =>
+                            product = _products.FirstOrDefault(candidate =>
                                 string.Equals(
                                     candidate.StoreProductId,
                                     transaction.StoreProductId,
                                     StringComparison.OrdinalIgnoreCase));
                         }
 
-                        results.Add(offer == null
-                            ? new PurchaseResult(PurchaseStatus.InvalidOffer, transaction)
-                            : await FulfillAndConfirmAsync(offer, transaction, timeout.Token));
+                        results.Add(product == null
+                            ? new PurchaseResult(PurchaseStatus.InvalidProduct, transaction)
+                            : await FulfillAndConfirmAsync(product, transaction, timeout.Token));
                     }
                     catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                     {
@@ -242,33 +242,33 @@ namespace Evo.Infrastructure.Services.Purchases
             var catalogIssues = PurchaseCatalogValidator.Validate(catalog);
             LogCatalogIssues(catalogIssues);
 
-            var invalidOfferIds = new HashSet<string>(
+            var invalidProductIds = new HashSet<string>(
                 catalogIssues
                     .Where(issue => issue.Severity == PurchaseCatalogIssueSeverity.Error &&
-                                    !string.IsNullOrWhiteSpace(issue.OfferId))
-                    .Select(issue => issue.OfferId),
+                                    !string.IsNullOrWhiteSpace(issue.ProductId))
+                    .Select(issue => issue.ProductId),
                 StringComparer.OrdinalIgnoreCase);
 
-            _offers.Clear();
-            _offers.AddRange(PurchaseCatalogResolver.Resolve(catalog, adapterId, Application.platform));
+            _products.Clear();
+            _products.AddRange(PurchaseCatalogResolver.Resolve(catalog, adapterId, Application.platform));
 
             var duplicateStoreIds = FindDuplicateStoreProductIds();
             foreach (var duplicateStoreId in duplicateStoreIds)
             {
                 EvoDebug.LogWarning(
-                    $"Store product ID '{duplicateStoreId}' maps to multiple logical offers and was disabled.",
+                    $"Store product ID '{duplicateStoreId}' maps to multiple logical products and was disabled.",
                     SOURCE);
             }
 
-            return _offers
-                .Where(offer => offer.IsEnabled &&
-                                !invalidOfferIds.Contains(offer.Id) &&
-                                !string.IsNullOrWhiteSpace(offer.StoreProductId) &&
-                                !duplicateStoreIds.Contains(offer.StoreProductId))
-                .Select(offer => new PurchaseAdapterProductDefinition(
-                    offer.Id,
-                    offer.StoreProductId,
-                    offer.ProductType))
+            return _products
+                .Where(product => product.IsEnabled &&
+                                !invalidProductIds.Contains(product.Id) &&
+                                !string.IsNullOrWhiteSpace(product.StoreProductId) &&
+                                !duplicateStoreIds.Contains(product.StoreProductId))
+                .Select(product => new PurchaseAdapterProductDefinition(
+                    product.Id,
+                    product.StoreProductId,
+                    product.ProductType))
                 .ToArray();
         }
 
@@ -283,10 +283,10 @@ namespace Evo.Infrastructure.Services.Purchases
         private HashSet<string> FindDuplicateStoreProductIds()
         {
             return new HashSet<string>(
-                _offers
-                    .Where(offer => offer.IsEnabled &&
-                                    !string.IsNullOrWhiteSpace(offer.StoreProductId))
-                    .GroupBy(offer => offer.StoreProductId, StringComparer.OrdinalIgnoreCase)
+                _products
+                    .Where(product => product.IsEnabled &&
+                                    !string.IsNullOrWhiteSpace(product.StoreProductId))
+                    .GroupBy(product => product.StoreProductId, StringComparer.OrdinalIgnoreCase)
                     .Where(group => group.Count() > 1)
                     .Select(group => group.Key),
                 StringComparer.OrdinalIgnoreCase);
@@ -304,20 +304,20 @@ namespace Evo.Infrastructure.Services.Purchases
                 .AttachExternalCancellation(timeout.Token);
         }
 
-        private async UniTask<PurchaseResult> FulfillAndConfirmAsync(PurchaseOffer offer,
+        private async UniTask<PurchaseResult> FulfillAndConfirmAsync(PurchaseProduct product,
             PurchaseTransaction transaction, CancellationToken cancellationToken)
         {
-            var handlers = _handlers.Where(x => x.CanFulfill(offer.FulfillmentKey)).Take(2).ToArray();
+            var handlers = _handlers.Where(x => x.CanFulfill(product.FulfillmentKey)).Take(2).ToArray();
             if (handlers.Length != 1)
             {
                 return new PurchaseResult(PurchaseStatus.FulfillmentUnavailable, transaction,
                     handlers.Length == 0
-                        ? $"No fulfillment handler accepts '{offer.FulfillmentKey}'."
-                        : $"Multiple fulfillment handlers accept '{offer.FulfillmentKey}'.");
+                        ? $"No fulfillment handler accepts '{product.FulfillmentKey}'."
+                        : $"Multiple fulfillment handlers accept '{product.FulfillmentKey}'.");
             }
 
             var handler = handlers[0];
-            var fulfillment = await handler.FulfillAsync(offer, transaction, cancellationToken);
+            var fulfillment = await handler.FulfillAsync(product, transaction, cancellationToken);
             if (!fulfillment.Success)
             {
                 return new PurchaseResult(
@@ -359,13 +359,13 @@ namespace Evo.Infrastructure.Services.Purchases
 
         private void ApplyStoreProducts()
         {
-            foreach (var offer in _offers)
+            foreach (var product in _products)
             {
                 PurchaseStoreProduct store = default;
                 if (_adapter.Products != null)
                 {
                     store = _adapter.Products.FirstOrDefault(x =>
-                        string.Equals(x.StoreProductId, offer.StoreProductId, StringComparison.OrdinalIgnoreCase));
+                        string.Equals(x.StoreProductId, product.StoreProductId, StringComparison.OrdinalIgnoreCase));
                 }
 
                 if (string.IsNullOrWhiteSpace(store.StoreProductId))
@@ -373,13 +373,13 @@ namespace Evo.Infrastructure.Services.Purchases
                     continue;
                 }
 
-                offer.IsAvailable = offer.IsEnabled && store.IsAvailable;
-                offer.LocalizedTitle = store.Title;
-                offer.LocalizedDescription = store.Description;
-                offer.LocalizedPrice = store.LocalizedPrice;
-                offer.Price = store.Price;
-                offer.CurrencyCode = store.CurrencyCode;
-                offer.ImageUrl = store.ImageUrl;
+                product.IsAvailable = product.IsEnabled && store.IsAvailable;
+                product.LocalizedTitle = store.Title;
+                product.LocalizedDescription = store.Description;
+                product.LocalizedPrice = store.LocalizedPrice;
+                product.Price = store.Price;
+                product.CurrencyCode = store.CurrencyCode;
+                product.ImageUrl = store.ImageUrl;
             }
         }
 

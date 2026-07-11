@@ -10,7 +10,7 @@ namespace Evo.Infrastructure.Purchases.Tests
         public MockHandler(MockAdapter adapter) => _adapter = adapter;
         public bool WasCalled { get; private set; }
         public bool CanFulfill(string key) => key == "starter";
-        public UniTask<PurchaseFulfillmentResult> FulfillAsync(PurchaseOffer offer,
+        public UniTask<PurchaseFulfillmentResult> FulfillAsync(PurchaseProduct product,
             PurchaseTransaction transaction, CancellationToken token)
         { WasCalled = true; _adapter.Fulfilled = true; return UniTask.FromResult(PurchaseFulfillmentResult.Succeeded()); }
     }

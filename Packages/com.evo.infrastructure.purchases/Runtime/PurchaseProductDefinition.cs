@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Evo.Infrastructure.Services.Purchases
 {
     [Serializable]
-    public sealed class PurchaseOfferDefinition
+    public sealed class PurchaseProductDefinition
     {
         [SerializeField] private string id = string.Empty;
         [SerializeField] private bool enabled = true;

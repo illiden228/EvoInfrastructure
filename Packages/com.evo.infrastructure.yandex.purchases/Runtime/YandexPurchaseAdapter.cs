@@ -16,12 +16,12 @@ namespace Evo.Infrastructure.Services.Purchases.Yandex
         private readonly YandexPurchasesOptions _options;
         private readonly IYandexPaymentsBridge _bridge;
         private readonly List<PurchaseStoreProduct> _products = new();
-        private readonly Dictionary<string, string> _offersByStoreId =
+        private readonly Dictionary<string, string> _productsByStoreId =
             new(StringComparer.OrdinalIgnoreCase);
 
         private UniTaskCompletionSource<bool> _catalogReceived;
         private UniTaskCompletionSource<PurchaseAdapterResult> _pendingPurchase;
-        private string _pendingOfferId;
+        private string _pendingProductId;
         private string _pendingStoreProductId;
         private bool _missingSdkWarningLogged;
         private bool _disposed;
@@ -85,7 +85,7 @@ namespace Evo.Infrastructure.Services.Purchases.Yandex
         }
 
         public async UniTask<PurchaseAdapterResult> PurchaseAsync(
-            string offerId,
+            string productId,
             string storeProductId,
             CancellationToken cancellationToken)
         {
@@ -107,7 +107,7 @@ namespace Evo.Infrastructure.Services.Purchases.Yandex
 
             try
             {
-                _pendingOfferId = offerId;
+                _pendingProductId = productId;
                 _pendingStoreProductId = storeProductId;
                 EnsureRecoveryId(storeProductId);
                 _pendingPurchase = new UniTaskCompletionSource<PurchaseAdapterResult>();
@@ -143,7 +143,7 @@ namespace Evo.Infrastructure.Services.Purchases.Yandex
             finally
             {
                 _pendingPurchase = null;
-                _pendingOfferId = null;
+                _pendingProductId = null;
                 _pendingStoreProductId = null;
             }
         }
@@ -160,10 +160,10 @@ namespace Evo.Infrastructure.Services.Purchases.Yandex
             RefreshProducts();
             var restored = _bridge.Products
                 .Where(product => !product.Consumed &&
-                                  _offersByStoreId.ContainsKey(product.Id) &&
+                                  _productsByStoreId.ContainsKey(product.Id) &&
                                   PlayerPrefs.HasKey(RecoveryKey(product.Id)))
                 .Select(product => CreateTransaction(
-                    _offersByStoreId[product.Id], product.Id, true))
+                    _productsByStoreId[product.Id], product.Id, true))
                 .ToArray();
             return UniTask.FromResult<IReadOnlyList<PurchaseTransaction>>(restored);
         }
@@ -256,7 +256,7 @@ namespace Evo.Infrastructure.Services.Purchases.Yandex
 
         private void IndexProducts(IReadOnlyList<PurchaseAdapterProductDefinition> products)
         {
-            _offersByStoreId.Clear();
+            _productsByStoreId.Clear();
             if (products == null)
             {
                 return;
@@ -265,9 +265,9 @@ namespace Evo.Infrastructure.Services.Purchases.Yandex
             foreach (var product in products)
             {
                 if (!string.IsNullOrWhiteSpace(product.StoreProductId) &&
-                    !string.IsNullOrWhiteSpace(product.OfferId))
+                    !string.IsNullOrWhiteSpace(product.ProductId))
                 {
-                    _offersByStoreId[product.StoreProductId] = product.OfferId;
+                    _productsByStoreId[product.StoreProductId] = product.ProductId;
                 }
             }
         }
@@ -305,7 +305,7 @@ namespace Evo.Infrastructure.Services.Purchases.Yandex
 
             _pendingPurchase.TrySetResult(new PurchaseAdapterResult(
                 PurchaseStatus.Succeeded,
-                CreateTransaction(_pendingOfferId, storeProductId, false)));
+                CreateTransaction(_pendingProductId, storeProductId, false)));
         }
 
         private void OnPurchaseFailed(string storeProductId)
@@ -321,13 +321,13 @@ namespace Evo.Infrastructure.Services.Purchases.Yandex
             _pendingPurchase.TrySetResult(new PurchaseAdapterResult(PurchaseStatus.StoreFailure));
         }
 
-        private PurchaseTransaction CreateTransaction(string offerId, string storeProductId, bool restored)
+        private PurchaseTransaction CreateTransaction(string productId, string storeProductId, bool restored)
         {
             var storeProduct = _bridge.Products.FirstOrDefault(product =>
                 string.Equals(product.Id, storeProductId, StringComparison.OrdinalIgnoreCase));
             return new PurchaseTransaction(
                 EnsureRecoveryId(storeProductId),
-                offerId,
+                productId,
                 storeProductId,
                 AdapterId,
                 price: storeProduct.Price,

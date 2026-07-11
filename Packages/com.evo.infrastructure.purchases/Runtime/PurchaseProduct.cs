@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Evo.Infrastructure.Services.Purchases
 {
-    public sealed class PurchaseOffer
+    public sealed class PurchaseProduct
     {
-        public PurchaseOffer(string id, string storeProductId, string fulfillmentKey,
+        public PurchaseProduct(string id, string storeProductId, string fulfillmentKey,
             PurchaseProductType productType, bool enabled, IReadOnlyList<PurchaseGrantDefinition> grants)
         {
             Id = id;

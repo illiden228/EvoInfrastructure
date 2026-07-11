@@ -13,7 +13,7 @@ builder.Register<MyPurchaseFulfillmentHandler>(Lifetime.Singleton)
     .As<IPurchaseFulfillmentHandler>();
 ```
 
-Create `PurchaseCatalogConfig` and `PurchaseRoutingConfig` assets. A logical offer owns its
+Create `PurchaseCatalogConfig` and `PurchaseRoutingConfig` assets. A logical product owns its
 rewards and fulfillment key; target overrides map it to adapter/platform store IDs. Store data
 is authoritative for availability, localized text, price, and currency.
 

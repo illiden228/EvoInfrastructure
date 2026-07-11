@@ -7,7 +7,7 @@ namespace Evo.Infrastructure.Services.Purchases
         Succeeded = 0,
         NotInitialized = 1,
         Unavailable = 2,
-        InvalidOffer = 3,
+        InvalidProduct = 3,
         ProductUnavailable = 4,
         Cancelled = 5,
         Deferred = 6,

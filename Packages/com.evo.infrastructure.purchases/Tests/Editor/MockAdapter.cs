@@ -21,9 +21,9 @@ namespace Evo.Infrastructure.Purchases.Tests
             IsInitialized = true;
             return UniTask.CompletedTask;
         }
-        public UniTask<PurchaseAdapterResult> PurchaseAsync(string offerId, string storeProductId, CancellationToken token) =>
+        public UniTask<PurchaseAdapterResult> PurchaseAsync(string productId, string storeProductId, CancellationToken token) =>
             UniTask.FromResult(new PurchaseAdapterResult(PurchaseStatus.Succeeded,
-                new PurchaseTransaction("tx-1", offerId, storeProductId, AdapterId)));
+                new PurchaseTransaction("tx-1", productId, storeProductId, AdapterId)));
         public UniTask<IReadOnlyList<PurchaseTransaction>> RestoreAsync(CancellationToken token) =>
             UniTask.FromResult<IReadOnlyList<PurchaseTransaction>>(Array.Empty<PurchaseTransaction>());
         public UniTask<bool> ConfirmAsync(PurchaseTransaction transaction, CancellationToken token)

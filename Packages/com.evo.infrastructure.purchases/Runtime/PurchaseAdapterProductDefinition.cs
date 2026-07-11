@@ -6,13 +6,13 @@ namespace Evo.Infrastructure.Services.Purchases
 {
     public readonly struct PurchaseAdapterProductDefinition
     {
-        public PurchaseAdapterProductDefinition(string offerId, string storeProductId, PurchaseProductType productType)
+        public PurchaseAdapterProductDefinition(string productId, string storeProductId, PurchaseProductType productType)
         {
-            OfferId = offerId;
+            ProductId = productId;
             StoreProductId = storeProductId;
             ProductType = productType;
         }
-        public string OfferId { get; }
+        public string ProductId { get; }
         public string StoreProductId { get; }
         public PurchaseProductType ProductType { get; }
     }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Evo.Infrastructure.Services.Config;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Evo.Infrastructure.Services.Purchases
 {
@@ -9,8 +10,9 @@ namespace Evo.Infrastructure.Services.Purchases
     [CreateAssetMenu(fileName = "PurchaseCatalogConfig", menuName = "Project/Purchases/Catalog")]
     public sealed class PurchaseCatalogConfig : ScriptableObject, IGameConfig
     {
-        [SerializeField] private List<PurchaseOfferDefinition> offers = new();
-        public IReadOnlyList<PurchaseOfferDefinition> Offers => offers;
+        [FormerlySerializedAs("offers")]
+        [SerializeField] private List<PurchaseProductDefinition> products = new();
+        public IReadOnlyList<PurchaseProductDefinition> Products => products;
     }
 }
 

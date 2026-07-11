@@ -17,8 +17,8 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
 
         private readonly RuStorePurchaseAdapterConfig _config;
         private readonly List<PurchaseStoreProduct> _products = new();
-        private readonly Dictionary<string, string> _offerByStoreId = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, PurchaseStoreProduct> _productByStoreId = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _productIdByStoreId = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, PurchaseStoreProduct> _storeProductById = new(StringComparer.Ordinal);
         private readonly HashSet<string> _pendingTwoStepPurchases = new(StringComparer.Ordinal);
         private bool _warningLogged;
         private bool _disposed;
@@ -92,7 +92,7 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
         }
 
         public async UniTask<PurchaseAdapterResult> PurchaseAsync(
-            string offerId,
+            string productId,
             string storeProductId,
             CancellationToken cancellationToken)
         {
@@ -106,7 +106,7 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
                 return Failure(PurchaseStatus.Unavailable, "RuStore purchases are unavailable.");
             }
 
-            if (string.IsNullOrWhiteSpace(storeProductId) || !_productByStoreId.ContainsKey(storeProductId))
+            if (string.IsNullOrWhiteSpace(storeProductId) || !_productIdByStoreId.ContainsKey(storeProductId))
             {
                 return Failure(PurchaseStatus.ProductUnavailable, "RuStore product is unavailable.");
             }
@@ -129,7 +129,7 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
                     PurchaseStatus.Succeeded,
                     CreateTransaction(
                         transactionId,
-                        offerId,
+                        productId,
                         storeProductId,
                         Value(result.invoiceId),
                         Value(result.orderId),
@@ -171,7 +171,7 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
 
                     var storeProductId = GetProductId(purchase);
                     if (string.IsNullOrWhiteSpace(storeProductId) ||
-                        !_offerByStoreId.TryGetValue(storeProductId, out var offerId))
+                        !_productIdByStoreId.TryGetValue(storeProductId, out var productId))
                     {
                         continue;
                     }
@@ -189,7 +189,7 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
 
                     restored.Add(CreateTransaction(
                         transactionId,
-                        offerId,
+                        productId,
                         storeProductId,
                         Value(purchase.invoiceId),
                         Value(purchase.orderId),
@@ -248,14 +248,14 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
             _disposed = true;
             IsAvailable = false;
             _products.Clear();
-            _productByStoreId.Clear();
-            _offerByStoreId.Clear();
+            _productIdByStoreId.Clear();
+            _storeProductById.Clear();
             _pendingTwoStepPurchases.Clear();
         }
 
         private ProductId[] CacheDefinitions(IReadOnlyList<PurchaseAdapterProductDefinition> definitions)
         {
-            _offerByStoreId.Clear();
+            _productIdByStoreId.Clear();
             if (definitions == null)
             {
                 return Array.Empty<ProductId>();
@@ -265,12 +265,12 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
             foreach (var definition in definitions)
             {
                 if (string.IsNullOrWhiteSpace(definition.StoreProductId) ||
-                    _offerByStoreId.ContainsKey(definition.StoreProductId))
+                    _productIdByStoreId.ContainsKey(definition.StoreProductId))
                 {
                     continue;
                 }
 
-                _offerByStoreId.Add(definition.StoreProductId, definition.OfferId);
+                _productIdByStoreId.Add(definition.StoreProductId, definition.ProductId);
                 result.Add(new ProductId(definition.StoreProductId));
             }
 
@@ -280,7 +280,7 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
         private void CacheProducts(IReadOnlyList<Product> sdkProducts)
         {
             _products.Clear();
-            _productByStoreId.Clear();
+            _storeProductById.Clear();
             if (sdkProducts == null)
             {
                 return;
@@ -289,7 +289,7 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
             foreach (var product in sdkProducts)
             {
                 var id = Value(product?.productId);
-                if (string.IsNullOrWhiteSpace(id) || !_offerByStoreId.ContainsKey(id))
+                if (string.IsNullOrWhiteSpace(id) || !_productIdByStoreId.ContainsKey(id))
                 {
                     continue;
                 }
@@ -306,7 +306,7 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
                     Value(product.currency),
                     Value(product.imageUrl));
                 _products.Add(storeProduct);
-                _productByStoreId[id] = storeProduct;
+                _storeProductById[id] = storeProduct;
             }
         }
 
@@ -380,7 +380,7 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
 
         private PurchaseTransaction CreateTransaction(
             string transactionId,
-            string offerId,
+            string productId,
             string storeProductId,
             string invoiceId,
             string orderId,
@@ -389,18 +389,18 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
             string currency = null,
             DateTime? purchaseTime = null)
         {
-            if (_productByStoreId.TryGetValue(storeProductId, out var product))
+            if (_storeProductById.TryGetValue(storeProductId, out var product))
             {
                 currency ??= product.CurrencyCode;
                 if (priceMinor <= 0)
                 {
-                    return new PurchaseTransaction(transactionId, offerId, storeProductId, AdapterId,
+                    return new PurchaseTransaction(transactionId, productId, storeProductId, AdapterId,
                         invoiceId, transactionId, orderId, product.Price, currency,
                         ToOffset(purchaseTime), restored);
                 }
             }
 
-            return new PurchaseTransaction(transactionId, offerId, storeProductId, AdapterId,
+            return new PurchaseTransaction(transactionId, productId, storeProductId, AdapterId,
                 invoiceId, transactionId, orderId,
                 CurrencyMinorUnitConverter.ToMajorUnits(priceMinor, currency), currency,
                 ToOffset(purchaseTime), restored);

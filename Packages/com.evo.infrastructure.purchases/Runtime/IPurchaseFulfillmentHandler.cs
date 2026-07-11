@@ -8,7 +8,7 @@ namespace Evo.Infrastructure.Services.Purchases
     public interface IPurchaseFulfillmentHandler
     {
         bool CanFulfill(string fulfillmentKey);
-        UniTask<PurchaseFulfillmentResult> FulfillAsync(PurchaseOffer offer, PurchaseTransaction transaction,
+        UniTask<PurchaseFulfillmentResult> FulfillAsync(PurchaseProduct product, PurchaseTransaction transaction,
             CancellationToken cancellationToken);
     }
 }
