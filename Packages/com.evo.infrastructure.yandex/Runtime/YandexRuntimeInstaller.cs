@@ -38,9 +38,14 @@ namespace Evo.Infrastructure.Services.Yandex
                 TryUseFeature(features, "Evo.Infrastructure.Services.Yandex.YandexLeaderboardsFeatureExtensions", "UseYandexLeaderboards");
             }
 
-            if (config.CloudSave || config.PlayerAuth)
+            if (config.CloudSave)
             {
                 TryUseFeature(features, "Evo.Infrastructure.Services.Yandex.YandexSaveFeatureExtensions", "UseYandexSave");
+            }
+
+            if (config.PlayerAuth)
+            {
+                TryUseFeature(features, "Evo.Infrastructure.Services.Yandex.YandexIdentityFeatureExtensions", "UseYandexIdentity");
             }
         }
 

@@ -10,7 +10,6 @@ namespace Evo.Infrastructure.Services.Yandex
         {
 #if YandexGamesPlatform_yg
             features.Builder.Register<ISaveBackend, YandexSaveBackend>(Lifetime.Singleton);
-            features.Builder.Register<IPlayerAuthService, YandexPlayerAuthService>(Lifetime.Singleton);
 #endif
             return features;
         }

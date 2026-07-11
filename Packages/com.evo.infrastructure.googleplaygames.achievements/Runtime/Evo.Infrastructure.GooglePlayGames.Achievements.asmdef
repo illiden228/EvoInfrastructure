@@ -1,0 +1,1 @@
+{"name":"Evo.Infrastructure.GooglePlayGames.Achievements","references":["Evo.Infrastructure.GooglePlayGames","Evo.Infrastructure.Achievements","Evo.Infrastructure.DI","VContainer"],"autoReferenced":true,"noEngineReferences":false}

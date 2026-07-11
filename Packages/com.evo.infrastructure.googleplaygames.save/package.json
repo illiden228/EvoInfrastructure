@@ -1,0 +1,1 @@
+{"name":"com.evo.infrastructure.googleplaygames.save","version":"0.5.8","displayName":"Evo Infrastructure Google Play Games Save","description":"Google Play Games Saved Games backend.","unity":"2022.3","author":{"name":"Evo"},"dependencies":{"com.evo.infrastructure.googleplaygames":"0.5.8","com.evo.infrastructure.save":"0.5.8","com.evo.infrastructure.di":"0.5.8"}}

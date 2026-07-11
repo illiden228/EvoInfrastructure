@@ -33,9 +33,14 @@ namespace Evo.Infrastructure.Services.CrazyGames
                 TryUseFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesLeaderboardsFeatureExtensions", "UseCrazyGamesLeaderboards");
             }
 
-            if (config.CloudSave || config.PlayerAuth)
+            if (config.CloudSave)
             {
                 TryUseFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesSaveFeatureExtensions", "UseCrazyGamesSave");
+            }
+
+            if (config.PlayerAuth)
+            {
+                TryUseFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesIdentityFeatureExtensions", "UseCrazyGamesIdentity");
             }
         }
 

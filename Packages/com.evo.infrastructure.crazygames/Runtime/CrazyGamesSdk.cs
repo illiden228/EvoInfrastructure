@@ -198,7 +198,9 @@ namespace Evo.Infrastructure.Services.CrazyGames
             CrazySDK.User.GetUser(user =>
             {
                 registration.Dispose();
-                tcs.TrySetResult(user == null ? null : new CrazyGamesUserInfo(user.username));
+                tcs.TrySetResult(user == null
+                    ? null
+                    : new CrazyGamesUserInfo(user.username, user.profilePictureUrl));
             });
 
             return tcs.Task;
@@ -232,7 +234,9 @@ namespace Evo.Infrastructure.Services.CrazyGames
                     return;
                 }
 
-                tcs.TrySetResult(user == null ? null : new CrazyGamesUserInfo(user.username));
+                tcs.TrySetResult(user == null
+                    ? null
+                    : new CrazyGamesUserInfo(user.username, user.profilePictureUrl));
             });
 
             return tcs.Task;

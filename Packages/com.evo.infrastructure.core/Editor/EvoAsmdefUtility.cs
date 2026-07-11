@@ -28,6 +28,7 @@ namespace Evo.Infrastructure.Core.Editor
             ["com.evo.infrastructure.config"] = "Evo.Infrastructure.Config",
             ["com.evo.infrastructure.core"] = "Evo.Infrastructure.Core.Editor",
             ["com.evo.infrastructure.crazygames"] = "Evo.Infrastructure.CrazyGames",
+            ["com.evo.infrastructure.crazygames.identity"] = "Evo.Infrastructure.CrazyGames.Identity",
             ["com.evo.infrastructure.crazygames.ads"] = "Evo.Infrastructure.CrazyGames.Ads",
             ["com.evo.infrastructure.crazygames.leaderboards"] = "Evo.Infrastructure.CrazyGames.Leaderboards",
             ["com.evo.infrastructure.crazygames.platform"] = "Evo.Infrastructure.CrazyGames.Platform",
@@ -36,6 +37,13 @@ namespace Evo.Infrastructure.Core.Editor
             ["com.evo.infrastructure.di"] = "Evo.Infrastructure.DI",
             ["com.evo.infrastructure.editor-tools"] = "Evo.Infrastructure.EditorTools.Editor",
             ["com.evo.infrastructure.focus"] = "Evo.Infrastructure.Focus",
+            ["com.evo.infrastructure.achievements"] = "Evo.Infrastructure.Achievements",
+            ["com.evo.infrastructure.googleplaygames"] = "Evo.Infrastructure.GooglePlayGames",
+            ["com.evo.infrastructure.googleplaygames.achievements"] = "Evo.Infrastructure.GooglePlayGames.Achievements",
+            ["com.evo.infrastructure.googleplaygames.identity"] = "Evo.Infrastructure.GooglePlayGames.Identity",
+            ["com.evo.infrastructure.googleplaygames.leaderboards"] = "Evo.Infrastructure.GooglePlayGames.Leaderboards",
+            ["com.evo.infrastructure.googleplaygames.save"] = "Evo.Infrastructure.GooglePlayGames.Save",
+            ["com.evo.infrastructure.identity"] = "Evo.Infrastructure.Identity",
             ["com.evo.infrastructure.leaderboards"] = "Evo.Infrastructure.Leaderboards",
             ["com.evo.infrastructure.loading"] = "Evo.Infrastructure.Loading",
             ["com.evo.infrastructure.localization"] = "Evo.Infrastructure.Localization",
@@ -49,6 +57,7 @@ namespace Evo.Infrastructure.Core.Editor
             ["com.evo.infrastructure.scene"] = "Evo.Infrastructure.Scene",
             ["com.evo.infrastructure.ui"] = "Evo.Infrastructure.UI",
             ["com.evo.infrastructure.yandex"] = "Evo.Infrastructure.Yandex",
+            ["com.evo.infrastructure.yandex.identity"] = "Evo.Infrastructure.Yandex.Identity",
             ["com.evo.infrastructure.yandex.ads"] = "Evo.Infrastructure.Yandex.Ads",
             ["com.evo.infrastructure.yandex.analytics"] = "Evo.Infrastructure.Yandex.Analytics",
             ["com.evo.infrastructure.yandex.leaderboards"] = "Evo.Infrastructure.Yandex.Leaderboards",
@@ -60,11 +69,13 @@ namespace Evo.Infrastructure.Core.Editor
         private static readonly HashSet<string> PackagesWaitingForSdkFacade = new(StringComparer.OrdinalIgnoreCase)
         {
             "com.evo.infrastructure.crazygames",
+            "com.evo.infrastructure.crazygames.identity",
             "com.evo.infrastructure.crazygames.ads",
             "com.evo.infrastructure.crazygames.leaderboards",
             "com.evo.infrastructure.crazygames.platform",
             "com.evo.infrastructure.crazygames.save",
             "com.evo.infrastructure.yandex",
+            "com.evo.infrastructure.yandex.identity",
             "com.evo.infrastructure.yandex.ads",
             "com.evo.infrastructure.yandex.analytics",
             "com.evo.infrastructure.yandex.leaderboards",
@@ -79,6 +90,9 @@ namespace Evo.Infrastructure.Core.Editor
             ["com.evo.infrastructure.audio"] = new[] { "UniTask", "VContainer" },
             ["com.evo.infrastructure.config"] = new[] { "VContainer" },
             ["com.evo.infrastructure.di"] = new[] { "VContainer" },
+            ["com.evo.infrastructure.identity"] = new[] { "UniTask", "VContainer" },
+            ["com.evo.infrastructure.achievements"] = new[] { "VContainer" },
+            ["com.evo.infrastructure.googleplaygames"] = new[] { "UniTask", "VContainer", "VContainer.Unity" },
             ["com.evo.infrastructure.editor-tools"] = new[] { "Unity.Addressables.Editor", "Unity.Localization.Editor" },
             ["com.evo.infrastructure.leaderboards"] = new[] { "UniTask", "VContainer" },
             ["com.evo.infrastructure.loading"] = new[] { "UniTask", "VContainer" },
@@ -101,7 +115,8 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.analytics.firebase", "Runtime/Sdk/Evo.Infrastructure.Analytics.Firebase.Sdk.asmdef", "Firebase.Analytics", "EVO_FIREBASE_ANALYTICS_SDK", null, false),
             new("com.evo.infrastructure.ads.applovin", "Runtime/Sdk/Evo.Infrastructure.Ads.AppLovin.Sdk.asmdef", "MaxSdk.Scripts", "EVO_APPLOVIN_MAX_SDK", "com.applovin.mediation.ads"),
             new("com.evo.infrastructure.purchases.unityiap", "Runtime/Sdk/Evo.Infrastructure.Purchases.UnityIap.Sdk.asmdef", "Unity.Purchasing", "EVO_UNITY_IAP_V5", "com.unity.purchasing"),
-            new("com.evo.infrastructure.purchases.rustore", "Runtime/Sdk/Evo.Infrastructure.Purchases.RuStore.Sdk.asmdef", "RuStorePay", "EVO_RUSTORE_PAY_SDK", "ru.rustore.pay")
+            new("com.evo.infrastructure.purchases.rustore", "Runtime/Sdk/Evo.Infrastructure.Purchases.RuStore.Sdk.asmdef", "RuStorePay", "EVO_RUSTORE_PAY_SDK", "ru.rustore.pay"),
+            new("com.evo.infrastructure.googleplaygames", "Runtime/Sdk/Evo.Infrastructure.GooglePlayGames.Sdk.asmdef", "Google.Play.Games", "EVO_GOOGLE_PLAY_GAMES_SDK", null, false)
         };
 
         [MenuItem("EvoTools/Asmdefs/Validate Evo asmdefs")]

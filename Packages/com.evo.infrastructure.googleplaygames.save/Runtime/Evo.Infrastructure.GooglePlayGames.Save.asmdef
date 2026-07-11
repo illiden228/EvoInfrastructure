@@ -1,0 +1,1 @@
+{"name":"Evo.Infrastructure.GooglePlayGames.Save","references":["Evo.Infrastructure.GooglePlayGames","Evo.Infrastructure.Save","Evo.Infrastructure.DI","VContainer"],"autoReferenced":true,"noEngineReferences":false}

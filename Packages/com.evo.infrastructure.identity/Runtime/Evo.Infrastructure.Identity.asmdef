@@ -1,0 +1,1 @@
+{"name":"Evo.Infrastructure.Identity","references":["Evo.Infrastructure.DI","UniTask","VContainer"],"autoReferenced":true,"noEngineReferences":false}

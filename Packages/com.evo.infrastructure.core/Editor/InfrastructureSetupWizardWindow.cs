@@ -29,15 +29,16 @@ namespace Evo.Infrastructure.Core.Editor
         private const string EvoRepositoryUrl = "https://github.com/illiden228/EvoInfrastructure.git";
         private const string EvoLatestReleaseApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/releases/latest";
         private const string EvoTagsApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/tags?per_page=1";
-        private const string RuntimeGitTag = "v0.5.7";
-        private const string YandexGitTag = "v0.5.7";
-        private const string CrazyGamesGitTag = "v0.5.7";
+        private const string RuntimeGitTag = "v0.5.8";
+        private const string YandexGitTag = "v0.5.8";
+        private const string CrazyGamesGitTag = "v0.5.8";
         private static readonly EvoPackageDescriptor[] EvoPackages =
         {
             new("com.evo.infrastructure.di", "DI", "Core", "Feature registry and VContainer helpers."),
             new("com.evo.infrastructure.debug", "Debug", "Core", "Logging helpers."),
             new("com.evo.infrastructure.config", "Config", "Core", "Scriptable config catalogs and config service.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.platform", "Platform", "Core", "Platform info and platform lifecycle abstractions.", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.identity", "Identity", "Core", "Platform-neutral player identity and authentication routing.", "com.evo.infrastructure.di"),
             new("com.evo.infrastructure.resources", "Resources", "Core", "Addressables resource catalog, loader and provider.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.scene", "Scene", "Core", "Scene loading and payload services.", "com.evo.infrastructure.resources", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.save", "Save", "Services", "Save contracts, service and local backends.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
@@ -51,6 +52,7 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.ads", "Ads", "Services", "Ads service, cooldown helpers and adapter routing.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.platform", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.ads.applovin", "AppLovin Ads", "SDK Adapters", "AppLovin MAX ads adapter; com.applovin.mediation.ads is installed separately.", "com.evo.infrastructure.ads", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.leaderboards", "Leaderboards", "Services", "Leaderboard service and adapter contract.", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.achievements", "Achievements", "Services", "Platform-neutral achievement service and adapter routing.", "com.evo.infrastructure.di"),
             new("com.evo.infrastructure.localization", "Localization", "Services", "Unity Localization wrapper.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.focus", "Focus", "Services", "Input focus service.", "com.evo.infrastructure.di"),
             new("com.evo.infrastructure.audio", "Audio", "Services", "Audio playback service.", "com.evo.infrastructure.resources", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
@@ -61,16 +63,23 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.editor-tools", "Editor Tools", "Editor", "Config, save, scene, resource and UI editor tools.", "com.evo.infrastructure.ads", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.leaderboards", "com.evo.infrastructure.platform", "com.evo.infrastructure.resources", "com.evo.infrastructure.save", "com.evo.infrastructure.scene", "com.evo.infrastructure.ui", "com.evo.infrastructure.debug"),
             new(YandexPackageName, "Yandex Core", "Yandex", "Shared PluginYG2 runtime config.", "com.evo.infrastructure.config"),
             new("com.evo.infrastructure.yandex.platform", "Yandex Platform", "Yandex", "Yandex platform info and lifecycle providers.", YandexPackageName, "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.yandex.identity", "Yandex Identity", "Yandex", "PluginYG2 player identity adapter.", YandexPackageName, "com.evo.infrastructure.identity", "com.evo.infrastructure.di"),
             new("com.evo.infrastructure.yandex.ads", "Yandex Ads", "Yandex", "Yandex ads adapter.", YandexPackageName, "com.evo.infrastructure.ads", "com.evo.infrastructure.di"),
             new("com.evo.infrastructure.yandex.analytics", "Yandex Analytics", "Yandex", "Yandex Metrica analytics adapter.", YandexPackageName, "com.evo.infrastructure.analytics", "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
-            new("com.evo.infrastructure.yandex.save", "Yandex Save", "Yandex", "Yandex cloud save and player auth adapters.", YandexPackageName, "com.evo.infrastructure.save", "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.yandex.save", "Yandex Save", "Yandex", "Yandex cloud save backend; identity is installed separately.", YandexPackageName, "com.evo.infrastructure.save", "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
             new("com.evo.infrastructure.yandex.leaderboards", "Yandex Leaderboards", "Yandex", "Yandex leaderboard adapter.", YandexPackageName, "com.evo.infrastructure.leaderboards", "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
             new("com.evo.infrastructure.yandex.purchases", "Yandex Purchases", "Yandex", "PluginYG2 Payments purchase adapter.", YandexPackageName, "com.evo.infrastructure.purchases", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new(CrazyGamesPackageName, "CrazyGames Core", "CrazyGames", "Shared CrazySDK runtime config and SDK helper.", "com.evo.infrastructure.config", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.crazygames.platform", "CrazyGames Platform", "CrazyGames", "CrazyGames platform info and lifecycle providers.", CrazyGamesPackageName, "com.evo.infrastructure.platform", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.crazygames.identity", "CrazyGames Identity", "CrazyGames", "CrazyGames player identity adapter.", CrazyGamesPackageName, "com.evo.infrastructure.identity", "com.evo.infrastructure.di"),
             new("com.evo.infrastructure.crazygames.ads", "CrazyGames Ads", "CrazyGames", "CrazyGames ads adapter.", CrazyGamesPackageName, "com.evo.infrastructure.ads", "com.evo.infrastructure.di"),
-            new("com.evo.infrastructure.crazygames.save", "CrazyGames Save", "CrazyGames", "CrazyGames save and player auth adapters.", CrazyGamesPackageName, "com.evo.infrastructure.save", "com.evo.infrastructure.di"),
-            new("com.evo.infrastructure.crazygames.leaderboards", "CrazyGames Leaderboards", "CrazyGames", "CrazyGames leaderboard adapter.", CrazyGamesPackageName, "com.evo.infrastructure.leaderboards", "com.evo.infrastructure.di")
+            new("com.evo.infrastructure.crazygames.save", "CrazyGames Save", "CrazyGames", "CrazyGames cloud save backend; identity is installed separately.", CrazyGamesPackageName, "com.evo.infrastructure.save", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.crazygames.leaderboards", "CrazyGames Leaderboards", "CrazyGames", "CrazyGames leaderboard adapter.", CrazyGamesPackageName, "com.evo.infrastructure.leaderboards", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.googleplaygames", "Google Play Games Core", "Google Play Games", "Shared Android-only Google Play Games SDK session; install the official Unity plugin separately.", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.googleplaygames.identity", "Google Play Games Identity", "Google Play Games", "Google Play Games player identity adapter.", "com.evo.infrastructure.googleplaygames", "com.evo.infrastructure.identity", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.googleplaygames.leaderboards", "Google Play Games Leaderboards", "Google Play Games", "Google Play Games leaderboard adapter.", "com.evo.infrastructure.googleplaygames", "com.evo.infrastructure.leaderboards", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.googleplaygames.save", "Google Play Games Save", "Google Play Games", "Google Play Games Saved Games backend.", "com.evo.infrastructure.googleplaygames", "com.evo.infrastructure.save", "com.evo.infrastructure.di"),
+            new("com.evo.infrastructure.googleplaygames.achievements", "Google Play Games Achievements", "Google Play Games", "Google Play Games achievement adapter.", "com.evo.infrastructure.googleplaygames", "com.evo.infrastructure.achievements", "com.evo.infrastructure.di")
         };
         private static readonly string[] RuntimePackageNames = EvoPackages
             .Where(package => package.Category != "Yandex" && package.Category != "CrazyGames")
@@ -82,6 +91,7 @@ namespace Evo.Infrastructure.Core.Editor
             "com.evo.infrastructure.debug",
             "com.evo.infrastructure.config",
             "com.evo.infrastructure.platform",
+            "com.evo.infrastructure.identity",
             "com.evo.infrastructure.resources",
             "com.evo.infrastructure.scene",
             "com.evo.infrastructure.loading",
@@ -169,6 +179,7 @@ namespace Evo.Infrastructure.Core.Editor
         {
             new("com.evo.infrastructure.config", "UseConfig", "features.UseConfig(configCatalogs);"),
             new("com.evo.infrastructure.platform", "UsePlatform", "features.UsePlatform();"),
+            new("com.evo.infrastructure.identity", "UseIdentity", "features.UseIdentity();"),
             new("com.evo.infrastructure.focus", "UseFocus", "features.UseFocus();"),
             new("com.evo.infrastructure.resources", "UseResources", "features.UseResources(resourceCatalog);"),
             new("com.evo.infrastructure.scene", "UseScene", "features.UseScene(new SceneLoaderOptions());"),
@@ -181,6 +192,7 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.analytics.adjust", "UseAdjustAnalytics", "features.UseAdjustAnalytics();"),
             new("com.evo.infrastructure.ads.applovin", "UseAppLovinAds", "features.UseAppLovinAds();"),
             new("com.evo.infrastructure.leaderboards", "UseLeaderboards", "features.UseLeaderboards();"),
+            new("com.evo.infrastructure.achievements", "UseAchievements", "features.UseAchievements();"),
             new("com.evo.infrastructure.save", "UseSave", "features.UseSave(new SaveStorageOptions());"),
             new("com.evo.infrastructure.purchases", "UsePurchases", "features.UsePurchases();"),
             new("com.evo.infrastructure.purchases.unityiap", "UseUnityIapPurchases", "features.UseUnityIapPurchases();"),
@@ -188,15 +200,22 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.ui", "UseUi", "features.UseUi(uiSystemConfig);"),
             new("com.evo.infrastructure.loading", "UseLoading", "features.UseLoading(new SceneTransitionOptions());"),
             new("com.evo.infrastructure.yandex.platform", "UseYandexPlatform", "features.UseYandexPlatform();"),
+            new("com.evo.infrastructure.yandex.identity", "UseYandexIdentity", "features.UseYandexIdentity();"),
             new("com.evo.infrastructure.yandex.ads", "UseYandexAds", "features.UseYandexAds();"),
             new("com.evo.infrastructure.yandex.analytics", "UseYandexAnalytics", "features.UseYandexAnalytics();"),
             new("com.evo.infrastructure.yandex.save", "UseYandexSave", "features.UseYandexSave();"),
             new("com.evo.infrastructure.yandex.leaderboards", "UseYandexLeaderboards", "features.UseYandexLeaderboards();"),
             new("com.evo.infrastructure.yandex.purchases", "UseYandexPurchases", "features.UseYandexPurchases();"),
             new("com.evo.infrastructure.crazygames.platform", "UseCrazyGamesPlatform", "features.UseCrazyGamesPlatform();"),
+            new("com.evo.infrastructure.crazygames.identity", "UseCrazyGamesIdentity", "features.UseCrazyGamesIdentity();"),
             new("com.evo.infrastructure.crazygames.ads", "UseCrazyGamesAds", "features.UseCrazyGamesAds();"),
             new("com.evo.infrastructure.crazygames.save", "UseCrazyGamesSave", "features.UseCrazyGamesSave();"),
-            new("com.evo.infrastructure.crazygames.leaderboards", "UseCrazyGamesLeaderboards", "features.UseCrazyGamesLeaderboards();")
+            new("com.evo.infrastructure.crazygames.leaderboards", "UseCrazyGamesLeaderboards", "features.UseCrazyGamesLeaderboards();"),
+            new("com.evo.infrastructure.googleplaygames", "UseGooglePlayGames", "features.UseGooglePlayGames();"),
+            new("com.evo.infrastructure.googleplaygames.identity", "UseGooglePlayGamesIdentity", "features.UseGooglePlayGamesIdentity();"),
+            new("com.evo.infrastructure.googleplaygames.leaderboards", "UseGooglePlayGamesLeaderboards", "features.UseGooglePlayGamesLeaderboards();"),
+            new("com.evo.infrastructure.googleplaygames.save", "UseGooglePlayGamesSave", "features.UseGooglePlayGamesSave();"),
+            new("com.evo.infrastructure.googleplaygames.achievements", "UseGooglePlayGamesAchievements", "features.UseGooglePlayGamesAchievements();")
         };
 
         private const string VContainerSource = "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer";
@@ -1058,6 +1077,7 @@ namespace Evo.Infrastructure.Core.Editor
             DrawAdapterSdkDiagnostic("com.evo.infrastructure.analytics.appmetrica", "AppMetrica", "AppMetrica", "AppMetricaAnalyticsAdapterConfig", null);
             DrawAdapterSdkDiagnostic("com.evo.infrastructure.analytics.adjust", "Adjust", "AdjustSdk.Scripts", "AdjustAnalyticsAdapterConfig", null);
             DrawAdapterSdkDiagnostic("com.evo.infrastructure.ads.applovin", "AppLovin MAX", "MaxSdk.Scripts", "AppLovinAdsAdapterConfig", null);
+            DrawAdapterSdkDiagnostic("com.evo.infrastructure.googleplaygames", "Google Play Games", "Google.Play.Games", string.Empty, "EVO_GOOGLE_PLAY_GAMES_SDK");
             DrawPurchaseDiagnostics();
             var stale = _cachedStaleConfigCatalogEntries;
             if (stale > 0)
@@ -1097,7 +1117,7 @@ namespace Evo.Infrastructure.Core.Editor
                 if (GUILayout.Button($"Enable {sdkLabel} SDK bridge", GUILayout.Width(220f)))
                     AddDefine(requiredDefine);
             }
-            if (!diagnostic.ConfigInstalled)
+            if (!string.IsNullOrEmpty(configTypeName) && !diagnostic.ConfigInstalled)
                 EditorGUILayout.HelpBox($"{sdkLabel} adapter config is missing. Create or migrate {configTypeName} before enabling the adapter.", MessageType.Warning);
         }
 
@@ -1683,13 +1703,14 @@ namespace Evo.Infrastructure.Core.Editor
             CacheAdapterSdkDiagnostic("com.evo.infrastructure.ads.applovin", "MaxSdk.Scripts", "AppLovinAdsAdapterConfig");
             CacheAdapterSdkDiagnostic("com.evo.infrastructure.purchases.unityiap", "Unity.Purchasing", "PurchaseCatalogConfig");
             CacheAdapterSdkDiagnostic("com.evo.infrastructure.purchases.rustore", "RuStorePay", "RuStorePurchaseAdapterConfig");
+            CacheAdapterSdkDiagnostic("com.evo.infrastructure.googleplaygames", "Google.Play.Games", string.Empty);
             _cachedStaleConfigCatalogEntries = CountStaleConfigCatalogEntries();
         }
 
         private void CacheAdapterSdkDiagnostic(string packageId, string assemblyName, string configTypeName)
         {
             var assemblyInstalled = SdkAssemblyDetector.IsAvailable(assemblyName);
-            var configInstalled = AssetDatabase.FindAssets($"t:{configTypeName}").Length > 0;
+            var configInstalled = string.IsNullOrEmpty(configTypeName) || AssetDatabase.FindAssets($"t:{configTypeName}").Length > 0;
             _cachedAdapterSdkDiagnostics[packageId] = new AdapterSdkDiagnostic(assemblyInstalled, configInstalled);
         }
 

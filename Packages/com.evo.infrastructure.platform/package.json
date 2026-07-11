@@ -1,13 +1,13 @@
 {
   "name": "com.evo.infrastructure.platform",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "displayName": "Evo Infrastructure Platform",
   "description": "Platform info, platform catalog, and platform lifecycle contracts.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.config": "0.5.7",
-    "com.evo.infrastructure.di": "0.5.7",
-    "com.evo.infrastructure.debug": "0.5.7"
+    "com.evo.infrastructure.config": "0.5.8",
+    "com.evo.infrastructure.di": "0.5.8",
+    "com.evo.infrastructure.debug": "0.5.8"
   }
 }

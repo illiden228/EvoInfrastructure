@@ -1,15 +1,15 @@
 {
   "name": "com.evo.infrastructure.ads.applovin",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "displayName": "Evo Infrastructure AppLovin Ads",
   "description": "AppLovin MAX adapter for Evo Infrastructure Ads. MAX SDK is installed separately.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.ads": "0.5.7",
-    "com.evo.infrastructure.analytics": "0.5.7",
-    "com.evo.infrastructure.config": "0.5.7",
-    "com.evo.infrastructure.di": "0.5.7",
-    "com.evo.infrastructure.debug": "0.5.7"
+    "com.evo.infrastructure.ads": "0.5.8",
+    "com.evo.infrastructure.analytics": "0.5.8",
+    "com.evo.infrastructure.config": "0.5.8",
+    "com.evo.infrastructure.di": "0.5.8",
+    "com.evo.infrastructure.debug": "0.5.8"
   }
 }
