@@ -1,14 +1,14 @@
 {
   "name": "com.evo.infrastructure.purchases.unityiap",
-  "version": "0.5.8",
+  "version": "0.5.9",
   "displayName": "Evo Infrastructure Unity IAP Purchases",
   "description": "Unity IAP v5 adapter for Evo Infrastructure Purchases.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.purchases": "0.5.8",
-    "com.evo.infrastructure.di": "0.5.8",
-    "com.evo.infrastructure.debug": "0.5.8",
+    "com.evo.infrastructure.purchases": "0.5.9",
+    "com.evo.infrastructure.di": "0.5.9",
+    "com.evo.infrastructure.debug": "0.5.9",
     "com.unity.purchasing": "5.0.4"
   }
 }

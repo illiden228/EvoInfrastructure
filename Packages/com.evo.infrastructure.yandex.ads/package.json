@@ -1,13 +1,13 @@
 {
   "name": "com.evo.infrastructure.yandex.ads",
-  "version": "0.5.8",
+  "version": "0.5.9",
   "displayName": "Evo Infrastructure Yandex Ads",
   "description": "Yandex ads adapter for Evo Infrastructure Ads.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.yandex": "0.5.8",
-    "com.evo.infrastructure.ads": "0.5.8",
-    "com.evo.infrastructure.di": "0.5.8"
+    "com.evo.infrastructure.yandex": "0.5.9",
+    "com.evo.infrastructure.ads": "0.5.9",
+    "com.evo.infrastructure.di": "0.5.9"
   }
 }
