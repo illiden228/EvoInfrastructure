@@ -28,7 +28,7 @@ namespace Evo.Infrastructure.Core.Editor
         private const string LegacyRuntimePackageName = "com.evo.infrastructure.runtime";
         private const string EvoRepositoryUrl = "https://github.com/illiden228/EvoInfrastructure.git";
         private const string EvoLatestReleaseApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/releases/latest";
-        private const string EvoTagsApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/tags?per_page=1";
+        private const string EvoTagsApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/tags?per_page=100";
         private const string RuntimeGitTag = "v0.5.8";
         private const string YandexGitTag = "v0.5.8";
         private const string CrazyGamesGitTag = "v0.5.8";
@@ -972,15 +972,39 @@ namespace Evo.Infrastructure.Core.Editor
             try
             {
                 var tagsJson = webClient.DownloadString(EvoTagsApiUrl);
-                var tags = JsonHelper.FromJson<GitHubTagInfo>(tagsJson);
-                return tags != null && tags.Length > 0 && !string.IsNullOrWhiteSpace(tags[0].name)
-                    ? NormalizeGitTag(tags[0].name)
-                    : string.Empty;
+                return SelectLatestGitHubTag(JsonHelper.FromJson<GitHubTagInfo>(tagsJson));
             }
             catch
             {
                 return string.Empty;
             }
+        }
+
+        private static string SelectLatestGitHubTag(IReadOnlyList<GitHubTagInfo> tags)
+        {
+            if (tags == null)
+            {
+                return string.Empty;
+            }
+
+            Version latestVersion = null;
+            var latestTag = string.Empty;
+            for (var i = 0; i < tags.Count; i++)
+            {
+                var tag = NormalizeGitTag(tags[i]?.name);
+                if (!TryParseGitTagVersion(tag, out var version))
+                {
+                    continue;
+                }
+
+                if (latestVersion == null || version.CompareTo(latestVersion) > 0)
+                {
+                    latestVersion = version;
+                    latestTag = tag;
+                }
+            }
+
+            return latestTag;
         }
 
         private static string NormalizeGitTag(string tag)
