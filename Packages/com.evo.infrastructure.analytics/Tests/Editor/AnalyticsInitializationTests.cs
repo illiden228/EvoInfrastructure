@@ -1,12 +1,26 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
+using Evo.Infrastructure.DI;
 using NUnit.Framework;
+using VContainer;
 
 namespace Evo.Infrastructure.Services.Analytics.Tests
 {
     public sealed class AnalyticsInitializationTests
     {
+        [Test]
+        public void UseAnalytics_ResolvesWithoutOptionalDependencies()
+        {
+            var builder = new ContainerBuilder();
+            new EvoFeatureRegistry(builder).UseAnalytics();
+
+            using var container = builder.Build();
+
+            Assert.That(container.Resolve<IAnalyticsService>(), Is.Not.Null);
+        }
+
         [Test]
         public async Task TerminalUnavailableAdapter_DoesNotBlockInitialization()
         {

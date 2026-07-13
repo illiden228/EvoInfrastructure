@@ -9,6 +9,7 @@ using GooglePlayGames;
 using GooglePlayGames.BasicApi;
 using GooglePlayGames.BasicApi.SavedGame;
 using UnityEngine;
+using VContainer;
 
 namespace Evo.Infrastructure.GooglePlayGames.Save
 {
@@ -24,6 +25,7 @@ namespace Evo.Infrastructure.GooglePlayGames.Save
         private bool _malformedPayloadLogged;
         private bool _sdkExceptionLogged;
 
+        [Inject]
         public GooglePlayGamesSaveBackend(IGooglePlayGamesSession session, GooglePlayGamesSaveOptions options)
             : this(
                 session,

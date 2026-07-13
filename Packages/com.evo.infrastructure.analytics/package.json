@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.analytics",
-  "version": "0.5.13",
+  "version": "0.5.14",
   "displayName": "Evo Infrastructure Analytics",
   "description": "Core analytics contracts, service, event mapping, routing, and adapter catalogs.",
   "unity": "2022.3",

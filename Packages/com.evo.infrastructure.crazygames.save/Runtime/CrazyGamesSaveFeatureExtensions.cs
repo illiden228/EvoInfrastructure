@@ -1,4 +1,5 @@
 using Evo.Infrastructure.DI;
+using Evo.Infrastructure.Services.Config;
 using Evo.Infrastructure.Services.Save;
 using VContainer;
 
@@ -8,7 +9,9 @@ namespace Evo.Infrastructure.Services.CrazyGames
     {
         public static EvoFeatureRegistry UseCrazyGamesSave(this EvoFeatureRegistry features)
         {
-            features.Builder.Register<ISaveBackend, CrazySaveBackend>(Lifetime.Singleton);
+            features.Builder.Register<ISaveBackend, CrazySaveBackend>(Lifetime.Singleton)
+                .WithParameter<IConfigService>(resolver =>
+                    resolver.TryResolve<IConfigService>(out var service) ? service : null);
             return features;
         }
     }

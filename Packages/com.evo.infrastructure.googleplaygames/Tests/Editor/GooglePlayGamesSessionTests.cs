@@ -5,11 +5,24 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using GooglePlayGames.BasicApi;
 using NUnit.Framework;
+using VContainer;
 
 namespace Evo.Infrastructure.GooglePlayGames.Tests
 {
     public sealed class GooglePlayGamesSessionTests
     {
+        [Test]
+        public void ContainerBuilder_ResolveSession_UsesProductionConstructor()
+        {
+            var builder = new ContainerBuilder();
+            builder.RegisterInstance(new GooglePlayGamesOptions());
+            builder.Register<GooglePlayGamesSession>(Lifetime.Singleton);
+
+            using var container = builder.Build();
+
+            Assert.That(container.Resolve<GooglePlayGamesSession>(), Is.Not.Null);
+        }
+
         [Test]
         public async Task AuthenticateAsync_LeftTaskCompletes_ReturnsSuccess()
         {

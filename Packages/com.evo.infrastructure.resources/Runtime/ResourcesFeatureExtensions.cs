@@ -19,7 +19,8 @@ namespace Evo.Infrastructure.Services.ResourceProvider
             }
 
             builder.Register<IResourceLoaderService, AddressablesResourceLoaderService>(Lifetime.Singleton);
-            builder.Register<IResourceProviderService, ResourceProviderService>(Lifetime.Singleton);
+            builder.Register<IResourceProviderService, ResourceProviderService>(Lifetime.Singleton)
+                .WithParameter<IResourceCatalog>(resourceCatalog);
             return features;
         }
     }

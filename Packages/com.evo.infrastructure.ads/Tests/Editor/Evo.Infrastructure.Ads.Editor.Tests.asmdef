@@ -1,0 +1,16 @@
+{
+  "name": "Evo.Infrastructure.Ads.Editor.Tests",
+  "references": [
+    "Evo.Infrastructure.Ads",
+    "Evo.Infrastructure.DI",
+    "VContainer"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "noEngineReferences": false
+}

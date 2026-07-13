@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.crazygames.save",
-  "version": "0.5.13",
+  "version": "0.5.14",
   "displayName": "Evo Infrastructure CrazyGames Save",
   "description": "CrazyGames cloud save backend. Player identity is provided by com.evo.infrastructure.crazygames.identity.",
   "unity": "2022.3",

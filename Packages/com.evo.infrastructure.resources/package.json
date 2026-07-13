@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.resources",
-  "version": "0.5.13",
+  "version": "0.5.14",
   "displayName": "Evo Infrastructure Resources",
   "description": "Resource catalog, Addressables loader, and resource provider services.",
   "unity": "2022.3",

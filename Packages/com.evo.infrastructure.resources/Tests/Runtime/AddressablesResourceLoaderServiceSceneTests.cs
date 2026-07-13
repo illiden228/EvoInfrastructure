@@ -2,8 +2,11 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using Evo.Infrastructure.DI;
 using Evo.Infrastructure.Services.ResourceLoader;
+using Evo.Infrastructure.Services.ResourceProvider;
 using NUnit.Framework;
+using VContainer;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
@@ -14,6 +17,17 @@ namespace Evo.Infrastructure.Services.ResourceLoader.Tests
     {
         private const string SceneKeyParameterName = "EvoResourcesAddressableSceneKey";
         private const string SceneKeyEnvironmentName = "EVO_RESOURCES_ADDRESSABLE_SCENE_KEY";
+
+        [Test]
+        public void UseResources_ResolvesWithoutOptionalCatalog()
+        {
+            var builder = new ContainerBuilder();
+            new EvoFeatureRegistry(builder).UseResources();
+
+            using var container = builder.Build();
+
+            Assert.That(container.Resolve<IResourceProviderService>(), Is.Not.Null);
+        }
 
         [Test]
         public async Task AddressableScene_CanUnloadNoOpAndLoadAgain()

@@ -4,6 +4,7 @@ using Cysharp.Threading.Tasks;
 using GooglePlayGames;
 using GooglePlayGames.BasicApi;
 using Evo.Infrastructure.Services.Debug;
+using VContainer;
 using VContainer.Unity;
 
 namespace Evo.Infrastructure.GooglePlayGames
@@ -19,6 +20,8 @@ namespace Evo.Infrastructure.GooglePlayGames
         private bool _authenticationInFlight;
         private int _requestGeneration;
         private bool _timeoutLogged;
+
+        [Inject]
         public GooglePlayGamesSession(GooglePlayGamesOptions options)
             : this(
                 options,

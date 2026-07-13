@@ -1,6 +1,6 @@
 {
   "name": "Evo.Infrastructure.Analytics.Editor.Tests",
-  "references": ["Evo.Infrastructure.Analytics", "UniTask"],
+  "references": ["Evo.Infrastructure.Analytics", "Evo.Infrastructure.Config", "Evo.Infrastructure.DI", "Evo.Infrastructure.Platform", "UniTask", "VContainer"],
   "includePlatforms": ["Editor"],
   "autoReferenced": false,
   "optionalUnityReferences": ["TestAssemblies"],

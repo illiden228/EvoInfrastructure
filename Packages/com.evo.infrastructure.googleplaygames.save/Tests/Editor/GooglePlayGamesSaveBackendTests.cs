@@ -2,11 +2,25 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
+using VContainer;
 
 namespace Evo.Infrastructure.GooglePlayGames.Save.Tests
 {
     public sealed class GooglePlayGamesSaveBackendTests
     {
+        [Test]
+        public void ContainerBuilder_ResolveBackend_UsesProductionConstructor()
+        {
+            var builder = new ContainerBuilder();
+            builder.RegisterInstance<IGooglePlayGamesSession>(new UnavailableGooglePlayGamesSession());
+            builder.RegisterInstance(new GooglePlayGamesSaveOptions());
+            builder.Register<GooglePlayGamesSaveBackend>(Lifetime.Singleton);
+
+            using var container = builder.Build();
+
+            Assert.That(container.Resolve<GooglePlayGamesSaveBackend>(), Is.Not.Null);
+        }
+
         [Test]
         public async Task AwaitWithTimeoutAsync_OperationCompletes_ReturnsResult()
         {

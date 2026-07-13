@@ -1,0 +1,16 @@
+{
+  "name": "Evo.Infrastructure.Leaderboards.Editor.Tests",
+  "references": [
+    "Evo.Infrastructure.DI",
+    "Evo.Infrastructure.Leaderboards",
+    "VContainer"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "noEngineReferences": false
+}

@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.leaderboards",
-  "version": "0.5.13",
+  "version": "0.5.14",
   "displayName": "Evo Infrastructure Leaderboards",
   "description": "Leaderboard service and leaderboard adapter contracts.",
   "unity": "2022.3",

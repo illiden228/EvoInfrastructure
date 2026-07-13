@@ -1,6 +1,7 @@
 using System;
 using Evo.Infrastructure.DI;
 using Evo.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.Analytics;
 using VContainer;
 
 namespace Evo.Infrastructure.Services.Ads.AppLovin
@@ -16,7 +17,10 @@ namespace Evo.Infrastructure.Services.Ads.AppLovin
             var type = Type.GetType(FACTORY_TYPE, false);
             if (type != null)
             {
-                features.Builder.Register(type, Lifetime.Singleton).As<IAdsAdapterFactory>();
+                features.Builder.Register(type, Lifetime.Singleton)
+                    .WithParameter<IAnalyticsService>(resolver =>
+                        resolver.TryResolve<IAnalyticsService>(out var service) ? service : null)
+                    .As<IAdsAdapterFactory>();
             }
             else
             {

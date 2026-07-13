@@ -2,9 +2,11 @@
   "name": "Evo.Infrastructure.Resources.Runtime.Tests",
   "references": [
     "Evo.Infrastructure.Resources",
+    "Evo.Infrastructure.DI",
     "UniTask",
     "Unity.Addressables",
-    "Unity.ResourceManager"
+    "Unity.ResourceManager",
+    "VContainer"
   ],
   "includePlatforms": [],
   "autoReferenced": false,

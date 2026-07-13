@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.crazygames.platform",
-  "version": "0.5.13",
+  "version": "0.5.14",
   "displayName": "Evo Infrastructure CrazyGames Platform",
   "description": "CrazyGames platform info and lifecycle providers for Evo Infrastructure Platform.",
   "unity": "2022.3",
