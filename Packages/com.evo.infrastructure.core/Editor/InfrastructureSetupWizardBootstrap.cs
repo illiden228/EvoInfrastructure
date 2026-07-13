@@ -17,6 +17,11 @@ namespace Evo.Infrastructure.Core.Editor
 
         private static void TryShowPrompt()
         {
+            if (Application.isBatchMode)
+            {
+                return;
+            }
+
             var promptKey = PromptKeyPrefix + Application.dataPath.GetHashCode() + "." + GetPackageStamp();
             if (EditorPrefs.GetBool(promptKey, false))
             {

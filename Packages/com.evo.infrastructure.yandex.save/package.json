@@ -1,14 +1,14 @@
 {
   "name": "com.evo.infrastructure.yandex.save",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "displayName": "Evo Infrastructure Yandex Save",
   "description": "Yandex cloud save backend. Player identity is provided by com.evo.infrastructure.yandex.identity.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.yandex": "0.5.11",
-    "com.evo.infrastructure.save": "0.5.11",
-    "com.evo.infrastructure.platform": "0.5.11",
-    "com.evo.infrastructure.di": "0.5.11"
+    "com.evo.infrastructure.yandex": "0.5.12",
+    "com.evo.infrastructure.save": "0.5.12",
+    "com.evo.infrastructure.platform": "0.5.12",
+    "com.evo.infrastructure.di": "0.5.12"
   }
 }

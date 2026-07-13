@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.yandex",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "displayName": "Evo Infrastructure Yandex Core",
   "description": "Shared Yandex runtime configuration for Evo infrastructure platform adapter packages.",
   "unity": "2022.3",
@@ -8,7 +8,7 @@
     "name": "Evo"
   },
   "dependencies": {
-    "com.evo.infrastructure.config": "0.5.11",
-    "com.evo.infrastructure.di": "0.5.11"
+    "com.evo.infrastructure.config": "0.5.12",
+    "com.evo.infrastructure.di": "0.5.12"
   }
 }

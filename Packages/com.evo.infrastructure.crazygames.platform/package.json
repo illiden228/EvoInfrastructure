@@ -1,13 +1,13 @@
 {
   "name": "com.evo.infrastructure.crazygames.platform",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "displayName": "Evo Infrastructure CrazyGames Platform",
   "description": "CrazyGames platform info and lifecycle providers for Evo Infrastructure Platform.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.crazygames": "0.5.11",
-    "com.evo.infrastructure.platform": "0.5.11",
-    "com.evo.infrastructure.di": "0.5.11"
+    "com.evo.infrastructure.crazygames": "0.5.12",
+    "com.evo.infrastructure.platform": "0.5.12",
+    "com.evo.infrastructure.di": "0.5.12"
   }
 }

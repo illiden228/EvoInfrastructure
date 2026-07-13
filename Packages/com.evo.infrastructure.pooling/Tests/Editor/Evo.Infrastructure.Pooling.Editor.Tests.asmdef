@@ -1,0 +1,15 @@
+{
+  "name": "Evo.Infrastructure.Pooling.Editor.Tests",
+  "references": [
+    "Evo.Infrastructure.Pooling",
+    "UniTask"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "noEngineReferences": false
+}

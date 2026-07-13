@@ -176,7 +176,6 @@ namespace Evo.Infrastructure.Services.Pooling
                     bucket.Active.Clear();
                 }
 
-                bucket.CreateLock.Dispose();
             }
 
             _activeKeysByValue?.Clear();

@@ -37,7 +37,16 @@ namespace Evo.Infrastructure.Core.Tests
             var following = gate.EnterAsync();
 
             cancellation.Cancel();
-            Assert.ThrowsAsync<OperationCanceledException>(async () => await cancelled.AsTask());
+            try
+            {
+                await cancelled;
+                Assert.Fail("The cancelled waiter completed successfully.");
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected.
+            }
+
             owner.Dispose();
             var followingLease = await following;
             followingLease.Dispose();
@@ -47,7 +56,16 @@ namespace Evo.Infrastructure.Core.Tests
         public async Task ExceptionInsideProtectedOperation_ReleasesGate()
         {
             var gate = new AsyncGate();
-            Assert.ThrowsAsync<InvalidOperationException>(async () => await ThrowInsideGateAsync(gate).AsTask());
+            try
+            {
+                await ThrowInsideGateAsync(gate);
+                Assert.Fail("The protected operation completed successfully.");
+            }
+            catch (InvalidOperationException)
+            {
+                // Expected.
+            }
+
             var lease = await gate.EnterAsync();
             lease.Dispose();
         }
