@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using UnityEditor;
@@ -27,11 +28,10 @@ namespace Evo.Infrastructure.Core.Editor
         private const string CorePackageName = "com.evo.infrastructure.core";
         private const string LegacyRuntimePackageName = "com.evo.infrastructure.runtime";
         private const string EvoRepositoryUrl = "https://github.com/illiden228/EvoInfrastructure.git";
-        private const string EvoLatestReleaseApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/releases/latest";
         private const string EvoTagsApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/tags?per_page=100";
-        private const string RuntimeGitTag = "v0.5.10";
-        private const string YandexGitTag = "v0.5.10";
-        private const string CrazyGamesGitTag = "v0.5.10";
+        private const string RuntimeGitTag = "v0.5.11";
+        private const string YandexGitTag = "v0.5.11";
+        private const string CrazyGamesGitTag = "v0.5.11";
         private static readonly EvoPackageDescriptor[] EvoPackages =
         {
             new("com.evo.infrastructure.di", "DI", "Core", "Feature registry and VContainer helpers."),
@@ -954,25 +954,13 @@ namespace Evo.Infrastructure.Core.Editor
             using var webClient = new System.Net.WebClient();
             webClient.Headers.Add("User-Agent", "Evo-Infrastructure-Setup");
             webClient.Headers.Add("Accept", "application/vnd.github+json");
+            webClient.Headers.Add("Cache-Control", "no-cache");
 
             try
             {
-                var releaseJson = webClient.DownloadString(EvoLatestReleaseApiUrl);
-                var release = JsonUtility.FromJson<GitHubReleaseInfo>(releaseJson);
-                if (!string.IsNullOrWhiteSpace(release?.tag_name))
-                {
-                    return NormalizeGitTag(release.tag_name);
-                }
-            }
-            catch
-            {
-                // Some repositories use tags without GitHub releases. Fall back to tags API.
-            }
-
-            try
-            {
-                var tagsJson = webClient.DownloadString(EvoTagsApiUrl);
-                return SelectLatestGitHubTag(JsonHelper.FromJson<GitHubTagInfo>(tagsJson));
+                var cacheBuster = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                var tagsJson = webClient.DownloadString(EvoTagsApiUrl + "&_=" + cacheBuster);
+                return SelectLatestGitHubTag(ParseGitHubTagNames(tagsJson));
             }
             catch
             {
@@ -980,7 +968,24 @@ namespace Evo.Infrastructure.Core.Editor
             }
         }
 
-        private static string SelectLatestGitHubTag(IReadOnlyList<GitHubTagInfo> tags)
+        private static IReadOnlyList<string> ParseGitHubTagNames(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return Array.Empty<string>();
+            }
+
+            var matches = Regex.Matches(json, "\\\"name\\\"\\s*:\\s*\\\"(?<name>[^\\\"]+)\\\"");
+            var names = new string[matches.Count];
+            for (var i = 0; i < matches.Count; i++)
+            {
+                names[i] = matches[i].Groups["name"].Value;
+            }
+
+            return names;
+        }
+
+        private static string SelectLatestGitHubTag(IReadOnlyList<string> tags)
         {
             if (tags == null)
             {
@@ -991,7 +996,7 @@ namespace Evo.Infrastructure.Core.Editor
             var latestTag = string.Empty;
             for (var i = 0; i < tags.Count; i++)
             {
-                var tag = NormalizeGitTag(tags[i]?.name);
+                var tag = NormalizeGitTag(tags[i]);
                 if (!TryParseGitTagVersion(tag, out var version))
                 {
                     continue;
@@ -6622,12 +6627,6 @@ namespace Evo.Infrastructure.Core.Editor
         {
             public string tag_name;
             public GitHubReleaseAssetInfo[] assets;
-        }
-
-        [Serializable]
-        private sealed class GitHubTagInfo
-        {
-            public string name;
         }
 
         [Serializable]
