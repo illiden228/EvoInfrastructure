@@ -1,14 +1,14 @@
 {
   "name": "com.evo.infrastructure.yandex.purchases",
-  "version": "0.5.13",
+  "version": "0.5.16",
   "displayName": "Evo Infrastructure Yandex Purchases",
   "description": "PluginYG2 Payments adapter for Evo Infrastructure Purchases. PluginYG2 and its Payments module are installed separately.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.purchases": "0.5.13",
-    "com.evo.infrastructure.yandex": "0.5.13",
-    "com.evo.infrastructure.di": "0.5.13",
-    "com.evo.infrastructure.debug": "0.5.13"
+    "com.evo.infrastructure.purchases": "0.5.16",
+    "com.evo.infrastructure.yandex": "0.5.16",
+    "com.evo.infrastructure.di": "0.5.16",
+    "com.evo.infrastructure.debug": "0.5.16"
   }
 }

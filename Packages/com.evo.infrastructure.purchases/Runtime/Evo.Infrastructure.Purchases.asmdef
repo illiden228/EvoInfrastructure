@@ -4,6 +4,7 @@
     "Evo.Infrastructure.Config",
     "Evo.Infrastructure.Debug",
     "Evo.Infrastructure.DI",
+    "Evo.Infrastructure.Platform",
     "UniTask",
     "VContainer"
   ],

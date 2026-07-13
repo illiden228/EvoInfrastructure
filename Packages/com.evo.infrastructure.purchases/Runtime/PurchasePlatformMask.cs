@@ -1,6 +1,7 @@
 using System;
 namespace Evo.Infrastructure.Services.Purchases
 {
+    [Obsolete("Purchase platform routing uses PlatformCatalog platform IDs starting with purchases 0.5.16.")]
     [Flags]
     public enum PurchasePlatformMask
     {

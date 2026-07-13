@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Evo.Infrastructure.Services.Config;
 using UnityEngine;
 
 namespace Evo.Infrastructure.Services.Purchases
@@ -7,8 +8,10 @@ namespace Evo.Infrastructure.Services.Purchases
     [Serializable]
     public sealed class PurchaseTargetOverride
     {
+        [PurchaseAdapterDropdown]
         [SerializeField] private string adapterId = string.Empty;
-        [SerializeField] private PurchasePlatformMask platforms = PurchasePlatformMask.All;
+        [CatalogDropdown(CatalogDropdownKind.PlatformId)]
+        [SerializeField] private List<string> platformIds = new();
         [SerializeField] private int priority;
         [SerializeField] private string storeProductId = string.Empty;
         [SerializeField] private bool overrideEnabled;
@@ -19,7 +22,7 @@ namespace Evo.Infrastructure.Services.Purchases
         [SerializeField] private List<PurchaseGrantDefinition> grants = new();
 
         public string AdapterId => adapterId?.Trim() ?? string.Empty;
-        public PurchasePlatformMask Platforms => platforms;
+        public IReadOnlyList<string> PlatformIds => platformIds;
         public int Priority => priority;
         public string StoreProductId => storeProductId?.Trim() ?? string.Empty;
         public bool OverrideEnabled => overrideEnabled;

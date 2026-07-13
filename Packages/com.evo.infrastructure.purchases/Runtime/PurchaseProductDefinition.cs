@@ -10,6 +10,8 @@ namespace Evo.Infrastructure.Services.Purchases
         [SerializeField] private string id = string.Empty;
         [SerializeField] private bool enabled = true;
         [SerializeField] private PurchaseProductType productType;
+        [InspectorName("Fulfillment Handler Key (Optional)")]
+        [Tooltip("Selects the IPurchaseFulfillmentHandler that grants this product. Empty uses the logical product ID.")]
         [SerializeField] private string fulfillmentKey = string.Empty;
         [SerializeField] private string defaultStoreProductId = string.Empty;
         [SerializeField] private List<PurchaseGrantDefinition> grants = new();

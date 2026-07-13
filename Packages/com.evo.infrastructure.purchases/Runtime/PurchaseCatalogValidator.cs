@@ -1,11 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Evo.Infrastructure.Services.PlatformInfo.Config;
 
 namespace Evo.Infrastructure.Services.Purchases
 {
     public static class PurchaseCatalogValidator
     {
-        public static IReadOnlyList<PurchaseCatalogIssue> Validate(PurchaseCatalogConfig catalog)
+        public static IReadOnlyList<PurchaseCatalogIssue> Validate(
+            PurchaseCatalogConfig catalog,
+            PlatformCatalog platformCatalog = null)
         {
             var issues = new List<PurchaseCatalogIssue>();
             if (catalog?.Products == null)
@@ -65,7 +69,7 @@ namespace Evo.Infrastructure.Services.Purchases
                         $"Default store product ID '{product.DefaultStoreProductId}' is mapped by multiple products."));
                 }
 
-                ValidateOverrides(product, issues);
+                ValidateOverrides(product, platformCatalog, issues);
             }
 
             return issues;
@@ -73,6 +77,7 @@ namespace Evo.Infrastructure.Services.Purchases
 
         private static void ValidateOverrides(
             PurchaseProductDefinition product,
+            PlatformCatalog platformCatalog,
             ICollection<PurchaseCatalogIssue> issues)
         {
             if (product.Overrides == null)
@@ -89,7 +94,7 @@ namespace Evo.Infrastructure.Services.Purchases
                     continue;
                 }
 
-                var selector = $"{target.AdapterId}|{(int)target.Platforms}|{target.Priority}";
+                var selector = BuildSelector(target);
                 if (!selectors.Add(selector))
                 {
                     issues.Add(new PurchaseCatalogIssue(
@@ -97,6 +102,8 @@ namespace Evo.Infrastructure.Services.Purchases
                         product.Id,
                             $"Duplicate target override selector '{selector}'."));
                 }
+
+                ValidatePlatformIds(product.Id, selector, target.PlatformIds, platformCatalog, issues);
 
                 if (string.IsNullOrWhiteSpace(target.StoreProductId))
                 {
@@ -122,8 +129,9 @@ namespace Evo.Infrastructure.Services.Purchases
                 if (other == null ||
                     other.Priority != target.Priority ||
                     !string.Equals(other.AdapterId, target.AdapterId, StringComparison.OrdinalIgnoreCase) ||
-                    (other.Platforms & target.Platforms) == PurchasePlatformMask.None ||
-                    CountBits((int)other.Platforms) != CountBits((int)target.Platforms))
+                    !Overlaps(other.PlatformIds, target.PlatformIds) ||
+                    PurchasePlatformIdUtility.CountDistinct(other.PlatformIds) !=
+                    PurchasePlatformIdUtility.CountDistinct(target.PlatformIds))
                 {
                     continue;
                 }
@@ -137,17 +145,101 @@ namespace Evo.Infrastructure.Services.Purchases
             }
         }
 
-        private static int CountBits(int value)
+        private static string BuildSelector(PurchaseTargetOverride target)
         {
-            var bits = unchecked((uint)value);
-            var count = 0;
-            while (bits != 0)
+            var platformIds = target.PlatformIds == null
+                ? string.Empty
+                : string.Join(",", target.PlatformIds
+                    .Select(PurchasePlatformIdUtility.Normalize)
+                    .OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
+            return $"{target.AdapterId}|{platformIds}|{target.Priority}";
+        }
+
+        private static void ValidatePlatformIds(
+            string productId,
+            string selector,
+            IReadOnlyList<string> platformIds,
+            PlatformCatalog platformCatalog,
+            ICollection<PurchaseCatalogIssue> issues)
+        {
+            if (platformIds == null || platformIds.Count == 0)
             {
-                count += (int)(bits & 1u);
-                bits >>= 1;
+                issues.Add(new PurchaseCatalogIssue(
+                    PurchaseCatalogIssueSeverity.Error,
+                    productId,
+                    $"Target override '{selector}' has no platform IDs."));
+                return;
             }
 
-            return count;
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (var index = 0; index < platformIds.Count; index++)
+            {
+                var platformId = PurchasePlatformIdUtility.Normalize(platformIds[index]);
+                if (platformId.Length == 0)
+                {
+                    issues.Add(new PurchaseCatalogIssue(
+                        PurchaseCatalogIssueSeverity.Error,
+                        productId,
+                        $"Target override '{selector}' has an empty platform ID at index {index}."));
+                    continue;
+                }
+
+                if (!seen.Add(platformId))
+                {
+                    issues.Add(new PurchaseCatalogIssue(
+                        PurchaseCatalogIssueSeverity.Error,
+                        productId,
+                        $"Target override '{selector}' repeats platform ID '{platformId}'."));
+                }
+
+                if (platformCatalog != null && !IsKnownPlatformId(platformCatalog, platformId))
+                {
+                    issues.Add(new PurchaseCatalogIssue(
+                        PurchaseCatalogIssueSeverity.Error,
+                        productId,
+                        $"Target override '{selector}' uses unknown platform ID '{platformId}'."));
+                }
+            }
+        }
+
+        private static bool Overlaps(IReadOnlyList<string> left, IReadOnlyList<string> right)
+        {
+            if (left == null || right == null)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < left.Count; index++)
+            {
+                if (PurchasePlatformIdUtility.Matches(right, left[index]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal static bool IsKnownPlatformId(PlatformCatalog platformCatalog, string platformId)
+        {
+            if (platformCatalog?.Entries == null)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < platformCatalog.Entries.Count; index++)
+            {
+                var entry = platformCatalog.Entries[index];
+                if (entry != null && string.Equals(
+                        PurchasePlatformIdUtility.Normalize(entry.PlatformId),
+                        PurchasePlatformIdUtility.Normalize(platformId),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

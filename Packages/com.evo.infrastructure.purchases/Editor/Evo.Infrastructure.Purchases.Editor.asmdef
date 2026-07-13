@@ -1,0 +1,11 @@
+{
+  "name": "Evo.Infrastructure.Purchases.Editor",
+  "references": [
+    "Evo.Infrastructure.Purchases"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": true,
+  "noEngineReferences": false
+}

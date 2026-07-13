@@ -5,6 +5,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Evo.Infrastructure.Services.Config;
 using Evo.Infrastructure.Services.Debug;
+using Evo.Infrastructure.Services.PlatformInfo.Config;
 using UnityEngine;
 
 namespace Evo.Infrastructure.Services.Purchases
@@ -58,8 +59,19 @@ namespace Evo.Infrastructure.Services.Purchases
             _initializationCompletion = new UniTaskCompletionSource();
             try
             {
-                LoadConfigs(out var catalog, out var routing);
-                var factory = SelectFactory(routing);
+                LoadConfigs(out var catalog, out var routing, out var platformCatalog);
+                LogConfigIssues("routing", PurchaseRoutingValidator.Validate(routing, platformCatalog));
+                if (!PurchasePlatformIdUtility.TryGetCurrentPlatformId(platformCatalog, out var platformId))
+                {
+                    EvoDebug.LogWarning("Purchases require a known PlatformCatalog.CurrentPlatformId.", SOURCE);
+                    return;
+                }
+
+                var factory = PurchaseRoutingResolver.SelectFactory(
+                    routing,
+                    _factories,
+                    platformCatalog,
+                    Application.isEditor);
                 if (factory == null)
                 {
                     EvoDebug.LogWarning("No unambiguous purchase adapter is configured.", SOURCE);
@@ -67,7 +79,11 @@ namespace Evo.Infrastructure.Services.Purchases
                 }
 
                 _adapter = factory.Create();
-                var definitions = BuildAdapterProductDefinitions(catalog, factory.AdapterId);
+                var definitions = BuildAdapterProductDefinitions(
+                    catalog,
+                    factory.AdapterId,
+                    platformId,
+                    platformCatalog);
                 await InitializeAdapterAsync(definitions, cancellationToken);
                 ApplyStoreProducts();
                 CatalogChanged?.Invoke();
@@ -222,10 +238,12 @@ namespace Evo.Infrastructure.Services.Purchases
 
         private void LoadConfigs(
             out PurchaseCatalogConfig catalog,
-            out PurchaseRoutingConfig routing)
+            out PurchaseRoutingConfig routing,
+            out PlatformCatalog platformCatalog)
         {
             catalog = null;
             routing = null;
+            platformCatalog = null;
             if (_configs == null)
             {
                 return;
@@ -233,14 +251,17 @@ namespace Evo.Infrastructure.Services.Purchases
 
             _configs.TryGet(out catalog);
             _configs.TryGet(out routing);
+            _configs.TryGet(out platformCatalog);
         }
 
         private IReadOnlyList<PurchaseAdapterProductDefinition> BuildAdapterProductDefinitions(
             PurchaseCatalogConfig catalog,
-            string adapterId)
+            string adapterId,
+            string platformId,
+            PlatformCatalog platformCatalog)
         {
-            var catalogIssues = PurchaseCatalogValidator.Validate(catalog);
-            LogCatalogIssues(catalogIssues);
+            var catalogIssues = PurchaseCatalogValidator.Validate(catalog, platformCatalog);
+            LogConfigIssues("catalog", catalogIssues);
 
             var invalidProductIds = new HashSet<string>(
                 catalogIssues
@@ -250,7 +271,7 @@ namespace Evo.Infrastructure.Services.Purchases
                 StringComparer.OrdinalIgnoreCase);
 
             _products.Clear();
-            _products.AddRange(PurchaseCatalogResolver.Resolve(catalog, adapterId, Application.platform));
+            _products.AddRange(PurchaseCatalogResolver.Resolve(catalog, adapterId, platformId));
 
             var duplicateStoreIds = FindDuplicateStoreProductIds();
             foreach (var duplicateStoreId in duplicateStoreIds)
@@ -272,11 +293,11 @@ namespace Evo.Infrastructure.Services.Purchases
                 .ToArray();
         }
 
-        private void LogCatalogIssues(IReadOnlyList<PurchaseCatalogIssue> issues)
+        private void LogConfigIssues(string configName, IReadOnlyList<PurchaseCatalogIssue> issues)
         {
             foreach (var issue in issues)
             {
-                EvoDebug.LogWarning($"Purchase catalog {issue.Severity}: {issue}", SOURCE);
+                EvoDebug.LogWarning($"Purchase {configName} {issue.Severity}: {issue}", SOURCE);
             }
         }
 
@@ -333,28 +354,6 @@ namespace Evo.Infrastructure.Services.Purchases
 
             PurchaseCompleted?.Invoke(transaction);
             return new PurchaseResult(PurchaseStatus.Succeeded, transaction);
-        }
-
-        private IPurchaseAdapterFactory SelectFactory(PurchaseRoutingConfig routing)
-        {
-            var platform = PurchaseCatalogResolver.CurrentPlatform;
-            var candidates = (routing?.Adapters ?? Array.Empty<PurchaseAdapterBinding>())
-                .Where(x => x != null && x.Enabled && (x.Platforms & platform) != 0)
-                .Join(_factories, x => x.AdapterId, x => x.AdapterId,
-                    (binding, factory) => (binding.Priority, Factory: factory), StringComparer.OrdinalIgnoreCase)
-                .OrderByDescending(x => x.Priority)
-                .ToArray();
-            if (candidates.Length == 0)
-            {
-                return null;
-            }
-
-            if (candidates.Length > 1 && candidates[0].Priority == candidates[1].Priority)
-            {
-                return null;
-            }
-
-            return candidates[0].Factory;
         }
 
         private void ApplyStoreProducts()

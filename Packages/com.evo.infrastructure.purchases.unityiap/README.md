@@ -9,7 +9,8 @@ features.UsePurchases();
 features.UseUnityIapPurchases();
 ```
 
-Configure store product IDs as `unity-iap` overrides in `PurchaseCatalogConfig`.
+Configure store product IDs as `unity-iap` overrides in `PurchaseCatalogConfig`, using explicit
+`PlatformCatalog` IDs such as `google_play` and `app_store` for each store SKU.
 The adapter connects to the store, fetches configured products and pending
 purchases, and only confirms a transaction after the core fulfillment handler
 has granted and persisted its rewards.

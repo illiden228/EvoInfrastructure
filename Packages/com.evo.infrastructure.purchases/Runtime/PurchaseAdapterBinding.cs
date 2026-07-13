@@ -10,11 +10,14 @@ namespace Evo.Infrastructure.Services.Purchases
     {
         [SerializeField] private string adapterId = string.Empty;
         [SerializeField] private bool enabled = true;
-        [SerializeField] private PurchasePlatformMask platforms = PurchasePlatformMask.All;
+        [CatalogDropdown(CatalogDropdownKind.PlatformId)]
+        [SerializeField] private List<string> platformIds = new();
+        [SerializeField] private bool editorMock;
         [SerializeField] private int priority;
         public string AdapterId => adapterId?.Trim() ?? string.Empty;
         public bool Enabled => enabled;
-        public PurchasePlatformMask Platforms => platforms;
+        public IReadOnlyList<string> PlatformIds => platformIds;
+        public bool EditorMock => editorMock;
         public int Priority => priority;
     }
 }

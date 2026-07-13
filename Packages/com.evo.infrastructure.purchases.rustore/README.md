@@ -19,7 +19,10 @@ features.UsePurchases();
 features.UseRuStorePurchases();
 ```
 
-Add an override with adapter ID `rustore` and the product ID from RuStore Console to every product intended for RuStore. Store prices, titles, descriptions, currency, and availability come from RuStore; grants and fulfillment remain project-owned.
+Add a routing binding and product overrides with adapter ID `rustore` and the `rustore` platform ID
+from `PlatformCatalog`. Supply the product ID from RuStore Console to every product intended for
+RuStore. Store prices, titles, descriptions, currency, and availability come from RuStore; grants
+and fulfillment remain project-owned.
 
 ## Payment flow
 
