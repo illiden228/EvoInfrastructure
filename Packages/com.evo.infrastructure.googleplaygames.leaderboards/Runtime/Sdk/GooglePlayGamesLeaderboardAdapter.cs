@@ -38,7 +38,7 @@ namespace Evo.Infrastructure.GooglePlayGames.Leaderboards
                 var score = request.IsTimeSeconds
                     ? SafeTimeScore(request.TimeSeconds, entry.timeScoreMultiplier)
                     : request.Score;
-                PlayGamesPlatform.Instance.SubmitScore(score, entry.googleId, _ => { });
+                PlayGamesPlatform.Instance.ReportScore(score, entry.googleId, _ => { });
             }
             catch (Exception exception)
             {

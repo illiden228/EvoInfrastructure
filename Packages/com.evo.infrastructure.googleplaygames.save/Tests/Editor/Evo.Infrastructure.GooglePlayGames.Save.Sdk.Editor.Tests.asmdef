@@ -1,0 +1,24 @@
+{
+  "name": "Evo.Infrastructure.GooglePlayGames.Save.Sdk.Editor.Tests",
+  "references": [
+    "Evo.Infrastructure.GooglePlayGames",
+    "Evo.Infrastructure.GooglePlayGames.Save",
+    "Evo.Infrastructure.GooglePlayGames.Save.Sdk",
+    "Evo.Infrastructure.Save",
+    "Google.Play.Games",
+    "UniTask",
+    "VContainer"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "defineConstraints": [
+    "EVO_GOOGLE_PLAY_GAMES_SDK",
+    "UNITY_ANDROID"
+  ],
+  "autoReferenced": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "noEngineReferences": false
+}

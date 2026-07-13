@@ -1,0 +1,22 @@
+{
+  "name": "Evo.Infrastructure.GooglePlayGames.Sdk.Editor.Tests",
+  "references": [
+    "Evo.Infrastructure.GooglePlayGames",
+    "Evo.Infrastructure.GooglePlayGames.Sdk",
+    "Google.Play.Games",
+    "UniTask",
+    "VContainer"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "defineConstraints": [
+    "EVO_GOOGLE_PLAY_GAMES_SDK",
+    "UNITY_ANDROID"
+  ],
+  "autoReferenced": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "noEngineReferences": false
+}

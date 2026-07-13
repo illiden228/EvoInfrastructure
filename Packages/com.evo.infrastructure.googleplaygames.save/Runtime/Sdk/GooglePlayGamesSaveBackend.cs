@@ -6,6 +6,7 @@ using Evo.Infrastructure.Core.Async;
 using Evo.Infrastructure.Services.Debug;
 using Evo.Infrastructure.Services.Save;
 using GooglePlayGames;
+using GooglePlayGames.BasicApi;
 using GooglePlayGames.BasicApi.SavedGame;
 using UnityEngine;
 
@@ -16,15 +17,32 @@ namespace Evo.Infrastructure.GooglePlayGames.Save
         private const string Source = nameof(GooglePlayGamesSaveBackend);
         private readonly IGooglePlayGamesSession _session;
         private readonly GooglePlayGamesSaveOptions _options;
+        private readonly Func<int, CancellationToken, UniTask> _delay;
+        private readonly Action<string> _logWarning;
         private readonly AsyncGate _operationGate = new();
         private bool _timeoutLogged;
         private bool _malformedPayloadLogged;
         private bool _sdkExceptionLogged;
 
         public GooglePlayGamesSaveBackend(IGooglePlayGamesSession session, GooglePlayGamesSaveOptions options)
+            : this(
+                session,
+                options,
+                (timeout, cancellationToken) => UniTask.Delay(timeout, cancellationToken: cancellationToken),
+                message => EvoDebug.LogWarning(message, Source))
         {
-            _session = session;
-            _options = options;
+        }
+
+        internal GooglePlayGamesSaveBackend(
+            IGooglePlayGamesSession session,
+            GooglePlayGamesSaveOptions options,
+            Func<int, CancellationToken, UniTask> delay,
+            Action<string> logWarning)
+        {
+            _session = session ?? throw new ArgumentNullException(nameof(session));
+            _options = options ?? throw new ArgumentNullException(nameof(options));
+            _delay = delay ?? throw new ArgumentNullException(nameof(delay));
+            _logWarning = logWarning ?? throw new ArgumentNullException(nameof(logWarning));
         }
 
         public string BackendId => "google-play-games";
@@ -116,15 +134,15 @@ namespace Evo.Infrastructure.GooglePlayGames.Save
             finally { active = false; }
         }
 
-        private async UniTask<T> AwaitWithTimeoutAsync<T>(UniTask<T> operation, string operationName, CancellationToken cancellationToken)
+        internal async UniTask<T> AwaitWithTimeoutAsync<T>(UniTask<T> operation, string operationName, CancellationToken cancellationToken)
         {
             var timeout = Math.Max(1000, _options.operationTimeoutMs);
-            var result = await UniTask.WhenAny(operation, UniTask.Delay(timeout, cancellationToken: cancellationToken));
-            if (result.winArgumentIndex == 0) return result.result;
+            var result = await UniTask.WhenAny(operation, _delay(timeout, cancellationToken));
+            if (result.hasResultLeft) return result.result;
             if (!_timeoutLogged)
             {
                 _timeoutLogged = true;
-                EvoDebug.LogWarning($"Saved Games {operationName} timed out after {timeout} ms.", Source);
+                _logWarning($"Saved Games {operationName} timed out after {timeout} ms.");
             }
             return default;
         }

@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.di",
-  "version": "0.5.12",
+  "version": "0.5.13",
   "displayName": "Evo Infrastructure DI",
   "description": "DI feature registration helpers for Evo Infrastructure packages.",
   "unity": "2022.3",

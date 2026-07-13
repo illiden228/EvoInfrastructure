@@ -1,14 +1,14 @@
 {
   "name": "com.evo.infrastructure.analytics.adjust",
-  "version": "0.5.12",
+  "version": "0.5.13",
   "displayName": "Evo Infrastructure Adjust Analytics",
   "description": "Adjust adapter for Evo Infrastructure Analytics. The vendor SDK is installed separately.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.analytics": "0.5.12",
-    "com.evo.infrastructure.config": "0.5.12",
-    "com.evo.infrastructure.di": "0.5.12",
-    "com.evo.infrastructure.debug": "0.5.12"
+    "com.evo.infrastructure.analytics": "0.5.13",
+    "com.evo.infrastructure.config": "0.5.13",
+    "com.evo.infrastructure.di": "0.5.13",
+    "com.evo.infrastructure.debug": "0.5.13"
   }
 }
