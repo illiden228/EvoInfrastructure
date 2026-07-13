@@ -10,6 +10,7 @@ using Evo.Infrastructure.Services.Config;
 using Evo.Infrastructure.Services.Debug;
 using Evo.Infrastructure.Services.PlatformInfo.Config;
 using Cysharp.Threading.Tasks;
+using Evo.Infrastructure.Core.Async;
 using R3;
 
 namespace Evo.Infrastructure.Services.Ads
@@ -24,7 +25,7 @@ namespace Evo.Infrastructure.Services.Ads
         private readonly IAnalyticsService _analyticsService;
         private readonly Dictionary<AvailabilityKey, ReactiveProperty<AdsAvailability>> _availabilityStreams = new();
         private readonly HashSet<IAdsAdapter> _availabilitySubscribedAdapters = new();
-        private readonly SemaphoreSlim _showGate = new(1, 1);
+        private readonly AsyncGate _showGate = new();
         private bool _isShowing;
         private AdType _showingAdType;
         private string _showingPlacementId;
@@ -147,7 +148,7 @@ namespace Evo.Infrastructure.Services.Ads
             AdsShowRequest request,
             CancellationToken cancellationToken = default)
         {
-            await _showGate.WaitAsync(cancellationToken);
+            using var showLease = await _showGate.EnterAsync(cancellationToken);
             SetShowing(request.AdType, request.PlacementId, true);
             try
             {
@@ -156,7 +157,6 @@ namespace Evo.Infrastructure.Services.Ads
             finally
             {
                 SetShowing(request.AdType, request.PlacementId, false);
-                _showGate.Release();
             }
         }
 

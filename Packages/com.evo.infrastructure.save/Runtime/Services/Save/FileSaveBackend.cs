@@ -1,6 +1,7 @@
 using System.IO;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Evo.Infrastructure.Core.Async;
 using Evo.Infrastructure.Services.Debug;
 using UnityEngine;
 
@@ -10,7 +11,7 @@ namespace Evo.Infrastructure.Services.Save
     {
         private const int MAX_IO_ATTEMPTS = 3;
         private const int IO_RETRY_DELAY_MS = 50;
-        private static readonly SemaphoreSlim FileIoLock = new(1, 1);
+        private static readonly AsyncGate FileIoGate = new();
         private readonly string _fileName;
 
         public FileSaveBackend(SaveStorageOptions options = null)
@@ -42,23 +43,20 @@ namespace Evo.Infrastructure.Services.Save
             string json;
             try
             {
-                await FileIoLock.WaitAsync(cancellationToken);
+                using var fileLease = await FileIoGate.EnterAsync(cancellationToken);
                 try
                 {
-                    await UniTask.SwitchToThreadPool();
-                    if (!File.Exists(filePath))
-                    {
-                        await UniTask.SwitchToMainThread(cancellationToken);
-                        return null;
-                    }
-
-                    json = ReadAllTextWithRetries(filePath);
-                    await UniTask.SwitchToMainThread();
+                    json = await ReadAllTextWithRetriesAsync(filePath, cancellationToken);
                 }
                 finally
                 {
-                    FileIoLock.Release();
+                    await UniTask.SwitchToMainThread(CancellationToken.None);
                 }
+            }
+            catch (System.OperationCanceledException)
+            {
+                await UniTask.SwitchToMainThread(CancellationToken.None);
+                throw;
             }
             catch (System.Exception ex)
             {
@@ -82,17 +80,20 @@ namespace Evo.Infrastructure.Services.Save
             var json = JsonUtility.ToJson(envelope);
             try
             {
-                await FileIoLock.WaitAsync(cancellationToken);
+                using var fileLease = await FileIoGate.EnterAsync(cancellationToken);
                 try
                 {
-                    await UniTask.SwitchToThreadPool();
-                    WriteAllTextAtomicWithRetries(filePath, json);
-                    await UniTask.SwitchToMainThread(cancellationToken);
+                    await WriteAllTextAtomicWithRetriesAsync(filePath, json, cancellationToken);
                 }
                 finally
                 {
-                    FileIoLock.Release();
+                    await UniTask.SwitchToMainThread(CancellationToken.None);
                 }
+            }
+            catch (System.OperationCanceledException)
+            {
+                await UniTask.SwitchToMainThread(CancellationToken.None);
+                throw;
             }
             catch (System.Exception ex)
             {
@@ -104,19 +105,24 @@ namespace Evo.Infrastructure.Services.Save
             return true;
         }
 
-        private static string ReadAllTextWithRetries(string filePath)
+        private static async UniTask<string> ReadAllTextWithRetriesAsync(
+            string filePath,
+            CancellationToken cancellationToken)
         {
             for (var attempt = 1; attempt <= MAX_IO_ATTEMPTS; attempt++)
             {
+                await UniTask.SwitchToThreadPool();
                 try
                 {
+                    if (!File.Exists(filePath)) return null;
                     using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
                     using var reader = new StreamReader(stream);
                     return reader.ReadToEnd();
                 }
                 catch (IOException) when (attempt < MAX_IO_ATTEMPTS)
                 {
-                    Thread.Sleep(IO_RETRY_DELAY_MS);
+                    await UniTask.SwitchToMainThread(cancellationToken);
+                    await UniTask.Delay(IO_RETRY_DELAY_MS, cancellationToken: cancellationToken);
                 }
             }
 
@@ -125,11 +131,15 @@ namespace Evo.Infrastructure.Services.Save
             return finalReader.ReadToEnd();
         }
 
-        private static void WriteAllTextAtomicWithRetries(string filePath, string json)
+        private static async UniTask WriteAllTextAtomicWithRetriesAsync(
+            string filePath,
+            string json,
+            CancellationToken cancellationToken)
         {
             var tempPath = filePath + ".tmp";
             for (var attempt = 1; attempt <= MAX_IO_ATTEMPTS; attempt++)
             {
+                await UniTask.SwitchToThreadPool();
                 try
                 {
                     using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -151,7 +161,8 @@ namespace Evo.Infrastructure.Services.Save
                 }
                 catch (IOException) when (attempt < MAX_IO_ATTEMPTS)
                 {
-                    Thread.Sleep(IO_RETRY_DELAY_MS);
+                    await UniTask.SwitchToMainThread(cancellationToken);
+                    await UniTask.Delay(IO_RETRY_DELAY_MS, cancellationToken: cancellationToken);
                 }
             }
 

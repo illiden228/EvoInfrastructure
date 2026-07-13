@@ -1,13 +1,13 @@
 {
   "name": "com.evo.infrastructure.crazygames.leaderboards",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "displayName": "Evo Infrastructure CrazyGames Leaderboards",
   "description": "CrazyGames leaderboard adapter for Evo Infrastructure Leaderboards.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.crazygames": "0.5.9",
-    "com.evo.infrastructure.leaderboards": "0.5.9",
-    "com.evo.infrastructure.di": "0.5.9"
+    "com.evo.infrastructure.crazygames": "0.5.10",
+    "com.evo.infrastructure.leaderboards": "0.5.10",
+    "com.evo.infrastructure.di": "0.5.10"
   }
 }

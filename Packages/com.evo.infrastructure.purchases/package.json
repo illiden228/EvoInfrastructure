@@ -1,13 +1,13 @@
 {
   "name": "com.evo.infrastructure.purchases",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "displayName": "Evo Infrastructure Purchases",
   "description": "Store-agnostic purchase catalog, routing, fulfillment, and transaction contracts.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.config": "0.5.9",
-    "com.evo.infrastructure.debug": "0.5.9",
-    "com.evo.infrastructure.di": "0.5.9"
+    "com.evo.infrastructure.config": "0.5.10",
+    "com.evo.infrastructure.debug": "0.5.10",
+    "com.evo.infrastructure.di": "0.5.10"
   }
 }

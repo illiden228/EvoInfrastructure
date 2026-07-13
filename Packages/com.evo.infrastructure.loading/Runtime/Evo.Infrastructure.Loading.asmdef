@@ -3,6 +3,7 @@
   "references": [
     "Evo.Infrastructure.Analytics",
     "Evo.Infrastructure.Config",
+    "Evo.Infrastructure.Core",
     "Evo.Infrastructure.DI",
     "Evo.Infrastructure.Debug",
     "Evo.Infrastructure.Localization",

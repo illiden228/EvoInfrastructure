@@ -2,6 +2,7 @@
   "name": "Evo.Infrastructure.Save",
   "references": [
     "Evo.Infrastructure.DI",
+    "Evo.Infrastructure.Core",
     "Evo.Infrastructure.Debug",
     "UniTask",
     "VContainer"

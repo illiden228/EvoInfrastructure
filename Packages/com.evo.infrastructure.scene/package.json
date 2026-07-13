@@ -1,14 +1,14 @@
 {
   "name": "com.evo.infrastructure.scene",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "displayName": "Evo Infrastructure Scene",
   "description": "Scene loading, scene payloads, and VContainer scene scope helpers.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.di": "0.5.9",
-    "com.evo.infrastructure.debug": "0.5.9",
-    "com.evo.infrastructure.resources": "0.5.9",
+    "com.evo.infrastructure.di": "0.5.10",
+    "com.evo.infrastructure.debug": "0.5.10",
+    "com.evo.infrastructure.resources": "0.5.10",
     "com.unity.addressables": "2.8.1"
   }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 
@@ -112,6 +113,29 @@ namespace Evo.Infrastructure.Services.Identity.Tests
             Assert.That(service.Current.PlayerId, Is.EqualTo("player-id"));
             Assert.That(service.Current.DisplayName, Is.EqualTo("Player"));
             Assert.That(service.Current.AvatarUrl, Is.EqualTo("https://example.invalid/avatar.png"));
+        }
+
+        [Test]
+        public async Task ConcurrentAuthentication_SharesProviderOperation()
+        {
+            var completion = new UniTaskCompletionSource<PlayerAuthenticationResult>();
+            var provider = new StubIdentityProvider(
+                "shared",
+                1,
+                true,
+                (_, _) => completion.Task);
+            var service = new PlayerIdentityService(new[] { provider });
+
+            var first = service.AuthenticateAsync(PlayerAuthenticationMode.Automatic);
+            var second = service.AuthenticateAsync(PlayerAuthenticationMode.Automatic);
+            completion.TrySetResult(new PlayerAuthenticationResult(
+                PlayerAuthenticationState.Authenticated,
+                new PlayerIdentity("shared", "player", "Player", string.Empty)));
+
+            var results = await UniTask.WhenAll(first, second);
+            Assert.That(provider.AuthenticationCount, Is.EqualTo(1));
+            Assert.That(results.Item1.IsSuccess, Is.True);
+            Assert.That(results.Item2.IsSuccess, Is.True);
         }
 
         private static StubIdentityProvider CreateSuccessfulProvider(string providerId, int priority)

@@ -1,7 +1,9 @@
 {
   "name": "Evo.Infrastructure.Core.Editor.Tests",
   "references": [
-    "Evo.Infrastructure.Core.Editor"
+    "Evo.Infrastructure.Core.Editor",
+    "Evo.Infrastructure.Core",
+    "UniTask"
   ],
   "includePlatforms": [
     "Editor"

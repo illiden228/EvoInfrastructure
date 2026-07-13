@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.core",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "displayName": "Evo Infrastructure Core (Installer)",
   "description": "Bootstrap installer and project setup wizard for Evo infrastructure.",
   "unity": "2022.3",
@@ -8,6 +8,7 @@
     "name": "Evo"
   },
   "dependencies": {
+    "com.cysharp.unitask": "2.5.10",
     "com.unity.ugui": "1.0.0"
   }
 }

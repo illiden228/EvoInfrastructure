@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Evo.Infrastructure.Core.Async;
 using Evo.Infrastructure.Services.Debug;
 using Evo.Infrastructure.Services.Save;
 using GooglePlayGames;
@@ -15,7 +16,7 @@ namespace Evo.Infrastructure.GooglePlayGames.Save
         private const string Source = nameof(GooglePlayGamesSaveBackend);
         private readonly IGooglePlayGamesSession _session;
         private readonly GooglePlayGamesSaveOptions _options;
-        private readonly SemaphoreSlim _operationLock = new(1, 1);
+        private readonly AsyncGate _operationGate = new();
         private bool _timeoutLogged;
         private bool _malformedPayloadLogged;
         private bool _sdkExceptionLogged;
@@ -32,28 +33,14 @@ namespace Evo.Infrastructure.GooglePlayGames.Save
 
         public async UniTask<SaveEnvelope> LoadAsync(CancellationToken cancellationToken = default)
         {
-            await _operationLock.WaitAsync(cancellationToken);
-            try
-            {
-                return await LoadInternalAsync(cancellationToken);
-            }
-            finally
-            {
-                _operationLock.Release();
-            }
+            using var operationLease = await _operationGate.EnterAsync(cancellationToken);
+            return await LoadInternalAsync(cancellationToken);
         }
 
         public async UniTask<bool> SaveAsync(SaveEnvelope envelope, CancellationToken cancellationToken = default)
         {
-            await _operationLock.WaitAsync(cancellationToken);
-            try
-            {
-                return await SaveInternalAsync(envelope, cancellationToken);
-            }
-            finally
-            {
-                _operationLock.Release();
-            }
+            using var operationLease = await _operationGate.EnterAsync(cancellationToken);
+            return await SaveInternalAsync(envelope, cancellationToken);
         }
 
         private async UniTask<SaveEnvelope> LoadInternalAsync(CancellationToken cancellationToken)

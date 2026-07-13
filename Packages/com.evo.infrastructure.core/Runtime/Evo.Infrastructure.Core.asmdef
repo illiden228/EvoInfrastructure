@@ -1,0 +1,9 @@
+{
+  "name": "Evo.Infrastructure.Core",
+  "rootNamespace": "Evo.Infrastructure.Core",
+  "references": [
+    "UniTask"
+  ],
+  "autoReferenced": true,
+  "noEngineReferences": false
+}

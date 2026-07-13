@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Threading;
 using Evo.Infrastructure.Runtime.Gameplay.Loading;
 using Cysharp.Threading.Tasks;
+using Evo.Infrastructure.Core.Async;
 using Evo.Infrastructure.Services.SceneLoader;
 using Evo.Infrastructure.Services.Config;
 using Evo.Infrastructure.Services.Debug;
@@ -25,7 +26,7 @@ namespace Evo.Infrastructure.Runtime.Loading
         private readonly SceneTransitionOptions _transitionOptions;
         private readonly LoadingExecutionOptions _executionOptions;
         private readonly string _transitionSceneName;
-        private readonly SemaphoreSlim _loadGate = new(1, 1);
+        private readonly AsyncGate _loadGate = new();
 
         public SceneLoadingPipeline(ISceneLoaderService sceneLoader, ILoadingProgress progress, IConfigService configService)
             : this(sceneLoader, progress, configService, null, null)
@@ -109,7 +110,7 @@ namespace Evo.Infrastructure.Runtime.Loading
                 return;
             }
 
-            await _loadGate.WaitAsync(cancellationToken);
+            using var loadLease = await _loadGate.EnterAsync(cancellationToken);
             using var operationTimeout = CreateTimeoutTokenSource(
                 cancellationToken,
                 _executionOptions.EnableOperationTimeout
@@ -195,7 +196,6 @@ namespace Evo.Infrastructure.Runtime.Loading
                 }
 
                 await HideLoadingPresentationIfNeeded();
-                _loadGate.Release();
             }
         }
 

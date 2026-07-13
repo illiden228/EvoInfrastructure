@@ -1,6 +1,7 @@
 {
   "name": "Evo.Infrastructure.Pooling",
   "references": [
+    "Evo.Infrastructure.Core",
     "UniTask"
   ],
   "includePlatforms": [],

@@ -11,8 +11,9 @@ namespace Evo.Infrastructure.GooglePlayGames
     public sealed class GooglePlayGamesSession : IGooglePlayGamesSession, IAsyncStartable
     {
         private const string Source = nameof(GooglePlayGamesSession);
-        private readonly SemaphoreSlim _authenticationLock = new(1, 1);
         private readonly GooglePlayGamesOptions _options;
+        private UniTask<bool> _authenticationTask;
+        private bool _authenticationInFlight;
         private int _requestGeneration;
         private bool _timeoutLogged;
         public GooglePlayGamesSession(GooglePlayGamesOptions options) => _options = options;
@@ -22,7 +23,13 @@ namespace Evo.Infrastructure.GooglePlayGames
 
         public UniTask<bool> AuthenticateAsync(bool interactive = false, CancellationToken cancellationToken = default)
         {
-            return AuthenticateSerializedAsync(interactive, cancellationToken);
+            if (!_authenticationInFlight)
+            {
+                _authenticationInFlight = true;
+                _authenticationTask = AuthenticateCoreAsync(interactive, cancellationToken).Preserve();
+            }
+
+            return _authenticationTask.AttachExternalCancellation(cancellationToken);
         }
 
         public async UniTask StartAsync(CancellationToken cancellationToken)
@@ -30,9 +37,8 @@ namespace Evo.Infrastructure.GooglePlayGames
             await AuthenticateAsync(false, cancellationToken);
         }
 
-        private async UniTask<bool> AuthenticateSerializedAsync(bool interactive, CancellationToken cancellationToken)
+        private async UniTask<bool> AuthenticateCoreAsync(bool interactive, CancellationToken operationCancellationToken)
         {
-            await _authenticationLock.WaitAsync(cancellationToken);
             try
             {
                 if (IsAuthenticated) return true;
@@ -48,7 +54,7 @@ namespace Evo.Infrastructure.GooglePlayGames
                 else
                     PlayGamesPlatform.Instance.Authenticate(Complete);
                 var timeout = Math.Max(1000, _options.authenticationTimeoutMs);
-                var winner = await UniTask.WhenAny(completion.Task, UniTask.Delay(timeout, cancellationToken: cancellationToken));
+                var winner = await UniTask.WhenAny(completion.Task, UniTask.Delay(timeout, cancellationToken: operationCancellationToken));
                 var status = winner.winArgumentIndex == 0 ? winner.result : SignInStatus.Canceled;
                 if (winner.winArgumentIndex != 0)
                 {
@@ -65,7 +71,7 @@ namespace Evo.Infrastructure.GooglePlayGames
             }
             catch (OperationCanceledException) { State = GooglePlayGamesAuthenticationState.Unauthenticated; throw; }
             catch { State = GooglePlayGamesAuthenticationState.Failed; }
-            finally { _authenticationLock.Release(); }
+            finally { _authenticationInFlight = false; }
             return IsAuthenticated;
         }
     }

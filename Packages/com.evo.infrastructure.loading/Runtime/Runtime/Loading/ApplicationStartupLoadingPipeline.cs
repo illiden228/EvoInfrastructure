@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Evo.Infrastructure.Core.Async;
 using Evo.Infrastructure.Services.Debug;
 using UnityEngine.AddressableAssets;
 using UnityEngine.SceneManagement;
@@ -19,7 +20,7 @@ namespace Evo.Infrastructure.Runtime.Loading
         private readonly SceneTransitionOptions _transitionOptions;
         private readonly LoadingExecutionOptions _executionOptions;
         private readonly StartupLoadingOptions _startupOptions;
-        private readonly SemaphoreSlim _loadGate = new(1, 1);
+        private readonly AsyncGate _loadGate = new();
 
         public ApplicationStartupLoadingPipeline(
             ISceneLoadingPipeline sceneLoadingPipeline,
@@ -68,7 +69,7 @@ namespace Evo.Infrastructure.Runtime.Loading
                 return;
             }
 
-            await _loadGate.WaitAsync(cancellationToken);
+            using var loadLease = await _loadGate.EnterAsync(cancellationToken);
             using var operationTimeout = CreateTimeoutTokenSource(
                 cancellationToken,
                 _executionOptions.EnableOperationTimeout
@@ -96,7 +97,6 @@ namespace Evo.Infrastructure.Runtime.Loading
             {
                 _progress?.NotifyFinished();
                 await HideLoadingPresentationIfNeeded();
-                _loadGate.Release();
             }
         }
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Evo.Infrastructure.Core.Async;
 
 namespace Evo.Infrastructure.Services.Pooling
 {
@@ -50,8 +51,7 @@ namespace Evo.Infrastructure.Services.Pooling
                 return value;
             }
 
-            await bucket.CreateLock.WaitAsync(cancellationToken);
-            try
+            using (await bucket.CreateGate.EnterAsync(cancellationToken))
             {
                 ThrowIfDisposed();
                 value = PopInactive(bucket);
@@ -71,10 +71,6 @@ namespace Evo.Infrastructure.Services.Pooling
 
                 TrackGet(key, value, bucket);
                 return value;
-            }
-            finally
-            {
-                bucket.CreateLock.Release();
             }
         }
 
@@ -261,7 +257,7 @@ namespace Evo.Infrastructure.Services.Pooling
         {
             public readonly Stack<TValue> Inactive = new();
             public readonly HashSet<TValue> Active;
-            public readonly SemaphoreSlim CreateLock = new(1, 1);
+            public readonly AsyncGate CreateGate = new();
             public int CreatedCount;
             public int DestroyedCount;
 

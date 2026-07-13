@@ -7,7 +7,8 @@ namespace Evo.Infrastructure.Services.Identity
     public sealed class PlayerIdentityService : IPlayerIdentityService
     {
         private readonly IReadOnlyList<IPlayerIdentityProvider> _providers;
-        private readonly SemaphoreSlim _authenticationGate = new(1, 1);
+        private UniTask<PlayerAuthenticationResult> _authenticationTask;
+        private bool _authenticationInFlight;
 
         public PlayerIdentityService(IReadOnlyList<IPlayerIdentityProvider> providers)
         {
@@ -20,9 +21,21 @@ namespace Evo.Infrastructure.Services.Identity
 
         public PlayerIdentity Current { get; private set; } = PlayerIdentity.Empty;
 
-        public async UniTask<PlayerAuthenticationResult> AuthenticateAsync(PlayerAuthenticationMode mode, CancellationToken cancellationToken = default)
+        public UniTask<PlayerAuthenticationResult> AuthenticateAsync(PlayerAuthenticationMode mode, CancellationToken cancellationToken = default)
         {
-            await _authenticationGate.WaitAsync(cancellationToken);
+            if (!_authenticationInFlight)
+            {
+                _authenticationInFlight = true;
+                _authenticationTask = AuthenticateCoreAsync(mode, cancellationToken).Preserve();
+            }
+
+            return _authenticationTask.AttachExternalCancellation(cancellationToken);
+        }
+
+        private async UniTask<PlayerAuthenticationResult> AuthenticateCoreAsync(
+            PlayerAuthenticationMode mode,
+            CancellationToken operationCancellationToken)
+        {
             try
             {
                 var provider = SelectProvider();
@@ -37,7 +50,7 @@ namespace Evo.Infrastructure.Services.Identity
                 State = PlayerAuthenticationState.Authenticating;
                 try
                 {
-                    return Complete(await provider.AuthenticateAsync(mode, cancellationToken));
+                    return Complete(await provider.AuthenticateAsync(mode, operationCancellationToken));
                 }
                 catch (System.OperationCanceledException)
                 {
@@ -54,7 +67,7 @@ namespace Evo.Infrastructure.Services.Identity
             }
             finally
             {
-                _authenticationGate.Release();
+                _authenticationInFlight = false;
             }
         }
 
