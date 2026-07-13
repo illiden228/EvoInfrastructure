@@ -48,9 +48,14 @@ namespace Evo.Infrastructure.Services.Audio
         public void PlayLoop(AudioCueKey cueKey, AudioLayerKey layer, bool restartIfSame = false)
         {
             var safeLayer = GetSafeLayer(layer);
-            if (_disposed || cueKey == null)
+            if (_disposed)
             {
-                EvoDebug.LogWarning($"PlayLoop skipped: disposed service or null cue, layer '{safeLayer}'.", AUDIO_SERVICE_SOURCE);
+                return;
+            }
+
+            if (cueKey == null)
+            {
+                EvoDebug.LogWarning($"PlayLoop skipped: null cue, layer '{safeLayer}'.", AUDIO_SERVICE_SOURCE);
                 return;
             }
 
@@ -65,7 +70,6 @@ namespace Evo.Infrastructure.Services.Audio
             var safeLayer = GetSafeLayer(layer);
             if (_disposed)
             {
-                EvoDebug.LogWarning($"StopLoop skipped: disposed service, layer '{safeLayer}'.", AUDIO_SERVICE_SOURCE);
                 return;
             }
 
@@ -77,15 +81,17 @@ namespace Evo.Infrastructure.Services.Audio
 
             playback.RequestVersion++;
             playback.CurrentCue = null;
-            playback.Source.Stop();
-            playback.Source.clip = null;
+            if (playback.Source != null)
+            {
+                playback.Source.Stop();
+                playback.Source.clip = null;
+            }
         }
 
         public void StopAllLoops()
         {
             if (_disposed)
             {
-                EvoDebug.LogWarning("StopAllLoops skipped: disposed service.", AUDIO_SERVICE_SOURCE);
                 return;
             }
 
@@ -94,8 +100,11 @@ namespace Evo.Infrastructure.Services.Audio
             {
                 playback.RequestVersion++;
                 playback.CurrentCue = null;
-                playback.Source.Stop();
-                playback.Source.clip = null;
+                if (playback.Source != null)
+                {
+                    playback.Source.Stop();
+                    playback.Source.clip = null;
+                }
             }
         }
 
@@ -112,9 +121,14 @@ namespace Evo.Infrastructure.Services.Audio
         public void PlayOneShot(AudioCueKey cueKey, AudioLayerKey layer)
         {
             var safeLayer = GetSafeLayer(layer);
-            if (_disposed || cueKey == null)
+            if (_disposed)
             {
-                EvoDebug.LogWarning($"PlayOneShot skipped: disposed service or null cue, layer '{safeLayer}'.", AUDIO_SERVICE_SOURCE);
+                return;
+            }
+
+            if (cueKey == null)
+            {
+                EvoDebug.LogWarning($"PlayOneShot skipped: null cue, layer '{safeLayer}'.", AUDIO_SERVICE_SOURCE);
                 return;
             }
 
@@ -161,12 +175,18 @@ namespace Evo.Infrastructure.Services.Audio
             foreach (var playback in _loopPlaybacks.Values)
             {
                 playback.RequestVersion++;
-                playback.Source.Stop();
+                if (playback.Source != null)
+                {
+                    playback.Source.Stop();
+                }
             }
 
             foreach (var source in _oneShotSources.Values)
             {
-                source.Stop();
+                if (source != null)
+                {
+                    source.Stop();
+                }
             }
 
             foreach (var loadedKey in _loadedClipKeys)
@@ -196,7 +216,12 @@ namespace Evo.Infrastructure.Services.Audio
             int requestVersion)
         {
             var clip = await ResolveClipAsync(cueKey);
-            if (_disposed || requestVersion != playback.RequestVersion || clip == null)
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (requestVersion != playback.RequestVersion || playback.Source == null || clip == null)
             {
                 if (clip == null)
                 {
@@ -221,16 +246,24 @@ namespace Evo.Infrastructure.Services.Audio
         private async UniTaskVoid PlayOneShotInternal(AudioCueKey cueKey, AudioLayerKey layer)
         {
             var clip = await ResolveClipAsync(cueKey);
-            if (_disposed || clip == null)
+            if (_disposed)
             {
-                if (clip == null)
-                {
-                    EvoDebug.LogWarning($"OneShot clip resolve failed for cue '{cueKey?.name}', layer '{layer}'.", AUDIO_SERVICE_SOURCE);
-                }
                 return;
             }
 
+            if (clip == null)
+            {
+                EvoDebug.LogWarning($"OneShot clip resolve failed for cue '{cueKey?.name}', layer '{layer}'.", AUDIO_SERVICE_SOURCE);
+                return;
+            }
+
+            EnsureRuntime();
             var source = GetOrCreateOneShotSource(layer);
+            if (_disposed || source == null)
+            {
+                return;
+            }
+
             source.PlayOneShot(clip);
             EvoDebug.Log($"OneShot played: cue '{cueKey.name}', clip '{clip.name}', layer '{layer}'.", AUDIO_SERVICE_SOURCE);
         }
@@ -255,10 +288,18 @@ namespace Evo.Infrastructure.Services.Audio
                 return null;
             }
 
+            if (_disposed)
+            {
+                var releaseKey = GetClipReleaseKey(cueKey);
+                if (!string.IsNullOrEmpty(releaseKey))
+                {
+                    _resourceLoader.Release<AudioClip>(releaseKey);
+                }
+                return null;
+            }
+
             _clipCache[cueKey] = clip;
-            var cacheReleaseKey = !string.IsNullOrEmpty(cueKey.Clip.AssetGUID)
-                ? cueKey.Clip.AssetGUID
-                : cueKey.Clip.RuntimeKey?.ToString();
+            var cacheReleaseKey = GetClipReleaseKey(cueKey);
             if (!string.IsNullOrEmpty(cacheReleaseKey))
             {
                 _loadedClipKeys.Add(cacheReleaseKey);
@@ -269,7 +310,7 @@ namespace Evo.Infrastructure.Services.Audio
 
         private void EnsureRuntime()
         {
-            if (_root != null)
+            if (_disposed || _root != null)
             {
                 return;
             }
@@ -300,7 +341,7 @@ namespace Evo.Infrastructure.Services.Audio
         private LoopPlayback GetOrCreateLoopPlayback(AudioLayerKey layer)
         {
             layer = GetSafeLayer(layer);
-            if (_loopPlaybacks.TryGetValue(layer, out var playback))
+            if (_loopPlaybacks.TryGetValue(layer, out var playback) && playback.Source != null)
             {
                 return playback;
             }
@@ -315,7 +356,7 @@ namespace Evo.Infrastructure.Services.Audio
         private AudioSource GetOrCreateOneShotSource(AudioLayerKey layer)
         {
             layer = GetSafeLayer(layer);
-            if (_oneShotSources.TryGetValue(layer, out var source))
+            if (_oneShotSources.TryGetValue(layer, out var source) && source != null)
             {
                 return source;
             }
@@ -335,13 +376,26 @@ namespace Evo.Infrastructure.Services.Audio
 
             foreach (var pair in _loopPlaybacks)
             {
-                pair.Value.Source.volume = GetLayerOutputVolume(pair.Key);
+                if (pair.Value.Source != null)
+                {
+                    pair.Value.Source.volume = GetLayerOutputVolume(pair.Key);
+                }
             }
 
             foreach (var pair in _oneShotSources)
             {
-                pair.Value.volume = GetLayerOutputVolume(pair.Key);
+                if (pair.Value != null)
+                {
+                    pair.Value.volume = GetLayerOutputVolume(pair.Key);
+                }
             }
+        }
+
+        private static string GetClipReleaseKey(AudioCueKey cueKey)
+        {
+            return !string.IsNullOrEmpty(cueKey?.Clip?.AssetGUID)
+                ? cueKey.Clip.AssetGUID
+                : cueKey?.Clip?.RuntimeKey?.ToString();
         }
 
         private float GetLayerOutputVolume(AudioLayerKey layer)

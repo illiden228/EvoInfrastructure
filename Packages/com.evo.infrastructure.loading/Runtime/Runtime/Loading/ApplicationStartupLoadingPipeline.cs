@@ -69,12 +69,15 @@ namespace Evo.Infrastructure.Runtime.Loading
                 return;
             }
 
+            await UniTask.SwitchToMainThread();
             using var loadLease = await _loadGate.EnterAsync(cancellationToken);
-            using var operationTimeout = CreateTimeoutTokenSource(
+            await UniTask.SwitchToMainThread();
+            using var operationTimeout = LoadingTimeoutScope.Create(
                 cancellationToken,
                 _executionOptions.EnableOperationTimeout
                     ? _executionOptions.OperationTimeoutSeconds
-                    : 0f);
+                    : 0f,
+                _executionOptions);
             var operationToken = operationTimeout?.Token ?? cancellationToken;
 
             try
@@ -95,6 +98,7 @@ namespace Evo.Infrastructure.Runtime.Loading
             }
             finally
             {
+                await UniTask.SwitchToMainThread();
                 _progress?.NotifyFinished();
                 await HideLoadingPresentationIfNeeded();
             }
@@ -202,14 +206,15 @@ namespace Evo.Infrastructure.Runtime.Loading
                 return;
             }
 
-            using var timeout = CreateTimeoutTokenSource(
+            using var timeout = LoadingTimeoutScope.Create(
                 cancellationToken,
-                _executionOptions.PresentationTimeoutSeconds);
+                _executionOptions.PresentationTimeoutSeconds,
+                _executionOptions);
             try
             {
                 await _loadingPresentation.ShowAsync(timeout?.Token ?? cancellationToken);
             }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (timeout?.IsTimeoutRequested == true)
             {
                 EvoDebug.LogWarning(
                     $"Startup loading presentation timed out after {_executionOptions.PresentationTimeoutSeconds:0.###} seconds. Continuing without it.",
@@ -236,14 +241,15 @@ namespace Evo.Infrastructure.Runtime.Loading
                 return;
             }
 
-            using var timeout = CreateTimeoutTokenSource(
+            using var timeout = LoadingTimeoutScope.Create(
                 CancellationToken.None,
-                _executionOptions.PresentationTimeoutSeconds);
+                _executionOptions.PresentationTimeoutSeconds,
+                _executionOptions);
             try
             {
                 await _loadingPresentation.HideAsync(timeout?.Token ?? CancellationToken.None);
             }
-            catch (OperationCanceledException) when (timeout != null && timeout.IsCancellationRequested)
+            catch (OperationCanceledException) when (timeout != null && timeout.IsTimeoutRequested)
             {
                 EvoDebug.LogWarning(
                     $"Startup loading presentation hide timed out after {_executionOptions.PresentationTimeoutSeconds:0.###} seconds.",
@@ -321,18 +327,5 @@ namespace Evo.Infrastructure.Runtime.Loading
             }
         }
 
-        private static CancellationTokenSource CreateTimeoutTokenSource(
-            CancellationToken parentToken,
-            float timeoutSeconds)
-        {
-            if (timeoutSeconds <= 0f)
-            {
-                return null;
-            }
-
-            var source = CancellationTokenSource.CreateLinkedTokenSource(parentToken);
-            source.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
-            return source;
-        }
     }
 }

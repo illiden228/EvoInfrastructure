@@ -1,10 +1,8 @@
 {
-  "name": "Evo.Infrastructure.Loading.Editor.Tests",
+  "name": "Evo.Infrastructure.Audio.Editor.Tests",
   "references": [
-    "Evo.Infrastructure.Loading",
-    "Unity.Addressables",
-    "UniTask",
-    "VContainer"
+    "Evo.Infrastructure.Audio",
+    "Evo.Infrastructure.Resources"
   ],
   "includePlatforms": [
     "Editor"

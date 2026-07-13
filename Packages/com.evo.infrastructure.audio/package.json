@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.audio",
-  "version": "0.5.13",
+  "version": "0.5.14",
   "displayName": "Evo Infrastructure Audio",
   "description": "Audio service and addressable audio cue keys.",
   "unity": "2022.3",

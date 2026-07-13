@@ -17,6 +17,7 @@ features.UseLoading(
         OperationTimeoutSeconds = 180f,
         PresentationTimeoutSeconds = 15f,
         TransitionTimeoutSeconds = 30f,
+        IgnoreTimeoutWhenApplicationNotFocused = true,
         OperationRetryCount = 1,
         RetryDelaySeconds = 0.75f,
         StepOrderMode = LoadingStepOrderMode.Registration
@@ -60,6 +61,13 @@ post-start scene changes.
 
 Loading steps must observe the supplied cancellation token. Timeout failures are
 reported as `TimeoutException` with the active step or phase in the message.
+Timeouts are driven by the Unity PlayerLoop, so timeout cancellation and the
+pipeline continuation run on the Unity main thread. By default, elapsed time is
+not accumulated while the application is unfocused and
+`Application.runInBackground` is disabled. Set
+`IgnoreTimeoutWhenApplicationNotFocused` to `false` to use wall-clock timeout
+behavior; applications that enable `Application.runInBackground` also keep
+counting time while unfocused.
 
 Steps that need their own deadline implement `ILoadingStepTimeout` next to their
 existing order and weight metadata:

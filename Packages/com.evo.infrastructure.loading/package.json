@@ -1,6 +1,6 @@
 {
   "name": "com.evo.infrastructure.loading",
-  "version": "0.5.13",
+  "version": "0.5.14",
   "displayName": "Evo Infrastructure Loading",
   "description": "Loading pipeline, loading steps, loading progress, and scene loading orchestration.",
   "unity": "2022.3",

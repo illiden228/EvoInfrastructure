@@ -36,8 +36,8 @@ namespace Evo.Infrastructure.Runtime.Loading
             CancellationToken callerToken)
         {
             var timeoutSeconds = ResolveTimeoutSeconds(step, options);
-            using var timeoutCts = CreateTimeoutTokenSource(operationToken, timeoutSeconds);
-            var stepToken = timeoutCts?.Token ?? operationToken;
+            using var timeout = LoadingTimeoutScope.Create(operationToken, timeoutSeconds, options);
+            var stepToken = timeout?.Token ?? operationToken;
             try
             {
                 await step.Execute(progress, stepToken)
@@ -58,18 +58,5 @@ namespace Evo.Infrastructure.Runtime.Loading
             }
         }
 
-        private static CancellationTokenSource CreateTimeoutTokenSource(
-            CancellationToken parentToken,
-            float timeoutSeconds)
-        {
-            if (timeoutSeconds <= 0f)
-            {
-                return null;
-            }
-
-            var source = CancellationTokenSource.CreateLinkedTokenSource(parentToken);
-            source.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
-            return source;
-        }
     }
 }

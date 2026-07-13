@@ -26,11 +26,13 @@ namespace Evo.Infrastructure.Runtime.Loading
                 return;
             }
 
-            using var operationCts = CreateTimeoutTokenSource(
+            await UniTask.SwitchToMainThread();
+
+            using var operationTimeout = LoadingTimeoutScope.Create(
                 cancellationToken,
-                _options.EnableOperationTimeout,
-                _options.OperationTimeoutSeconds);
-            var operationToken = operationCts?.Token ?? cancellationToken;
+                _options.EnableOperationTimeout ? _options.OperationTimeoutSeconds : 0f,
+                _options);
+            var operationToken = operationTimeout?.Token ?? cancellationToken;
 
             if (notifyLifecycle)
             {
@@ -107,24 +109,10 @@ namespace Evo.Infrastructure.Runtime.Loading
             {
                 if (notifyLifecycle)
                 {
+                    await UniTask.SwitchToMainThread();
                     progress.NotifyFinished();
                 }
             }
-        }
-
-        private static CancellationTokenSource CreateTimeoutTokenSource(
-            CancellationToken parentToken,
-            bool enabled,
-            float timeoutSeconds)
-        {
-            if (!enabled || timeoutSeconds <= 0f)
-            {
-                return null;
-            }
-
-            var source = CancellationTokenSource.CreateLinkedTokenSource(parentToken);
-            source.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
-            return source;
         }
 
         private static float GetTotalWeight(IReadOnlyList<ILoadingStep> steps)
