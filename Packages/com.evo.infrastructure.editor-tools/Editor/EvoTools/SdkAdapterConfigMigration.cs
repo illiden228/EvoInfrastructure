@@ -30,7 +30,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
                 "Evo.Infrastructure.Ads.AppLovin")
         };
 
-        [MenuItem("EvoTools/Configs/Migrate SDK Adapter Configs")]
+        [MenuItem("EvoTools/Config Maintenance/Migrate SDK Adapter Configs")]
         public static void MigrateSdkAdapterConfigs()
         {
             var migrated = new Dictionary<UnityEngine.Object, UnityEngine.Object>();
@@ -49,7 +49,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
                 "Legacy copies use the '.legacy.asset' suffix.");
         }
 
-        [MenuItem("EvoTools/Configs/Rebuild Config Catalogs")]
+        [MenuItem("EvoTools/Config Maintenance/Rebuild Config Catalogs")]
         public static void RebuildConfigCatalogs()
         {
             var changedPaths = new List<string>();
@@ -80,7 +80,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
                 $"AssemblyQualifiedName values. Changed: {changedPaths.Count}.");
         }
 
-        [MenuItem("EvoTools/Configs/Force Reserialize SDK Adapter Configs")]
+        [MenuItem("EvoTools/Config Maintenance/Force Reserialize SDK Adapter Configs")]
         public static void ForceReserializeSdkAdapterConfigs()
         {
             var paths = new List<string>();

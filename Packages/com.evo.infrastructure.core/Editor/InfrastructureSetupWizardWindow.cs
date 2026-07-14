@@ -1110,7 +1110,7 @@ namespace Evo.Infrastructure.Core.Editor
             DrawPurchaseDiagnostics();
             var stale = _cachedStaleConfigCatalogEntries;
             if (stale > 0)
-                EditorGUILayout.HelpBox($"Config catalogs contain {stale} stale TypeName entries pointing to Evo.Infrastructure.Runtime. Run EvoTools/Configs/Rebuild Config Catalogs.", MessageType.Error);
+                EditorGUILayout.HelpBox($"Config catalogs contain {stale} stale TypeName entries pointing to Evo.Infrastructure.Runtime. Run EvoTools/Config Maintenance/Rebuild Config Catalogs.", MessageType.Error);
         }
 
         private void DrawPurchaseDiagnostics()

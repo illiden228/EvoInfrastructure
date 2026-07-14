@@ -7,4 +7,4 @@ features.UseAnalytics();
 features.UseFirebaseAnalytics();
 ```
 
-Create `FirebaseAnalyticsAdapterConfig`, add it to `AnalyticsAdapterCatalog`, and rebuild `ScriptableConfigCatalog` from `EvoTools/Configs/Rebuild Config Catalogs`.
+Create `FirebaseAnalyticsAdapterConfig`, add it to `AnalyticsAdapterCatalog`, and rebuild `ScriptableConfigCatalog` from `EvoTools/Config Maintenance/Rebuild Config Catalogs`.
