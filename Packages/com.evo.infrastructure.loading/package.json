@@ -1,21 +1,21 @@
 {
   "name": "com.evo.infrastructure.loading",
-  "version": "0.5.17",
+  "version": "0.5.19",
   "displayName": "Evo Infrastructure Loading",
   "description": "Loading pipeline, loading steps, loading progress, and scene loading orchestration.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.core": "0.5.17",
-    "com.evo.infrastructure.analytics": "0.5.17",
-    "com.evo.infrastructure.config": "0.5.17",
-    "com.evo.infrastructure.di": "0.5.17",
-    "com.evo.infrastructure.debug": "0.5.17",
-    "com.evo.infrastructure.localization": "0.5.17",
-    "com.evo.infrastructure.platform": "0.5.17",
-    "com.evo.infrastructure.resources": "0.5.17",
-    "com.evo.infrastructure.save": "0.5.17",
-    "com.evo.infrastructure.scene": "0.5.17",
+    "com.evo.infrastructure.core": "0.5.19",
+    "com.evo.infrastructure.analytics": "0.5.19",
+    "com.evo.infrastructure.config": "0.5.19",
+    "com.evo.infrastructure.di": "0.5.19",
+    "com.evo.infrastructure.debug": "0.5.19",
+    "com.evo.infrastructure.localization": "0.5.19",
+    "com.evo.infrastructure.platform": "0.5.19",
+    "com.evo.infrastructure.resources": "0.5.19",
+    "com.evo.infrastructure.save": "0.5.19",
+    "com.evo.infrastructure.scene": "0.5.19",
     "com.unity.addressables": "2.8.1"
   }
 }

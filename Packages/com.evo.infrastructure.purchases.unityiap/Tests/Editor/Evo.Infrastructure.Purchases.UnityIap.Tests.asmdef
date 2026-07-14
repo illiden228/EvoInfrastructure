@@ -2,19 +2,11 @@
   "name": "Evo.Infrastructure.Purchases.UnityIap.Tests",
   "references": [
     "Evo.Infrastructure.Purchases",
-    "Evo.Infrastructure.Purchases.UnityIap.Sdk",
+    "Evo.Infrastructure.Purchases.UnityIap",
     "UniTask"
   ],
   "includePlatforms": ["Editor"],
   "optionalUnityReferences": ["TestAssemblies"],
-  "versionDefines": [
-    {
-      "name": "com.unity.purchasing",
-      "expression": "5.0.0",
-      "define": "EVO_UNITY_IAP_V5"
-    }
-  ],
-  "defineConstraints": ["EVO_UNITY_IAP_V5"],
   "autoReferenced": false,
   "noEngineReferences": false
 }

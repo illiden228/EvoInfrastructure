@@ -4,7 +4,9 @@
     "Evo.Infrastructure.Purchases",
     "Evo.Infrastructure.DI",
     "Evo.Infrastructure.Debug",
-    "VContainer"
+    "VContainer",
+    "Unity.Purchasing",
+    "UniTask"
   ],
   "autoReferenced": true,
   "noEngineReferences": false

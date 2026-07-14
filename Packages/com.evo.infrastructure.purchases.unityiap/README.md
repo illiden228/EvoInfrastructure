@@ -25,6 +25,5 @@ policy; a subscription must not be modeled as an unverified consumable reward.
 Unity IAP Codeless auto-initialization must be disabled when this adapter is
 used, because the adapter owns the `StoreController` lifecycle.
 
-The SDK bridge is guarded by an asmdef version define for Unity IAP 5.0 or
-newer. If the SDK assembly is unavailable, registration remains compile-safe and
-the purchase service degrades to unavailable instead of blocking startup.
+The package requires Unity IAP 5.0 or newer and registers its adapter through a
+direct assembly reference so it remains available in IL2CPP builds.

@@ -1,13 +1,13 @@
 {
   "name": "com.evo.infrastructure.resources",
-  "version": "0.5.17",
+  "version": "0.5.19",
   "displayName": "Evo Infrastructure Resources",
   "description": "Resource catalog, Addressables loader, and resource provider services.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.di": "0.5.17",
-    "com.evo.infrastructure.debug": "0.5.17",
+    "com.evo.infrastructure.di": "0.5.19",
+    "com.evo.infrastructure.debug": "0.5.19",
     "com.unity.addressables": "2.8.1"
   }
 }

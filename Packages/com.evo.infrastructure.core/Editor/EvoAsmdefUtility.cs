@@ -114,7 +114,6 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.analytics.appmetrica", "Runtime/Sdk/Evo.Infrastructure.Analytics.AppMetrica.Sdk.asmdef", "AppMetrica", "EVO_APPMETRICA_SDK", "io.appmetrica.analytics"),
             new("com.evo.infrastructure.analytics.firebase", "Runtime/Sdk/Evo.Infrastructure.Analytics.Firebase.Sdk.asmdef", "Firebase.Analytics", "EVO_FIREBASE_ANALYTICS_SDK", null, false),
             new("com.evo.infrastructure.ads.applovin", "Runtime/Sdk/Evo.Infrastructure.Ads.AppLovin.Sdk.asmdef", "MaxSdk.Scripts", "EVO_APPLOVIN_MAX_SDK", "com.applovin.mediation.ads"),
-            new("com.evo.infrastructure.purchases.unityiap", "Runtime/Sdk/Evo.Infrastructure.Purchases.UnityIap.Sdk.asmdef", "Unity.Purchasing", "EVO_UNITY_IAP_V5", "com.unity.purchasing"),
             new("com.evo.infrastructure.purchases.rustore", "Runtime/Sdk/Evo.Infrastructure.Purchases.RuStore.Sdk.asmdef", "RuStorePay", "EVO_RUSTORE_PAY_SDK", "ru.rustore.pay"),
             new("com.evo.infrastructure.googleplaygames", "Runtime/Sdk/Evo.Infrastructure.GooglePlayGames.Sdk.asmdef", "Google.Play.Games", "EVO_GOOGLE_PLAY_GAMES_SDK", null, false)
         };

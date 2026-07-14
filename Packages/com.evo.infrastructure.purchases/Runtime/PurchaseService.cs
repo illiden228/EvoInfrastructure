@@ -86,6 +86,7 @@ namespace Evo.Infrastructure.Services.Purchases
                     platformCatalog);
                 await InitializeAdapterAsync(definitions, cancellationToken);
                 ApplyStoreProducts();
+                IsInitialized = true;
                 CatalogChanged?.Invoke();
 
                 if (_options.AutoRestorePendingPurchases && _adapter.IsAvailable)
