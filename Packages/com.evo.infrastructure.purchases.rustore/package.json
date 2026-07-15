@@ -1,14 +1,14 @@
 {
   "name": "com.evo.infrastructure.purchases.rustore",
-  "version": "0.5.19",
+  "version": "0.5.20",
   "displayName": "Evo Infrastructure RuStore Purchases",
   "description": "RuStore Pay adapter for Evo Infrastructure Purchases. The vendor SDK is installed separately.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.purchases": "0.5.19",
-    "com.evo.infrastructure.config": "0.5.19",
-    "com.evo.infrastructure.debug": "0.5.19",
-    "com.evo.infrastructure.di": "0.5.19"
+    "com.evo.infrastructure.purchases": "0.5.20",
+    "com.evo.infrastructure.config": "0.5.20",
+    "com.evo.infrastructure.debug": "0.5.20",
+    "com.evo.infrastructure.di": "0.5.20"
   }
 }

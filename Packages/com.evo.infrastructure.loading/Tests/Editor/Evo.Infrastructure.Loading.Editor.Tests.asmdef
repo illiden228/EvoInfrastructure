@@ -2,7 +2,10 @@
   "name": "Evo.Infrastructure.Loading.Editor.Tests",
   "references": [
     "Evo.Infrastructure.Loading",
+    "Evo.Infrastructure.Config",
+    "Evo.Infrastructure.Scene",
     "Unity.Addressables",
+    "Unity.ResourceManager",
     "UniTask",
     "VContainer"
   ],

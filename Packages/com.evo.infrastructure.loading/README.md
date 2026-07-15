@@ -59,6 +59,11 @@ Regular scene transitions after startup keep using
 `ISceneLoadingPipeline.LoadSceneAsync`; that method owns a separate lifecycle for
 post-start scene changes.
 
+`LoadSceneMode.Single` reloads of the currently active Addressables scene use its
+stable scene identity and unload the old instance before loading the replacement.
+When no transition scene is configured, the pipeline creates a temporary empty
+holding scene so duplicate target instances are never loaded at the same time.
+
 Loading steps must observe the supplied cancellation token. Timeout failures are
 reported as `TimeoutException` with the active step or phase in the message.
 Timeouts are driven by the Unity PlayerLoop, so timeout cancellation and the

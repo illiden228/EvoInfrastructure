@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using Evo.Infrastructure.Services.Debug;
@@ -8,6 +9,7 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.SceneManagement;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceProviders;
+using VContainer;
 
 namespace Evo.Infrastructure.Services.SceneLoader
 {
@@ -17,6 +19,7 @@ namespace Evo.Infrastructure.Services.SceneLoader
 
         private readonly IResourceLoaderService _resourceLoader;
         private readonly SceneLoaderOptions _options;
+        private readonly Dictionary<int, string> _sceneIdentities = new();
         private string _lastSceneKey;
         private AssetReference _lastSceneReference;
         private bool _isApplicationFocused = true;
@@ -32,6 +35,7 @@ namespace Evo.Infrastructure.Services.SceneLoader
         {
         }
 
+        [Inject]
         public SceneLoaderService(IResourceLoaderService resourceLoader, SceneLoaderOptions options)
         {
             _resourceLoader = resourceLoader ?? throw new ArgumentNullException(nameof(resourceLoader));
@@ -39,6 +43,7 @@ namespace Evo.Infrastructure.Services.SceneLoader
             _isApplicationFocused = UnityEngine.Application.isFocused;
             CurrentSceneName = SceneManager.GetActiveScene().name;
             SceneManager.activeSceneChanged += OnActiveSceneChanged;
+            SceneManager.sceneUnloaded += OnSceneUnloaded;
             UnityEngine.Application.focusChanged += OnApplicationFocusChanged;
         }
 
@@ -110,6 +115,25 @@ namespace Evo.Infrastructure.Services.SceneLoader
         public UniTask UnloadAsync(string key, CancellationToken cancellationToken = default)
         {
             return _resourceLoader.UnloadSceneAsync(key, cancellationToken);
+        }
+
+        public UniTask UnloadAsync(AssetReference reference, CancellationToken cancellationToken = default)
+        {
+            return _resourceLoader.UnloadSceneAsync(reference, cancellationToken);
+        }
+
+        public bool HasSceneIdentity(Scene scene, AssetReference reference)
+        {
+            if (!scene.IsValid() || reference == null ||
+                !_sceneIdentities.TryGetValue(scene.handle, out var sceneIdentity))
+            {
+                return false;
+            }
+
+            return string.Equals(
+                sceneIdentity,
+                GetReferenceKey(reference),
+                StringComparison.OrdinalIgnoreCase);
         }
 
         public UniTask UnloadByNameAsync(string sceneName, CancellationToken cancellationToken = default)
@@ -238,7 +262,8 @@ namespace Evo.Infrastructure.Services.SceneLoader
                 }
                 catch (OperationCanceledException)
                 {
-                    ReleaseFailedSceneHandle(info);
+                    // Addressables scene loads cannot be canceled. Keep the handle cached so the
+                    // transition owner can await and unload a scene that finishes after cancellation.
                     throw;
                 }
                 catch (Exception ex)
@@ -313,6 +338,10 @@ namespace Evo.Infrastructure.Services.SceneLoader
 
                 var loadDoneAtUtc = DateTime.UtcNow;
                 var loadedScene = handle.Result.Scene;
+                if (loadedScene.IsValid())
+                {
+                    _sceneIdentities[loadedScene.handle] = info.SceneKey;
+                }
                 LogVerbose(
                     $"[SceneLoad:{operationId}] LOAD_HANDLE_DONE ts={loadDoneAtUtc:O} elapsedMs={stopwatch.ElapsedMilliseconds} " +
                     $"key='{info.SceneKey}' status={handle.Status} percent={handle.PercentComplete:0.000} " +
@@ -543,6 +572,11 @@ namespace Evo.Infrastructure.Services.SceneLoader
         {
             CurrentSceneName = nextScene.name;
             ActiveSceneChanged?.Invoke(CurrentSceneName);
+        }
+
+        private void OnSceneUnloaded(Scene scene)
+        {
+            _sceneIdentities.Remove(scene.handle);
         }
 
         private void OnApplicationFocusChanged(bool hasFocus)

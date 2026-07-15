@@ -121,8 +121,12 @@ namespace Evo.Infrastructure.Runtime.Loading
                 _executionOptions);
             var operationToken = operationTimeout?.Token ?? cancellationToken;
             var recoveryScene = SceneManager.GetActiveScene();
+            var isSameSceneReload = mode == LoadSceneMode.Single &&
+                                    _sceneLoader != null &&
+                                    _sceneLoader.HasSceneIdentity(recoveryScene, sceneReference);
             var useTransition = mode == LoadSceneMode.Single && !string.IsNullOrEmpty(_transitionSceneName);
             var transitionSceneActivated = false;
+            var temporaryHoldingScene = default(UnityEngine.SceneManagement.Scene);
 
             try
             {
@@ -141,6 +145,19 @@ namespace Evo.Infrastructure.Runtime.Loading
                     }
                 }
 
+                if (isSameSceneReload)
+                {
+                    if (!transitionSceneActivated)
+                    {
+                        temporaryHoldingScene = CreateTemporaryHoldingScene();
+                    }
+
+                    await UnloadPreviousBeforeSameSceneReloadAsync(
+                        sceneReference,
+                        recoveryScene,
+                        operationToken);
+                }
+
                 var attempts = Math.Max(0, _executionOptions.OperationRetryCount) + 1;
                 for (var attempt = 1; attempt <= attempts; attempt++)
                 {
@@ -152,7 +169,7 @@ namespace Evo.Infrastructure.Runtime.Loading
                             mode,
                             activateOnLoad,
                             priority,
-                            unloadPreviousAfterTargetLoad: true,
+                            unloadPreviousAfterTargetLoad: !isSameSceneReload,
                             previousActiveScene: recoveryScene);
 
                         await runner.RunAsync(steps, _progress, operationToken, notifyLifecycle: false);
@@ -199,7 +216,92 @@ namespace Evo.Infrastructure.Runtime.Loading
                     await UnloadTransitionSceneAsync();
                 }
 
+                if (temporaryHoldingScene.IsValid() && temporaryHoldingScene.isLoaded)
+                {
+                    await UnloadHoldingSceneAsync(temporaryHoldingScene);
+                }
+
                 await HideLoadingPresentationIfNeeded();
+            }
+        }
+
+        private UnityEngine.SceneManagement.Scene CreateTemporaryHoldingScene()
+        {
+            var scene = SceneManager.CreateScene($"__EvoSameSceneReload_{Guid.NewGuid():N}");
+            if (!scene.IsValid() || !scene.isLoaded || !SceneManager.SetActiveScene(scene))
+            {
+                throw new InvalidOperationException(
+                    "Could not create an active holding scene for a safe same-scene reload.");
+            }
+
+            EvoDebug.Log("Temporary holding scene created for same-scene reload.", SourceName);
+            return scene;
+        }
+
+        private async UniTask UnloadPreviousBeforeSameSceneReloadAsync(
+            AssetReference sceneReference,
+            UnityEngine.SceneManagement.Scene previousScene,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!previousScene.IsValid() || !previousScene.isLoaded)
+            {
+                return;
+            }
+
+            using var timeout = LoadingTimeoutScope.Create(
+                cancellationToken,
+                _executionOptions.TransitionTimeoutSeconds,
+                _executionOptions);
+            try
+            {
+                await _sceneLoader.UnloadAsync(
+                    sceneReference,
+                    timeout?.Token ?? cancellationToken);
+            }
+            catch (OperationCanceledException) when (
+                !cancellationToken.IsCancellationRequested &&
+                timeout?.IsTimeoutRequested == true)
+            {
+                throw new TimeoutException(
+                    $"Previous scene unload timed out after {_executionOptions.TransitionTimeoutSeconds:0.###} seconds.");
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (previousScene.IsValid() && previousScene.isLoaded)
+            {
+                throw new InvalidOperationException(
+                    $"Previous instance of scene '{previousScene.name}' remained loaded after Addressables unload.");
+            }
+
+            EvoDebug.Log("Previous target scene unloaded before same-scene reload.", SourceName);
+        }
+
+        private async UniTask UnloadHoldingSceneAsync(UnityEngine.SceneManagement.Scene scene)
+        {
+            if (!scene.IsValid() || !scene.isLoaded || SceneManager.sceneCount <= 1)
+            {
+                return;
+            }
+
+            try
+            {
+                var unloadOperation = SceneManager.UnloadSceneAsync(scene);
+                if (unloadOperation == null)
+                {
+                    return;
+                }
+
+                using var timeout = LoadingTimeoutScope.Create(
+                    CancellationToken.None,
+                    _executionOptions.TransitionTimeoutSeconds,
+                    _executionOptions);
+                await unloadOperation.ToUniTask(
+                    cancellationToken: timeout?.Token ?? CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                EvoDebug.LogWarning($"Temporary holding scene unload failed. {ex.Message}", SourceName);
             }
         }
 

@@ -30,7 +30,9 @@ namespace Evo.Infrastructure.Services.SceneLoader
             CancellationToken cancellationToken = default);
 
         UniTask UnloadAsync(string key, CancellationToken cancellationToken = default);
+        UniTask UnloadAsync(AssetReference reference, CancellationToken cancellationToken = default);
         UniTask UnloadByNameAsync(string sceneName, CancellationToken cancellationToken = default);
+        bool HasSceneIdentity(UnityEngine.SceneManagement.Scene scene, AssetReference reference);
         bool IsLoaded(string sceneName);
         UniTask ReloadActiveAsync(CancellationToken cancellationToken = default);
     }

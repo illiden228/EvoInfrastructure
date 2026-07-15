@@ -14,6 +14,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
     public sealed class SceneToolWindow : OdinEditorWindow
     {
         private const string DEFAULT_SCENES_FOLDER = "Assets/_Project/Scenes";
+        private static readonly Color HoveredRowColor = new Color(0.25f, 0.25f, 0.25f);
 
         [MenuItem("EvoTools/Scenes", false, 30)]
         private static void Open()
@@ -37,6 +38,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
         protected override void OnEnable()
         {
             base.OnEnable();
+            wantsMouseMove = true;
             if (string.IsNullOrEmpty(ScenesFolder))
             {
                 ScenesFolder = DEFAULT_SCENES_FOLDER;
@@ -59,6 +61,11 @@ namespace Evo.Infrastructure.Editor.EvoTools
         [OnInspectorGUI]
         private void DrawScenes()
         {
+            if (Event.current.type == EventType.MouseMove)
+            {
+                Repaint();
+            }
+
             if (_scenes == null)
             {
                 Refresh();
@@ -92,7 +99,12 @@ namespace Evo.Infrastructure.Editor.EvoTools
             var prevColor = GUI.color;
             var buildInfo = GetBuildInfo(scene.Path);
 
-            EditorGUILayout.BeginHorizontal();
+            var rowRect = EditorGUILayout.BeginHorizontal();
+            if (rowRect.Contains(Event.current.mousePosition))
+            {
+                EditorGUI.DrawRect(rowRect, HoveredRowColor);
+            }
+
             if (isOpen)
             {
                 GUI.color = new Color(0.55f, 0.9f, 0.6f);
