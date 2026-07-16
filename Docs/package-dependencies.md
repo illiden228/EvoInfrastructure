@@ -238,7 +238,7 @@ SDK adapter packages use two Unity assemblies: a package API/config assembly and
 
 - `com.evo.infrastructure.analytics.firebase` -> analytics, config, DI, debug; external `Firebase.App` and `Firebase.Analytics`
 - `com.evo.infrastructure.analytics.appmetrica` -> analytics, config, DI, debug; external `io.appmetrica.analytics` / `AppMetrica`
-- `com.evo.infrastructure.analytics.adjust` -> analytics, config, DI, debug; external `com.adjust.sdk` / `AdjustSdk.Scripts`
+- `com.evo.infrastructure.analytics.adjust` -> analytics, config, DI, debug, platform; external `com.adjust.sdk` / `AdjustSdk.Scripts`
 - `com.evo.infrastructure.ads.applovin` -> ads, analytics, config, DI, debug; external `com.applovin.mediation.ads` / `MaxSdk.Scripts`
 
 Most non-platform Evo packages have or can generate package-local asmdefs.

@@ -56,3 +56,16 @@ Fulfillment handlers must be idempotent by `AdapterId + TransactionId` and persi
 before returning success. The adapter confirms or consumes a transaction only after successful
 fulfillment. Missing config, adapter, or handler completes initialization as unavailable and does
 not block the loading pipeline.
+
+## Purchase transaction contract
+
+`PurchaseTransaction.ProductId` is the project's logical product ID, while `StoreProductId` is the
+SKU used by the selected store. `TransactionId` is the adapter/store transaction identity used for
+idempotent fulfillment and confirmation. `Receipt` preserves the store receipt, `PurchaseToken`
+contains a verification token when the store exposes one, and `OrderId` is populated only when it
+can be extracted reliably. `Price` and `CurrencyCode` are localized store metadata; `IsRestored`
+distinguishes fetched entitlements from a newly completed purchase.
+
+The purchases package never sends analytics. After successful fulfillment, the project may map a
+transaction to `PurchaseEventData` and call `IAnalyticsService.TrackPurchase(...)`. Restored
+transactions should only be reported when the project's analytics policy explicitly requires it.

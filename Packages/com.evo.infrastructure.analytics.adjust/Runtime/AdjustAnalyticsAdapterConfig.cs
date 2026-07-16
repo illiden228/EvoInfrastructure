@@ -26,9 +26,11 @@ namespace Evo.Infrastructure.Services.Analytics.Adjust
         [SerializeField] private string purchaseToken;
         [SerializeField] private EvoAdjustEnvironment environment = EvoAdjustEnvironment.Production;
         [SerializeField] private EvoAdjustLogLevel logLevel = EvoAdjustLogLevel.Suppress;
+        [SerializeField] private bool allowEditorTracking;
 
         public string PurchaseToken => purchaseToken;
         public EvoAdjustEnvironment Environment => environment;
         public EvoAdjustLogLevel LogLevel => logLevel;
+        public bool AllowEditorTracking => allowEditorTracking;
     }
 }

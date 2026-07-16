@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using AdjustSdk;
-using AdjustApi = AdjustSdk.Adjust;
 using Evo.Infrastructure.Services.Analytics.Config;
 using Evo.Infrastructure.Services.Config;
 using Evo.Infrastructure.Services.Debug;
@@ -15,19 +14,28 @@ namespace Evo.Infrastructure.Services.Analytics.Adjust
         private const string APPLOVIN_SOURCE = "applovin_max_sdk";
         private const string SOURCE = "Adjust Analytics Adapter";
         private readonly AdjustAnalyticsAdapterConfig _config;
+        private readonly IAdjustSdkFacade _sdk;
+        private readonly AnalyticsRuntimePlatform _runtimePlatform;
         private bool _isInitialized;
         private bool _isAvailable;
         private bool _sdkWarningLogged;
+        private bool _purchaseVerificationWarningLogged;
 
-        public AdjustAnalyticsAdapter(IConfigService configs)
+        public AdjustAnalyticsAdapter(IConfigService configs) : this(
+            ResolveConfig(configs),
+            new AdjustSdkFacade(),
+            AnalyticsRuntimePlatformResolver.Resolve())
         {
-            if (configs != null &&
-                configs.TryGet<AnalyticsAdapterCatalog>(out var catalog) &&
-                catalog != null)
-            {
-                catalog.TryGet(out _config);
-            }
+        }
 
+        internal AdjustAnalyticsAdapter(
+            AdjustAnalyticsAdapterConfig config,
+            IAdjustSdkFacade sdk,
+            AnalyticsRuntimePlatform runtimePlatform)
+        {
+            _config = config;
+            _sdk = sdk ?? throw new ArgumentNullException(nameof(sdk));
+            _runtimePlatform = runtimePlatform;
             AdapterId = _config?.ResolveAdapterId(DEFAULT_ID) ?? DEFAULT_ID;
             Initialize();
         }
@@ -83,6 +91,11 @@ namespace Evo.Infrastructure.Services.Analytics.Adjust
                     return;
                 }
 
+                if (_runtimePlatform == AnalyticsRuntimePlatform.Editor && !_config.AllowEditorTracking)
+                {
+                    return;
+                }
+
                 var sdkConfig = new AdjustConfig(
                     _config.AppKey,
                     (AdjustEnvironment)(int)_config.Environment,
@@ -95,7 +108,7 @@ namespace Evo.Infrastructure.Services.Analytics.Adjust
                     IsIdfaReadingEnabled = true,
                     IsSkanAttributionEnabled = true
                 };
-                AdjustApi.InitSdk(sdkConfig);
+                _sdk.InitSdk(sdkConfig);
                 _isAvailable = true;
             }
             catch (Exception ex)
@@ -134,16 +147,30 @@ namespace Evo.Infrastructure.Services.Analytics.Adjust
             }
 
             AddParameters(sdkEvent.AddCallbackParameter, analyticsEvent.Parameters);
-#if UNITY_IOS
-            AdjustApi.VerifyAndTrackAppStorePurchase(sdkEvent, LogVerification);
-#elif UNITY_ANDROID
-            AdjustApi.VerifyAndTrackPlayStorePurchase(sdkEvent, LogVerification);
-#else
-            AdjustApi.TrackEvent(sdkEvent);
-#endif
+            if (_runtimePlatform == AnalyticsRuntimePlatform.IOS)
+            {
+                _sdk.VerifyAndTrackAppStorePurchase(sdkEvent, LogVerification);
+                return;
+            }
+
+            if (_runtimePlatform == AnalyticsRuntimePlatform.Android)
+            {
+                if (!string.IsNullOrWhiteSpace(sdkEvent.ProductId) &&
+                    !string.IsNullOrWhiteSpace(sdkEvent.PurchaseToken))
+                {
+                    _sdk.VerifyAndTrackPlayStorePurchase(sdkEvent, LogVerification);
+                    return;
+                }
+
+                WarnPurchaseVerificationOnce(
+                    "Google Play purchase verification is unavailable because ProductId or PurchaseToken is missing; " +
+                    "tracking one unverified revenue event instead.");
+            }
+
+            _sdk.TrackEvent(sdkEvent);
         }
 
-        private static void TrackAdRevenue(in AnalyticsDispatchEvent analyticsEvent)
+        private void TrackAdRevenue(in AnalyticsDispatchEvent analyticsEvent)
         {
             var ad = analyticsEvent.AdEventData;
             if (ad.Revenue <= 0d ||
@@ -164,7 +191,20 @@ namespace Evo.Infrastructure.Services.Analytics.Adjust
             revenue.AdRevenueUnit = Limit(ad.UnitId);
             revenue.AdRevenuePlacement = Limit(ad.Placement);
             AddParameters(revenue.AddCallbackParameter, analyticsEvent.Parameters);
-            AdjustApi.TrackAdRevenue(revenue);
+            _sdk.TrackAdRevenue(revenue);
+        }
+
+        private static AdjustAnalyticsAdapterConfig ResolveConfig(IConfigService configs)
+        {
+            if (configs != null &&
+                configs.TryGet<AnalyticsAdapterCatalog>(out var catalog) &&
+                catalog != null &&
+                catalog.TryGet(out AdjustAnalyticsAdapterConfig config))
+            {
+                return config;
+            }
+
+            return null;
         }
 
         private static void AddParameters(Action<string, string> add, IReadOnlyDictionary<string, object> parameters)
@@ -212,6 +252,21 @@ namespace Evo.Infrastructure.Services.Analytics.Adjust
 
             _sdkWarningLogged = true;
             EvoDebug.LogWarning(message, SOURCE);
+        }
+
+        private void WarnPurchaseVerificationOnce(string message)
+        {
+            if (_purchaseVerificationWarningLogged)
+            {
+                return;
+            }
+
+            _purchaseVerificationWarningLogged = true;
+#if FULL_LOG
+            EvoDebug.LogWarning(message, SOURCE);
+#else
+            UnityEngine.Debug.LogWarning($"[{SOURCE}] {message}");
+#endif
         }
     }
 }

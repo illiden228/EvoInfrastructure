@@ -3,6 +3,7 @@
   "references": [
     "Evo.Infrastructure.Purchases",
     "Evo.Infrastructure.Purchases.UnityIap",
+    "Unity.Purchasing",
     "UniTask"
   ],
   "includePlatforms": ["Editor"],

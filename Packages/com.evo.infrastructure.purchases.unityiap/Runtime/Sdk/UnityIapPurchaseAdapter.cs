@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Evo.Infrastructure.Services.Debug;
@@ -307,12 +305,12 @@ namespace Evo.Infrastructure.Services.Purchases.UnityIap
             }
             foreach (var order in orders.ConfirmedOrders ?? Array.Empty<ConfirmedOrder>())
             {
-                var product = FirstProduct(order);
+                var product = UnityIapOrderMapper.FirstProduct(order);
                 if (product?.definition == null || product.definition.type == ProductType.Consumable)
                     continue;
                 var transaction = product.definition.type == ProductType.Subscription
                     ? ToTransaction(order, true)
-                    : ToConfirmedEntitlementTransaction(order, product);
+                    : ToConfirmedEntitlementTransaction(order);
                 if (string.IsNullOrWhiteSpace(transaction.TransactionId))
                     continue;
                 _confirmedTransactionIds.Add(transaction.TransactionId);
@@ -321,64 +319,18 @@ namespace Evo.Infrastructure.Services.Purchases.UnityIap
             return result;
         }
 
-        private PurchaseTransaction ToConfirmedEntitlementTransaction(ConfirmedOrder order, Product product)
-        {
-            var storeId = product.definition.storeSpecificId ?? string.Empty;
-            _productByStoreId.TryGetValue(storeId, out var productId);
-            var metadata = product.metadata;
-            // Confirmed non-consumables and subscriptions are entitlements, not pending orders.
-            // Unity IAP may omit TransactionID/Receipt here, so use a stable entitlement identity.
-            return new PurchaseTransaction(
-                "unity-iap-entitlement:" + storeId,
-                productId ?? string.Empty,
-                storeId,
-                Id,
-                order?.Info?.Receipt,
-                price: metadata?.localizedPrice ?? 0,
-                currencyCode: metadata?.isoCurrencyCode,
-                isRestored: true);
-        }
+        private PurchaseTransaction ToConfirmedEntitlementTransaction(ConfirmedOrder order) =>
+            UnityIapOrderMapper.ToTransaction(order, true, _productByStoreId, useEntitlementFallback: true);
 
-        private PurchaseTransaction ToTransaction(Order order, bool restored)
-        {
-            var product = FirstProduct(order);
-            var storeId = product?.definition?.storeSpecificId ?? string.Empty;
-            _productByStoreId.TryGetValue(storeId, out var productId);
-            var metadata = product?.metadata;
-            return new PurchaseTransaction(
-                ResolveTransactionId(order, storeId),
-                productId ?? string.Empty,
-                storeId,
-                Id,
-                order?.Info?.Receipt,
-                price: metadata?.localizedPrice ?? 0,
-                currencyCode: metadata?.isoCurrencyCode,
-                isRestored: restored);
-        }
-
-        private static string ResolveTransactionId(Order order, string storeProductId)
-        {
-            var transactionId = order?.Info?.TransactionID;
-            if (!string.IsNullOrWhiteSpace(transactionId))
-                return transactionId;
-
-            var receipt = order?.Info?.Receipt;
-            if (string.IsNullOrWhiteSpace(receipt) || string.IsNullOrWhiteSpace(storeProductId))
-                return string.Empty;
-
-            using var sha256 = SHA256.Create();
-            var bytes = Encoding.UTF8.GetBytes(storeProductId + "\n" + receipt);
-            var hash = sha256.ComputeHash(bytes);
-            return "unity-iap-recovery-" + BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
-        }
+        private PurchaseTransaction ToTransaction(Order order, bool restored) =>
+            UnityIapOrderMapper.ToTransaction(order, restored, _productByStoreId);
 
         private bool IsActiveOrder(Order order)
         {
-            var product = FirstProduct(order);
+            var product = UnityIapOrderMapper.FirstProduct(order);
             return product != null && MatchesProduct(product, _activeStoreProductId);
         }
 
-        private static Product FirstProduct(Order order) => order?.CartOrdered?.Items()?.FirstOrDefault()?.Product;
         private static bool MatchesProduct(Product product, string storeProductId) =>
             product?.definition != null &&
             (string.Equals(product.definition.storeSpecificId, storeProductId, StringComparison.Ordinal) ||

@@ -29,9 +29,9 @@ namespace Evo.Infrastructure.Core.Editor
         private const string LegacyRuntimePackageName = "com.evo.infrastructure.runtime";
         private const string EvoRepositoryUrl = "https://github.com/illiden228/EvoInfrastructure.git";
         private const string EvoTagsApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/tags?per_page=100";
-        private const string RuntimeGitTag = "v0.5.20";
-        private const string YandexGitTag = "v0.5.20";
-        private const string CrazyGamesGitTag = "v0.5.20";
+        private const string RuntimeGitTag = "v0.5.21";
+        private const string YandexGitTag = "v0.5.21";
+        private const string CrazyGamesGitTag = "v0.5.21";
         private static readonly EvoPackageDescriptor[] EvoPackages =
         {
             new("com.evo.infrastructure.di", "DI", "Core", "Feature registry and VContainer helpers."),
@@ -48,7 +48,7 @@ namespace Evo.Infrastructure.Core.Editor
             new("com.evo.infrastructure.analytics", "Analytics", "Services", "Analytics service and adapter routing.", "com.evo.infrastructure.config", "com.evo.infrastructure.platform", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.analytics.firebase", "Firebase Analytics", "SDK Adapters", "Firebase Analytics adapter; Firebase Unity SDK is installed separately.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.analytics.appmetrica", "AppMetrica Analytics", "SDK Adapters", "AppMetrica analytics adapter; io.appmetrica.analytics is installed separately.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
-            new("com.evo.infrastructure.analytics.adjust", "Adjust Analytics", "SDK Adapters", "Adjust analytics adapter; com.adjust.sdk is installed separately.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
+            new("com.evo.infrastructure.analytics.adjust", "Adjust Analytics", "SDK Adapters", "Adjust analytics adapter; com.adjust.sdk is installed separately.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug", "com.evo.infrastructure.platform"),
             new("com.evo.infrastructure.ads", "Ads", "Services", "Ads service, cooldown helpers and adapter routing.", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.platform", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.ads.applovin", "AppLovin Ads", "SDK Adapters", "AppLovin MAX ads adapter; com.applovin.mediation.ads is installed separately.", "com.evo.infrastructure.ads", "com.evo.infrastructure.analytics", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),
             new("com.evo.infrastructure.leaderboards", "Leaderboards", "Services", "Leaderboard service and adapter contract.", "com.evo.infrastructure.config", "com.evo.infrastructure.di", "com.evo.infrastructure.debug"),

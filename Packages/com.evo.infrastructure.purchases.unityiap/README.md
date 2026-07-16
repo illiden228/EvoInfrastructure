@@ -15,12 +15,18 @@ The adapter connects to the store, fetches configured products and pending
 purchases, and only confirms a transaction after the core fulfillment handler
 has granted and persisted its rewards.
 
-Restored non-consumables use a stable entitlement identity
-(`unity-iap-entitlement:<storeProductId>`), because confirmed orders may omit a
-transaction ID. Subscriptions retain their store transaction identity, falling
-back to a receipt-derived recovery ID. Subscription expiry, renewal and receipt
-changes must be reconciled by the project's fulfillment/backend validation
-policy; a subscription must not be modeled as an unverified consumable reward.
+Unity IAP 5.0.4 maps Google Play's unique purchase token to `Order.Info.TransactionID`.
+The adapter therefore preserves that value as `PurchaseTransaction.TransactionId` and also exposes
+it as `PurchaseToken` for Google Play verification. When available, the Google Play `orderId` is
+read from the nested unified receipt payload. Receipt parsing is best-effort and malformed or
+unknown formats never fail the purchase flow.
+
+Restored non-consumables preserve real store transaction, receipt, token and order fields whenever
+Unity IAP returns them. If a confirmed entitlement has no transaction identity, it falls back to
+`unity-iap-entitlement:<storeProductId>`. Other missing transaction IDs fall back to a stable
+receipt-derived recovery ID. Subscription expiry, renewal and receipt changes must be reconciled by
+the project's fulfillment/backend validation policy; a subscription must not be modeled as an
+unverified consumable reward.
 
 Unity IAP Codeless auto-initialization must be disabled when this adapter is
 used, because the adapter owns the `StoreController` lifecycle.
