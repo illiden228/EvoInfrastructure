@@ -1,9 +1,9 @@
 {
   "name": "com.evo.infrastructure.pooling",
-  "version": "0.5.22",
+  "version": "0.5.23",
   "displayName": "Evo Infrastructure Pooling",
   "description": "Generic and GameObject pooling helpers.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
-  "dependencies": {"com.evo.infrastructure.core": "0.5.22"}
+  "dependencies": {"com.evo.infrastructure.core": "0.5.23"}
 }

@@ -29,9 +29,9 @@ namespace Evo.Infrastructure.Core.Editor
         private const string LegacyRuntimePackageName = "com.evo.infrastructure.runtime";
         private const string EvoRepositoryUrl = "https://github.com/illiden228/EvoInfrastructure.git";
         private const string EvoTagsApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/tags?per_page=100";
-        private const string RuntimeGitTag = "v0.5.22";
-        private const string YandexGitTag = "v0.5.22";
-        private const string CrazyGamesGitTag = "v0.5.22";
+        private const string RuntimeGitTag = "v0.5.23";
+        private const string YandexGitTag = "v0.5.23";
+        private const string CrazyGamesGitTag = "v0.5.23";
         private static readonly EvoPackageDescriptor[] EvoPackages =
         {
             new("com.evo.infrastructure.di", "DI", "Core", "Feature registry and VContainer helpers."),

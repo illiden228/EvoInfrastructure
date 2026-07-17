@@ -1,5 +1,6 @@
 using Evo.Infrastructure.DI;
 using System.Runtime.CompilerServices;
+using VContainer;
 
 namespace Evo.Infrastructure.GooglePlayGames.Save
 {

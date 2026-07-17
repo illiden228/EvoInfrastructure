@@ -1,14 +1,14 @@
 {
   "name": "com.evo.infrastructure.audio",
-  "version": "0.5.22",
+  "version": "0.5.23",
   "displayName": "Evo Infrastructure Audio",
   "description": "Audio service and addressable audio cue keys.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.di": "0.5.22",
-    "com.evo.infrastructure.debug": "0.5.22",
-    "com.evo.infrastructure.resources": "0.5.22",
+    "com.evo.infrastructure.di": "0.5.23",
+    "com.evo.infrastructure.debug": "0.5.23",
+    "com.evo.infrastructure.resources": "0.5.23",
     "com.unity.addressables": "2.8.1"
   }
 }
