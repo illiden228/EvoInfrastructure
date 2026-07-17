@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using Evo.Infrastructure.DI;
 using Evo.Infrastructure.Services.Config;
 using VContainer;
@@ -20,50 +19,28 @@ namespace Evo.Infrastructure.Services.CrazyGames
             var features = new EvoFeatureRegistry(builder);
             if (config.PlatformInfo || config.PlatformLifecycle)
             {
-                TryUseFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesPlatformFeatureExtensions", "UseCrazyGamesPlatform");
+                EvoOptionalFeatureRegistry.TryRegister(features, "crazygames_platform");
             }
 
             if (config.Ads)
             {
-                TryUseFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesAdsFeatureExtensions", "UseCrazyGamesAds");
+                EvoOptionalFeatureRegistry.TryRegister(features, "crazygames_ads");
             }
 
             if (config.Leaderboard)
             {
-                TryUseFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesLeaderboardsFeatureExtensions", "UseCrazyGamesLeaderboards");
+                EvoOptionalFeatureRegistry.TryRegister(features, "crazygames_leaderboards");
             }
 
             if (config.CloudSave)
             {
-                TryUseFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesSaveFeatureExtensions", "UseCrazyGamesSave");
+                EvoOptionalFeatureRegistry.TryRegister(features, "crazygames_save");
             }
 
             if (config.PlayerAuth)
             {
-                TryUseFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesIdentityFeatureExtensions", "UseCrazyGamesIdentity");
+                EvoOptionalFeatureRegistry.TryRegister(features, "crazygames_identity");
             }
-        }
-
-        private static void TryUseFeature(EvoFeatureRegistry features, string typeName, string methodName)
-        {
-            var type = FindType(typeName);
-            var method = type?.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
-            method?.Invoke(null, new object[] { features });
-        }
-
-        private static Type FindType(string fullName)
-        {
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            for (var i = 0; i < assemblies.Length; i++)
-            {
-                var type = assemblies[i].GetType(fullName, false);
-                if (type != null)
-                {
-                    return type;
-                }
-            }
-
-            return null;
         }
 
         private static CrazyGamesRuntimeFeatureFlags GetConfig(IConfigService configService)

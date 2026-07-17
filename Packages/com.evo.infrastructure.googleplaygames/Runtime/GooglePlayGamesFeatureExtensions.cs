@@ -1,4 +1,3 @@
-using System;
 using System.Runtime.CompilerServices;
 using Evo.Infrastructure.DI;
 using VContainer;
@@ -9,7 +8,7 @@ namespace Evo.Infrastructure.GooglePlayGames
 {
     public static class GooglePlayGamesFeatureExtensions
     {
-        private const string SessionTypeName = "Evo.Infrastructure.GooglePlayGames.GooglePlayGamesSession, Evo.Infrastructure.GooglePlayGames.Sdk";
+        private const string SessionId = "google_play_games_session";
         private static readonly ConditionalWeakTable<EvoFeatureRegistry, object> Registrations = new();
 
         public static EvoFeatureRegistry UseGooglePlayGames(this EvoFeatureRegistry features, GooglePlayGamesOptions options = null)
@@ -17,11 +16,7 @@ namespace Evo.Infrastructure.GooglePlayGames
             if (Registrations.TryGetValue(features, out _)) return features;
             Registrations.Add(features, new object());
             features.Builder.RegisterInstance(options ?? new GooglePlayGamesOptions());
-            var sessionType = Type.GetType(SessionTypeName, false);
-            if (sessionType != null)
-                features.Builder.Register(sessionType, Lifetime.Singleton)
-                    .As(typeof(IGooglePlayGamesSession), typeof(IAsyncStartable));
-            else
+            if (!EvoOptionalFeatureRegistry.TryRegister(features, SessionId))
             {
                 features.Builder.Register<UnavailableGooglePlayGamesSession>(Lifetime.Singleton)
                     .As(typeof(IGooglePlayGamesSession), typeof(IAsyncStartable));

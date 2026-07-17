@@ -1,25 +1,16 @@
-using System;
 using Evo.Infrastructure.DI;
 using Evo.Infrastructure.Services.Analytics;
 using Evo.Infrastructure.Services.Debug;
-using VContainer;
 
 namespace Evo.Infrastructure.Services.Analytics.Adjust
 {
     public static class AdjustAnalyticsFeatureExtensions
     {
-        private const string ADAPTER_TYPE =
-            "Evo.Infrastructure.Services.Analytics.Adjust.AdjustAnalyticsAdapter, " +
-            "Evo.Infrastructure.Analytics.Adjust.Sdk";
+        private const string ADAPTER_ID = "adjust";
 
         public static EvoFeatureRegistry UseAdjustAnalytics(this EvoFeatureRegistry features)
         {
-            var type = Type.GetType(ADAPTER_TYPE, false);
-            if (type != null)
-            {
-                features.Builder.Register(type, Lifetime.Singleton).As<IAnalyticsAdapter>();
-            }
-            else
+            if (!EvoOptionalFeatureRegistry.TryRegister(features, ADAPTER_ID))
             {
                 EvoDebug.LogWarning(
                     "Adjust adapter is unavailable. Install com.adjust.sdk and let Unity recompile.",

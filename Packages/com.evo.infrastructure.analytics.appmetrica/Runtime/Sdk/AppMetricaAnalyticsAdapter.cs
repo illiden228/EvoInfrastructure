@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Evo.Infrastructure.Services.Analytics.Config;
 using Evo.Infrastructure.Services.Config;
 using Evo.Infrastructure.Services.Debug;
@@ -14,7 +16,9 @@ namespace Evo.Infrastructure.Services.Analytics.AppMetrica
     {
         private const string DEFAULT_ID = "appmetrica";
         private const string SOURCE = "AppMetrica Analytics Adapter";
+        private const int ACTIVATION_TIMEOUT_MS = 10000;
         private readonly AppMetricaAnalyticsAdapterConfig _config;
+        private UniTaskCompletionSource _activationCompletion;
         private bool _isInitialized;
         private bool _isAvailable;
         private bool _warningLogged;
@@ -29,7 +33,7 @@ namespace Evo.Infrastructure.Services.Analytics.AppMetrica
             }
 
             AdapterId = _config?.ResolveAdapterId(DEFAULT_ID) ?? DEFAULT_ID;
-            Initialize();
+            InitializeAsync().Forget(ex => CompleteFailed($"AppMetrica activation failed: {ex.Message}"));
         }
 
         public string AdapterId { get; }
@@ -71,46 +75,116 @@ namespace Evo.Infrastructure.Services.Analytics.AppMetrica
             }
         }
 
-        private void Initialize()
+        private async UniTask InitializeAsync()
         {
             try
             {
                 if (_config == null)
                 {
-                    WarnOnce("AppMetrica config is missing; adapter is disabled.");
+                    CompleteFailed("AppMetrica config is missing; adapter is disabled.");
                     return;
                 }
 
                 if (string.IsNullOrWhiteSpace(_config.AppKey))
                 {
-                    WarnOnce("AppMetrica app key is missing; adapter is disabled.");
+                    CompleteFailed("AppMetrica app key is missing; adapter is disabled.");
                     return;
                 }
 
-                if (!AppMetricaApi.IsActivated())
+                if (AppMetricaApi.IsActivated())
                 {
-                    var sdkConfig = new AppMetricaConfig(_config.AppKey.Trim())
-                    {
-                        DataSendingEnabled = true,
-                        Logs = _config.EnableSdkLogs
-                    };
-                    AppMetricaApi.Activate(sdkConfig);
+                    CompleteActivated();
+                    return;
                 }
 
-                _isAvailable = AppMetricaApi.IsActivated();
-                if (!_isAvailable)
+                _activationCompletion = new UniTaskCompletionSource();
+                AppMetricaApi.OnActivation += OnActivated;
+                var sdkConfig = new AppMetricaConfig(_config.AppKey.Trim())
                 {
-                    WarnOnce("AppMetrica activation did not complete; adapter is disabled.");
+                    DataSendingEnabled = true,
+                    Logs = _config.EnableSdkLogs
+                };
+                AppMetricaApi.Activate(sdkConfig);
+                if (TryCompleteActivated())
+                {
+                    return;
+                }
+
+                using var activationCancellation = new CancellationTokenSource();
+                var completed = await UniTask.WhenAny(
+                    _activationCompletion.Task,
+                    UniTask.Delay(ACTIVATION_TIMEOUT_MS, cancellationToken: activationCancellation.Token));
+                activationCancellation.Cancel();
+                if (completed != 0)
+                {
+                    if (!TryCompleteActivated())
+                    {
+                        CompleteFailed($"AppMetrica activation timed out after {ACTIVATION_TIMEOUT_MS} ms; adapter is disabled.");
+                    }
                 }
             }
             catch (Exception ex)
             {
-                WarnOnce($"AppMetrica activation failed: {ex.Message}");
+                if (!TryCompleteActivated())
+                {
+                    CompleteFailed($"AppMetrica activation failed: {ex.Message}");
+                }
             }
-            finally
+        }
+
+        private void OnActivated(AppMetricaConfig _)
+        {
+            CompleteActivated();
+        }
+
+        private void CompleteActivated()
+        {
+            if (_isInitialized)
             {
-                _isInitialized = true;
+                return;
             }
+
+            _isAvailable = true;
+            _isInitialized = true;
+            _activationCompletion?.TrySetResult();
+            UnsubscribeFromActivation();
+        }
+
+        private bool TryCompleteActivated()
+        {
+            try
+            {
+                if (!AppMetricaApi.IsActivated())
+                {
+                    return false;
+                }
+
+                CompleteActivated();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void CompleteFailed(string message)
+        {
+            if (_isInitialized)
+            {
+                return;
+            }
+
+            _isAvailable = false;
+            _isInitialized = true;
+            _activationCompletion?.TrySetResult();
+            UnsubscribeFromActivation();
+            WarnOnce(message);
+        }
+
+        private void UnsubscribeFromActivation()
+        {
+            AppMetricaApi.OnActivation -= OnActivated;
         }
 
         private void TrackPurchase(in AnalyticsDispatchEvent analyticsEvent)

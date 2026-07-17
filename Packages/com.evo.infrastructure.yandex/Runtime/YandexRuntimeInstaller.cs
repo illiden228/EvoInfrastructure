@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using Evo.Infrastructure.DI;
 using Evo.Infrastructure.Services.Config;
 using VContainer;
@@ -20,55 +19,33 @@ namespace Evo.Infrastructure.Services.Yandex
             var features = new EvoFeatureRegistry(builder);
             if (config.PlatformInfo || config.PlatformLifecycle)
             {
-                TryUseFeature(features, "Evo.Infrastructure.Services.Yandex.YandexPlatformFeatureExtensions", "UseYandexPlatform");
+                EvoOptionalFeatureRegistry.TryRegister(features, "yandex_platform");
             }
 
             if (config.Ads)
             {
-                TryUseFeature(features, "Evo.Infrastructure.Services.Yandex.YandexAdsFeatureExtensions", "UseYandexAds");
+                EvoOptionalFeatureRegistry.TryRegister(features, "yandex_ads");
             }
 
             if (config.Analytics)
             {
-                TryUseFeature(features, "Evo.Infrastructure.Services.Yandex.YandexAnalyticsFeatureExtensions", "UseYandexAnalytics");
+                EvoOptionalFeatureRegistry.TryRegister(features, "yandex_analytics");
             }
 
             if (config.Leaderboard)
             {
-                TryUseFeature(features, "Evo.Infrastructure.Services.Yandex.YandexLeaderboardsFeatureExtensions", "UseYandexLeaderboards");
+                EvoOptionalFeatureRegistry.TryRegister(features, "yandex_leaderboards");
             }
 
             if (config.CloudSave)
             {
-                TryUseFeature(features, "Evo.Infrastructure.Services.Yandex.YandexSaveFeatureExtensions", "UseYandexSave");
+                EvoOptionalFeatureRegistry.TryRegister(features, "yandex_save");
             }
 
             if (config.PlayerAuth)
             {
-                TryUseFeature(features, "Evo.Infrastructure.Services.Yandex.YandexIdentityFeatureExtensions", "UseYandexIdentity");
+                EvoOptionalFeatureRegistry.TryRegister(features, "yandex_identity");
             }
-        }
-
-        private static void TryUseFeature(EvoFeatureRegistry features, string typeName, string methodName)
-        {
-            var type = FindType(typeName);
-            var method = type?.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
-            method?.Invoke(null, new object[] { features });
-        }
-
-        private static Type FindType(string fullName)
-        {
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            for (var i = 0; i < assemblies.Length; i++)
-            {
-                var type = assemblies[i].GetType(fullName, false);
-                if (type != null)
-                {
-                    return type;
-                }
-            }
-
-            return null;
         }
 
         private static YandexRuntimeFeatureFlags GetConfig(IConfigService configService)

@@ -14,6 +14,7 @@ namespace Evo.Infrastructure.Services.Analytics
     public sealed class AnalyticsService : IAnalyticsService, IAnalyticsInitialization
     {
         private const string SOURCE = nameof(AnalyticsService);
+        private const int INITIALIZATION_TIMEOUT_MS = 15000;
 
         private readonly IReadOnlyList<IAnalyticsAdapter> _allAdapters;
         private readonly IReadOnlyList<IAnalyticsAdapter> _activeAdapters;
@@ -36,6 +37,7 @@ namespace Evo.Infrastructure.Services.Analytics
                 ? _analyticsConfig.ResolveBindingsForPlatform(_platformId)
                 : null;
             _activeAdapters = BuildActiveAdapters(_allAdapters, bindings);
+            LogAdapterDiagnostics();
         }
 
         public void TrackCustom(string eventKey, IReadOnlyDictionary<string, object> parameters = null)
@@ -242,9 +244,65 @@ namespace Evo.Infrastructure.Services.Analytics
                 return;
             }
 
-            await UniTask.WaitWhile(
-                () => !AreAllAdaptersInitialized(_activeAdapters),
-                cancellationToken: cancellationToken);
+            using var initializationCancellation =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var completed = await UniTask.WhenAny(
+                UniTask.WaitUntil(
+                    () => AreAllAdaptersInitialized(_activeAdapters),
+                    cancellationToken: initializationCancellation.Token),
+                UniTask.Delay(
+                    INITIALIZATION_TIMEOUT_MS,
+                    cancellationToken: initializationCancellation.Token));
+            initializationCancellation.Cancel();
+            if (completed != 0)
+            {
+                LogSkip(
+                    $"Analytics initialization timed out after {INITIALIZATION_TIMEOUT_MS} ms. " +
+                    $"Still pending: {DescribePendingAdapters(_activeAdapters)}.");
+            }
+        }
+
+        private void LogAdapterDiagnostics()
+        {
+            EvoDebug.Log(
+                $"Analytics adapters registered: {DescribeAdapters(_allAdapters)}. " +
+                $"Active for platform '{_platformId ?? "default"}': {DescribeAdapters(_activeAdapters)}.",
+                SOURCE);
+        }
+
+        private static string DescribeAdapters(IReadOnlyList<IAnalyticsAdapter> adapters)
+        {
+            if (adapters == null || adapters.Count == 0)
+            {
+                return "none";
+            }
+
+            var ids = new List<string>(adapters.Count);
+            for (var i = 0; i < adapters.Count; i++)
+            {
+                var adapter = adapters[i];
+                if (adapter != null && !string.IsNullOrWhiteSpace(adapter.AdapterId))
+                {
+                    ids.Add(adapter.AdapterId);
+                }
+            }
+
+            return ids.Count == 0 ? "none" : string.Join(", ", ids);
+        }
+
+        private static string DescribePendingAdapters(IReadOnlyList<IAnalyticsAdapter> adapters)
+        {
+            var ids = new List<string>();
+            for (var i = 0; i < adapters.Count; i++)
+            {
+                var adapter = adapters[i];
+                if (adapter != null && !adapter.IsInitialized)
+                {
+                    ids.Add(adapter.AdapterId);
+                }
+            }
+
+            return ids.Count == 0 ? "none" : string.Join(", ", ids);
         }
 
         private static bool AreAllAdaptersInitialized(IReadOnlyList<IAnalyticsAdapter> adapters)

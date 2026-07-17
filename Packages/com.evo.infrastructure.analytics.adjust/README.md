@@ -1,6 +1,8 @@
 # Evo Adjust Analytics
 
 Install `com.adjust.sdk` separately. The SDK bridge references `AdjustSdk.Scripts` and is guarded by the package version define; the Adjust SDK is not bundled.
+The bridge registers its strongly typed adapter at Unity startup; it does not use runtime type-name lookup.
+`AlwaysLinkAssembly` preserves the conditional SDK bridge for IL2CPP builds.
 
 ```csharp
 features.UseAnalytics();

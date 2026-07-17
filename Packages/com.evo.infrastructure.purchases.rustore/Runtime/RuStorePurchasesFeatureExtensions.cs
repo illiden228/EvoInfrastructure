@@ -1,15 +1,12 @@
 using System;
 using Evo.Infrastructure.DI;
 using Evo.Infrastructure.Services.Debug;
-using VContainer;
 
 namespace Evo.Infrastructure.Services.Purchases.RuStore
 {
     public static class RuStorePurchasesFeatureExtensions
     {
-        private const string FactoryTypeName =
-            "Evo.Infrastructure.Services.Purchases.RuStore.RuStorePurchaseAdapterFactory, " +
-            "Evo.Infrastructure.Purchases.RuStore.Sdk";
+        private const string FactoryId = "rustore";
 
         public static EvoFeatureRegistry UseRuStorePurchases(this EvoFeatureRegistry features)
         {
@@ -18,12 +15,7 @@ namespace Evo.Infrastructure.Services.Purchases.RuStore
                 throw new ArgumentNullException(nameof(features));
             }
 
-            var factoryType = Type.GetType(FactoryTypeName, false);
-            if (factoryType != null)
-            {
-                features.Builder.Register(factoryType, Lifetime.Singleton).As<IPurchaseAdapterFactory>();
-            }
-            else
+            if (!EvoOptionalFeatureRegistry.TryRegister(features, FactoryId))
             {
                 EvoDebug.LogWarning(
                     "RuStore purchases are unavailable. Install a Unity-compatible RuStore Pay SDK " +

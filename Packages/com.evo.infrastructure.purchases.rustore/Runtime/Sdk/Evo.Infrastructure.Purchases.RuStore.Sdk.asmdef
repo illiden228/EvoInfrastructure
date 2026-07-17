@@ -4,8 +4,10 @@
     "Evo.Infrastructure.Purchases",
     "Evo.Infrastructure.Purchases.RuStore",
     "Evo.Infrastructure.Config",
+    "Evo.Infrastructure.DI",
     "Evo.Infrastructure.Debug",
     "UniTask",
+    "VContainer",
     "RuStorePay"
   ],
   "autoReferenced": true,

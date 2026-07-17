@@ -1,6 +1,6 @@
 {
   "name": "Evo.Infrastructure.Analytics.AppMetrica.Sdk",
-  "references": ["Evo.Infrastructure.Analytics", "Evo.Infrastructure.Analytics.AppMetrica", "Evo.Infrastructure.Config", "Evo.Infrastructure.Debug", "AppMetrica"],
+  "references": ["Evo.Infrastructure.Analytics", "Evo.Infrastructure.Analytics.AppMetrica", "Evo.Infrastructure.Config", "Evo.Infrastructure.DI", "Evo.Infrastructure.Debug", "UniTask", "VContainer", "AppMetrica"],
   "autoReferenced": true,
   "defineConstraints": ["EVO_APPMETRICA_SDK"],
   "versionDefines": [{"name":"io.appmetrica.analytics","expression":"","define":"EVO_APPMETRICA_SDK"}],

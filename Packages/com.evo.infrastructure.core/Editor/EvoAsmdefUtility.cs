@@ -110,12 +110,17 @@ namespace Evo.Infrastructure.Core.Editor
 
         private static readonly SdkAsmdefRequirement[] SdkAsmdefs =
         {
-            new("com.evo.infrastructure.analytics.adjust", "Runtime/Sdk/Evo.Infrastructure.Analytics.Adjust.Sdk.asmdef", "AdjustSdk.Scripts", "EVO_ADJUST_SDK", "com.adjust.sdk"),
-            new("com.evo.infrastructure.analytics.appmetrica", "Runtime/Sdk/Evo.Infrastructure.Analytics.AppMetrica.Sdk.asmdef", "AppMetrica", "EVO_APPMETRICA_SDK", "io.appmetrica.analytics"),
-            new("com.evo.infrastructure.analytics.firebase", "Runtime/Sdk/Evo.Infrastructure.Analytics.Firebase.Sdk.asmdef", "Firebase.Analytics", "EVO_FIREBASE_ANALYTICS_SDK", null, false),
-            new("com.evo.infrastructure.ads.applovin", "Runtime/Sdk/Evo.Infrastructure.Ads.AppLovin.Sdk.asmdef", "MaxSdk.Scripts", "EVO_APPLOVIN_MAX_SDK", "com.applovin.mediation.ads"),
-            new("com.evo.infrastructure.purchases.rustore", "Runtime/Sdk/Evo.Infrastructure.Purchases.RuStore.Sdk.asmdef", "RuStorePay", "EVO_RUSTORE_PAY_SDK", "ru.rustore.pay"),
-            new("com.evo.infrastructure.googleplaygames", "Runtime/Sdk/Evo.Infrastructure.GooglePlayGames.Sdk.asmdef", "Google.Play.Games", "EVO_GOOGLE_PLAY_GAMES_SDK", null, false)
+            new("com.evo.infrastructure.analytics.adjust", "Runtime/Sdk/Evo.Infrastructure.Analytics.Adjust.Sdk.asmdef", "AdjustSdk.Scripts", "EVO_ADJUST_SDK", "com.adjust.sdk", true, true, "Evo.Infrastructure.DI", "VContainer"),
+            new("com.evo.infrastructure.analytics.appmetrica", "Runtime/Sdk/Evo.Infrastructure.Analytics.AppMetrica.Sdk.asmdef", "AppMetrica", "EVO_APPMETRICA_SDK", "io.appmetrica.analytics", true, true, "Evo.Infrastructure.DI", "VContainer"),
+            new("com.evo.infrastructure.analytics.firebase", "Runtime/Sdk/Evo.Infrastructure.Analytics.Firebase.Sdk.asmdef", "Firebase.Analytics", "EVO_FIREBASE_ANALYTICS_SDK", null, false, true, "Evo.Infrastructure.DI", "VContainer"),
+            new("com.evo.infrastructure.ads.applovin", "Runtime/Sdk/Evo.Infrastructure.Ads.AppLovin.Sdk.asmdef", "MaxSdk.Scripts", "EVO_APPLOVIN_MAX_SDK", "com.applovin.mediation.ads", true, true, "Evo.Infrastructure.DI", "VContainer"),
+            new("com.evo.infrastructure.purchases.rustore", "Runtime/Sdk/Evo.Infrastructure.Purchases.RuStore.Sdk.asmdef", "RuStorePay", "EVO_RUSTORE_PAY_SDK", "ru.rustore.pay", true, true, "Evo.Infrastructure.DI", "VContainer"),
+            new("com.evo.infrastructure.googleplaygames", "Runtime/Sdk/Evo.Infrastructure.GooglePlayGames.Sdk.asmdef", "Google.Play.Games", "EVO_GOOGLE_PLAY_GAMES_SDK", null, false, true, "Evo.Infrastructure.DI", "VContainer"),
+            new("com.evo.infrastructure.googleplaygames.identity", "Runtime/Sdk/Evo.Infrastructure.GooglePlayGames.Identity.Sdk.asmdef", "Google.Play.Games", "EVO_GOOGLE_PLAY_GAMES_SDK", null, false, true, "Evo.Infrastructure.DI", "VContainer"),
+            new("com.evo.infrastructure.googleplaygames.save", "Runtime/Sdk/Evo.Infrastructure.GooglePlayGames.Save.Sdk.asmdef", "Google.Play.Games", "EVO_GOOGLE_PLAY_GAMES_SDK", null, false, true, "Evo.Infrastructure.DI", "VContainer"),
+            new("com.evo.infrastructure.googleplaygames.achievements", "Runtime/Sdk/Evo.Infrastructure.GooglePlayGames.Achievements.Sdk.asmdef", "Google.Play.Games", "EVO_GOOGLE_PLAY_GAMES_SDK", null, false, true, "Evo.Infrastructure.DI", "VContainer"),
+            new("com.evo.infrastructure.googleplaygames.leaderboards", "Runtime/Sdk/Evo.Infrastructure.GooglePlayGames.Leaderboards.Sdk.asmdef", "Google.Play.Games", "EVO_GOOGLE_PLAY_GAMES_SDK", null, false, true, "Evo.Infrastructure.DI", "VContainer"),
+            new("com.evo.infrastructure.yandex.identity", "Runtime/Sdk/Evo.Infrastructure.Yandex.Identity.Sdk.asmdef", string.Empty, "YandexGamesPlatform_yg|Authorization_yg", null, false, true, "Evo.Infrastructure.DI", "VContainer")
         };
 
         [MenuItem("EvoTools/Asmdefs/Validate Evo asmdefs")]
@@ -193,10 +198,18 @@ namespace Evo.Infrastructure.Core.Editor
                         string.Equals(value.define, requirement.Define, StringComparison.Ordinal));
                 var hasSdkReference = !requirement.RequireAsmdefReference ||
                     (asmdef?.references ?? Array.Empty<string>()).Contains(requirement.SdkAssembly);
-                if (asmdef == null || !hasSdkReference ||
-                    !(asmdef.defineConstraints ?? Array.Empty<string>()).Contains(requirement.Define) || !hasVersionDefine)
+                var hasDirectReferences = requirement.DirectReferences.All(reference =>
+                    (asmdef?.references ?? Array.Empty<string>()).Contains(reference));
+                var hasRequiredDefines = requirement.Define.Split('|').All(define =>
+                    (asmdef?.defineConstraints ?? Array.Empty<string>()).Contains(define));
+                var assemblyInfoPath = Path.Combine(Path.GetDirectoryName(path) ?? string.Empty, "AssemblyInfo.cs");
+                var hasAlwaysLinkAssembly = !requirement.RequireAlwaysLinkAssembly ||
+                    (File.Exists(assemblyInfoPath) &&
+                     File.ReadAllText(assemblyInfoPath).IndexOf("[assembly: AlwaysLinkAssembly]", StringComparison.Ordinal) >= 0);
+                if (asmdef == null || !hasSdkReference || !hasDirectReferences ||
+                    !hasRequiredDefines || !hasVersionDefine || !hasAlwaysLinkAssembly)
                 {
-                    report.Add($"Invalid guarded SDK asmdef: {path}. Expected SDK binding for '{requirement.SdkAssembly}', constraint '{requirement.Define}', and its package version define when applicable.");
+                    report.Add($"Invalid guarded SDK asmdef: {path}. Expected SDK binding for '{requirement.SdkAssembly}', direct references ({string.Join(", ", requirement.DirectReferences)}), constraints '{requirement.Define}', AlwaysLinkAssembly, and its package version define when applicable.");
                 }
             }
         }
@@ -385,6 +398,8 @@ namespace Evo.Infrastructure.Core.Editor
             public readonly string Define;
             public readonly string VersionDefinePackage;
             public readonly bool RequireAsmdefReference;
+            public readonly bool RequireAlwaysLinkAssembly;
+            public readonly string[] DirectReferences;
 
             public SdkAsmdefRequirement(
                 string packageId,
@@ -392,7 +407,9 @@ namespace Evo.Infrastructure.Core.Editor
                 string sdkAssembly,
                 string define,
                 string versionDefinePackage,
-                bool requireAsmdefReference = true)
+                bool requireAsmdefReference = true,
+                bool requireAlwaysLinkAssembly = true,
+                params string[] directReferences)
             {
                 PackageId = packageId;
                 RelativePath = relativePath;
@@ -400,6 +417,8 @@ namespace Evo.Infrastructure.Core.Editor
                 Define = define;
                 VersionDefinePackage = versionDefinePackage;
                 RequireAsmdefReference = requireAsmdefReference;
+                RequireAlwaysLinkAssembly = requireAlwaysLinkAssembly;
+                DirectReferences = directReferences ?? Array.Empty<string>();
             }
         }
     }

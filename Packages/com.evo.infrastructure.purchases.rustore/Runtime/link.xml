@@ -1,3 +1,0 @@
-<linker>
-  <assembly fullname="Evo.Infrastructure.Purchases.RuStore.Sdk" preserve="all" ignoreIfMissing="1" />
-</linker>

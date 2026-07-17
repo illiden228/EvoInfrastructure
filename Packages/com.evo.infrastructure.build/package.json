@@ -1,12 +1,12 @@
 {
   "name": "com.evo.infrastructure.build",
-  "version": "0.5.21",
+  "version": "0.5.22",
   "displayName": "Evo Infrastructure Build",
   "description": "Editor build profiles, build steps, CI entry points, and build tooling.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.config": "0.5.21",
-    "com.evo.infrastructure.platform": "0.5.21"
+    "com.evo.infrastructure.config": "0.5.22",
+    "com.evo.infrastructure.platform": "0.5.22"
   }
 }

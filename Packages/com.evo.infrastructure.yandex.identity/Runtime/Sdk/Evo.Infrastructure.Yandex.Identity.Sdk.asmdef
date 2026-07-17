@@ -1,1 +1,1 @@
-{"name":"Evo.Infrastructure.Yandex.Identity.Sdk","references":["Evo.Infrastructure.Yandex.Identity","Evo.Infrastructure.Identity","UniTask"],"autoReferenced":true,"defineConstraints":["YandexGamesPlatform_yg","Authorization_yg"]}
+{"name":"Evo.Infrastructure.Yandex.Identity.Sdk","references":["Evo.Infrastructure.Yandex.Identity","Evo.Infrastructure.Identity","Evo.Infrastructure.DI","UniTask","VContainer"],"autoReferenced":true,"defineConstraints":["YandexGamesPlatform_yg","Authorization_yg"]}

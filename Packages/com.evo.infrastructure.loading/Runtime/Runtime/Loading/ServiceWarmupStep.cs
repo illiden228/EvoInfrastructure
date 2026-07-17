@@ -17,6 +17,7 @@ namespace Evo.Infrastructure.Runtime.Loading
         public int Order => 0;
 
         private readonly IResourceLoaderService _resourceLoader;
+        private readonly IAnalyticsInitialization _analyticsInitialization;
         private readonly ILocalizationService _localizationService;
 
         public ServiceWarmupStep(
@@ -27,16 +28,21 @@ namespace Evo.Infrastructure.Runtime.Loading
             ILocalizationService localizationService = null)
         {
             _resourceLoader = resourceLoader;
+            _analyticsInitialization = analyticsInitialization;
             _localizationService = localizationService;
-            _ = analyticsInitialization;
         }
 
         public async UniTask Execute(IProgress<float> progress, CancellationToken cancellationToken)
         {
-            var tasks = new List<UniTask>(2);
+            var tasks = new List<UniTask>(3);
             if (_resourceLoader != null)
             {
                 tasks.Add(_resourceLoader.InitializeAsync(cancellationToken));
+            }
+
+            if (_analyticsInitialization != null)
+            {
+                tasks.Add(_analyticsInitialization.WaitForInitializationAsync(cancellationToken));
             }
 
             if (_localizationService != null)

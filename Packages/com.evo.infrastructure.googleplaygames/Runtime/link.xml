@@ -1,7 +1,0 @@
-<linker>
-  <assembly fullname="Evo.Infrastructure.GooglePlayGames.Sdk" preserve="all" />
-  <assembly fullname="Evo.Infrastructure.GooglePlayGames.Identity.Sdk" preserve="all" />
-  <assembly fullname="Evo.Infrastructure.GooglePlayGames.Leaderboards.Sdk" preserve="all" />
-  <assembly fullname="Evo.Infrastructure.GooglePlayGames.Save.Sdk" preserve="all" />
-  <assembly fullname="Evo.Infrastructure.GooglePlayGames.Achievements.Sdk" preserve="all" />
-</linker>

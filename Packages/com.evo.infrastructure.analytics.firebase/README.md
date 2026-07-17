@@ -1,6 +1,8 @@
 # Evo Firebase Analytics
 
 Install the Firebase Unity SDK (`Firebase.App` and `Firebase.Analytics`) separately; it is not bundled with this package. The Evo Setup wizard detects both UPM assemblies and the official precompiled DLLs imported under `Assets`, then offers to enable `EVO_FIREBASE_ANALYTICS_SDK`. The SDK bridge asmdef is excluded otherwise, so projects remain compile-safe.
+The bridge registers its strongly typed adapter at Unity startup and `AlwaysLinkAssembly` preserves the
+conditional SDK bridge for IL2CPP; no runtime type-name lookup is used.
 
 ```csharp
 features.UseAnalytics();

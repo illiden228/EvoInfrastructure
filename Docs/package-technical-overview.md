@@ -67,6 +67,12 @@ Current runtime features:
 
 Each feature package owns its interfaces, default implementation, VContainer registration extension, and only the direct dependencies it needs.
 
+Optional SDK bridges register strongly typed VContainer factories during Unity startup. Public `Use...` methods
+consume that registry instead of resolving bridge types from strings. Each conditional bridge has an
+`AlwaysLinkAssembly` marker so IL2CPP retains its strongly typed registration path.
+Replaying the same factory registration is safe after a domain reload; a different factory claiming the same key
+logs a warning and the first factory stays active.
+
 ### Platform Packages
 
 Current platform packages are split by platform and feature:
@@ -204,7 +210,7 @@ Example:
 ```json
 {
   "dependencies": {
-    "com.evo.infrastructure.core": "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.core#v0.5.6"
+    "com.evo.infrastructure.core": "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.core#v0.5.22"
   }
 }
 ```
