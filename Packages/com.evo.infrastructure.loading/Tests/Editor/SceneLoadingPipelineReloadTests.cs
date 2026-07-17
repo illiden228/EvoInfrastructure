@@ -171,7 +171,6 @@ namespace Evo.Infrastructure.Runtime.Loading.Tests
             return new SceneLoadingPipeline(
                 loader,
                 new LoadingProgressStub(),
-                configService: null,
                 resolver,
                 executionOptions);
         }

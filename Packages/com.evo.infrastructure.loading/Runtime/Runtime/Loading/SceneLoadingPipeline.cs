@@ -1,12 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Threading;
 using Evo.Infrastructure.Runtime.Gameplay.Loading;
 using Cysharp.Threading.Tasks;
 using Evo.Infrastructure.Core.Async;
 using Evo.Infrastructure.Services.SceneLoader;
-using Evo.Infrastructure.Services.Config;
 using Evo.Infrastructure.Services.Debug;
 using UnityEngine.AddressableAssets;
 using UnityEngine.SceneManagement;
@@ -28,16 +26,22 @@ namespace Evo.Infrastructure.Runtime.Loading
         private readonly string _transitionSceneName;
         private readonly AsyncGate _loadGate = new();
 
-        public SceneLoadingPipeline(ISceneLoaderService sceneLoader, ILoadingProgress progress, IConfigService configService)
-            : this(sceneLoader, progress, configService, null, null)
+        public SceneLoadingPipeline(
+            ISceneLoaderService sceneLoader,
+            ILoadingProgress progress,
+            ITransitionSceneProvider transitionSceneProvider = null)
+            : this(sceneLoader, progress, null, null)
         {
+            if (string.IsNullOrWhiteSpace(_transitionOptions.TransitionSceneName))
+            {
+                _transitionSceneName = transitionSceneProvider?.TransitionSceneName;
+            }
         }
 
         [Inject]
         public SceneLoadingPipeline(
             ISceneLoaderService sceneLoader,
             ILoadingProgress progress,
-            IConfigService configService,
             IObjectResolver resolver,
             LoadingExecutionOptions executionOptions)
         {
@@ -48,9 +52,10 @@ namespace Evo.Infrastructure.Runtime.Loading
             _executionOptions = executionOptions ??
                                 TryResolve<LoadingExecutionOptions>(resolver) ??
                                 new LoadingExecutionOptions();
+            var resolvedProvider = TryResolve<ITransitionSceneProvider>(resolver);
             _transitionSceneName = !string.IsNullOrWhiteSpace(_transitionOptions.TransitionSceneName)
                 ? _transitionOptions.TransitionSceneName
-                : ResolveTransitionSceneName(configService);
+                : resolvedProvider?.TransitionSceneName;
         }
 
         public IReadOnlyList<ILoadingStep> CreateSteps(
@@ -859,34 +864,6 @@ namespace Evo.Infrastructure.Runtime.Loading
             }
         }
 
-        private static string ResolveTransitionSceneName(IConfigService configService)
-        {
-            if (configService == null)
-            {
-                return null;
-            }
-
-            var configType = FindTypeByName("Game.Runtime.Config.ProjectConfig") ??
-                             FindTypeByName("Evo.Infrastructure.Runtime.Config.ProjectConfig");
-            if (configType == null)
-            {
-                return null;
-            }
-
-            if (!configService.TryGet(configType, out var config) || config == null)
-            {
-                return null;
-            }
-
-            var property = configType.GetProperty("TransitionSceneName", BindingFlags.Public | BindingFlags.Instance);
-            if (property == null || property.PropertyType != typeof(string))
-            {
-                return null;
-            }
-
-            return property.GetValue(config) as string;
-        }
-
         private static T TryResolve<T>(IObjectResolver resolver)
             where T : class
         {
@@ -907,24 +884,5 @@ namespace Evo.Infrastructure.Runtime.Loading
             }
         }
 
-        private static Type FindTypeByName(string fullName)
-        {
-            if (string.IsNullOrWhiteSpace(fullName))
-            {
-                return null;
-            }
-
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            for (var i = 0; i < assemblies.Length; i++)
-            {
-                var type = assemblies[i].GetType(fullName, false);
-                if (type != null)
-                {
-                    return type;
-                }
-            }
-
-            return null;
-        }
     }
 }

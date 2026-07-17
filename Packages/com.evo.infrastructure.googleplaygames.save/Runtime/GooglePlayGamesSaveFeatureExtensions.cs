@@ -1,6 +1,7 @@
 using Evo.Infrastructure.DI;
 using System.Runtime.CompilerServices;
 using VContainer;
+using UnityEngine;
 
 namespace Evo.Infrastructure.GooglePlayGames.Save
 {
@@ -15,7 +16,10 @@ namespace Evo.Infrastructure.GooglePlayGames.Save
             Registrations.Add(features, new object());
             features.UseGooglePlayGames();
             features.Builder.RegisterInstance(options ?? new GooglePlayGamesSaveOptions());
-            EvoOptionalFeatureRegistry.TryRegister(features, BackendId);
+            if (!EvoOptionalFeatureRegistry.TryRegister(features, BackendId))
+            {
+                Debug.LogWarning("[GooglePlayGamesSaveFeatureExtensions] Saved Games bridge is unavailable; backend was not registered.");
+            }
             return features;
         }
     }

@@ -35,6 +35,18 @@ namespace Evo.Infrastructure.Services.UI
             return new UiOpenBuilder<TViewModel>(_uiService, _viewId, options);
         }
 
+        public UiOpenBuilder<TViewModel> WithViewModelFactory(Func<TViewModel> factory)
+        {
+            if (factory == null)
+            {
+                throw new ArgumentNullException(nameof(factory));
+            }
+
+            var options = CloneOptions(_options);
+            options.ViewModelFactory = () => factory();
+            return new UiOpenBuilder<TViewModel>(_uiService, _viewId, options);
+        }
+
         public UniTask<UiHandle> OpenAsync()
         {
             return _uiService.OpenAsync<TViewModel>(_viewId, _options);
@@ -62,7 +74,8 @@ namespace Evo.Infrastructure.Services.UI
                 KeepAcrossSceneLoadsOverride = options?.KeepAcrossSceneLoadsOverride,
                 Context = options?.Context,
                 ContextType = options?.ContextType,
-                ContextPayload = options?.ContextPayload
+                ContextPayload = options?.ContextPayload,
+                ViewModelFactory = options?.ViewModelFactory
             };
         }
 
@@ -75,6 +88,7 @@ namespace Evo.Infrastructure.Services.UI
                 KeepAliveOverride = options?.KeepAliveOverride,
                 KeepHistory = options?.KeepHistory ?? false,
                 KeepAcrossSceneLoadsOverride = options?.KeepAcrossSceneLoadsOverride,
+                ViewModelFactory = options?.ViewModelFactory,
                 ContextType = typeof(TContext),
                 ContextPayload = new UiContextPayload<TContext>(context)
             };

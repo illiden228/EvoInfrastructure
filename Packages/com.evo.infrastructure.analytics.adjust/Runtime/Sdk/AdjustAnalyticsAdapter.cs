@@ -5,6 +5,7 @@ using AdjustSdk;
 using Evo.Infrastructure.Services.Analytics.Config;
 using Evo.Infrastructure.Services.Config;
 using Evo.Infrastructure.Services.Debug;
+using VContainer;
 
 namespace Evo.Infrastructure.Services.Analytics.Adjust
 {
@@ -21,6 +22,7 @@ namespace Evo.Infrastructure.Services.Analytics.Adjust
         private bool _sdkWarningLogged;
         private bool _purchaseVerificationWarningLogged;
 
+        [Inject]
         public AdjustAnalyticsAdapter(IConfigService configs) : this(
             ResolveConfig(configs),
             new AdjustSdkFacade(),

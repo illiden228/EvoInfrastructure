@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using Evo.Infrastructure.Services.Config;
 using UnityEngine;
 
@@ -87,6 +86,14 @@ namespace Evo.Infrastructure.Runtime.Config.Catalogs
                     continue;
                 }
 
+                if (item is not ICatalogItemWithId)
+                {
+                    result.AddError(
+                        $"Item at index {i} ({item.name}) must implement {nameof(ICatalogItemWithId)}. " +
+                        "Reflected Id lookup is not supported in player builds.");
+                    continue;
+                }
+
                 var id = GetItemId(item)?.Trim() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(id))
                 {
@@ -160,13 +167,7 @@ namespace Evo.Infrastructure.Runtime.Config.Catalogs
                 return withId.Id ?? string.Empty;
             }
 
-            var property = item.GetType().GetProperty("Id", BindingFlags.Instance | BindingFlags.Public);
-            if (property?.PropertyType != typeof(string))
-            {
-                return string.Empty;
-            }
-
-            return property.GetValue(item) as string ?? string.Empty;
+            return string.Empty;
         }
 
         protected virtual void OnValidate()

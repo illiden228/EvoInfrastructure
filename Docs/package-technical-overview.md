@@ -112,7 +112,7 @@ Examples:
 
 - A project can install Yandex and CrazyGames packages but build Android. Runtime platform checks must keep Yandex/Crazy backends inactive.
 - `UseCrazyGamesAds()` can be present in a project lifetime scope. The adapter still reports unavailable if `CRAZY` is missing or the runtime is not supported.
-- Yandex adapters are still compiled behind PluginYG2 defines until a Yandex facade isolates direct PluginYG2 references.
+- Yandex adapters are compiled behind PluginYG2 defines. The purchases bridge now uses the typed `YG2` Payments API and `AlwaysLinkAssembly`; it contains no runtime reflection.
 
 ### Platform SDK Assembly Boundaries
 
@@ -210,7 +210,7 @@ Example:
 ```json
 {
   "dependencies": {
-    "com.evo.infrastructure.core": "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.core#v0.5.23"
+    "com.evo.infrastructure.core": "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.core#v0.5.24"
   }
 }
 ```

@@ -1,0 +1,12 @@
+{
+  "name": "Evo.Infrastructure.UI.Editor.Tests",
+  "references": [
+    "Evo.Infrastructure.UI",
+    "Evo.Infrastructure.DI",
+    "VContainer"
+  ],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false,
+  "noEngineReferences": false
+}

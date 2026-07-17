@@ -28,67 +28,6 @@ namespace Evo.Infrastructure.Services.UI
             public bool ProcessingQueue;
         }
 
-        private readonly struct ContextReceiverKey : IEquatable<ContextReceiverKey>
-        {
-            private readonly Type _viewModelType;
-            private readonly Type _contextType;
-
-            public ContextReceiverKey(Type viewModelType, Type contextType)
-            {
-                _viewModelType = viewModelType;
-                _contextType = contextType;
-            }
-
-            public bool Equals(ContextReceiverKey other)
-            {
-                return _viewModelType == other._viewModelType &&
-                       _contextType == other._contextType;
-            }
-
-            public override bool Equals(object obj)
-            {
-                return obj is ContextReceiverKey other && Equals(other);
-            }
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    return ((_viewModelType != null ? _viewModelType.GetHashCode() : 0) * 397) ^
-                           (_contextType != null ? _contextType.GetHashCode() : 0);
-                }
-            }
-        }
-
-        private interface IContextApplier
-        {
-            void Apply(IUiViewModel viewModel, object context);
-        }
-
-        private sealed class ContextApplier<TContext> : IContextApplier
-        {
-            public void Apply(IUiViewModel viewModel, object context)
-            {
-                if (context == null &&
-                    typeof(TContext).IsValueType &&
-                    Nullable.GetUnderlyingType(typeof(TContext)) == null)
-                {
-                    return;
-                }
-
-                ((IUiContextReceiver<TContext>)viewModel).SetContext((TContext)context);
-            }
-        }
-
-        private sealed class NullContextApplier : IContextApplier
-        {
-            public static readonly NullContextApplier Instance = new();
-
-            public void Apply(IUiViewModel viewModel, object context)
-            {
-            }
-        }
-
         private readonly struct OpenRequest
         {
             public readonly Type ViewModelType;
@@ -117,6 +56,7 @@ namespace Evo.Infrastructure.Services.UI
         }
 
         private readonly UiSystemConfig _config;
+        private readonly UiBindingRegistry _bindings;
         private readonly IResourceProviderService _resources;
         private readonly IObjectResolver _resolver;
         private readonly ISceneLoaderService _sceneLoader;
@@ -125,13 +65,17 @@ namespace Evo.Infrastructure.Services.UI
         private readonly Dictionary<Type, UiViewBase> _sceneViewsByType = new();
         private readonly Dictionary<Type, UiViewEntry> _entryByViewType = new();
         private readonly Dictionary<UiLayer, LayerState> _layers = new();
-        private static readonly Dictionary<ContextReceiverKey, IContextApplier> ContextApplierCache = new();
         private GameObject _root;
         private bool _closingSceneBoundViews;
 
-        public UiService(UiSystemConfig config, IResourceProviderService resources, IObjectResolver resolver)
+        public UiService(
+            UiSystemConfig config,
+            UiBindingRegistry bindings,
+            IResourceProviderService resources,
+            IObjectResolver resolver)
         {
             _config = config;
+            _bindings = bindings;
             _resources = resources;
             _resolver = resolver;
             _sceneLoader = TryResolveSceneLoader(resolver);
@@ -202,7 +146,7 @@ namespace Evo.Infrastructure.Services.UI
 
             RegisterSceneView(view);
             var entry = _entryByViewType.TryGetValue(view.GetType(), out var configEntry) ? configEntry : null;
-            var viewModelType = entry?.GetViewModelType() ?? GetViewModelTypeFromView(view.GetType());
+            var viewModelType = GetViewModelType(entry);
             if (viewModelType == null)
             {
                 EvoDebug.LogWarning($"Missing ViewModel type for {view.GetType().Name}.", nameof(UiService));
@@ -226,7 +170,7 @@ namespace Evo.Infrastructure.Services.UI
                 }
             }
 
-            return OpenInstanceInternal(view, viewModelType, layer, mode, keepAlive, keepHistory, keepAcrossSceneLoads, options?.Context, options?.ContextType, options?.ContextPayload);
+            return OpenInstanceInternal(view, viewModelType, layer, mode, keepAlive, keepHistory, keepAcrossSceneLoads, options?.Context, options?.ContextType, options?.ContextPayload, options?.ViewModelFactory);
         }
 
         public async UniTask HideAsync(UiViewBase view)
@@ -294,11 +238,6 @@ namespace Evo.Infrastructure.Services.UI
                 return UniTask.FromResult<UiHandle>(null);
             }
 
-            if (entry.IsSceneView)
-            {
-                TryAutoRegisterSceneView(entry);
-            }
-
             var layer = options?.LayerOverride ?? entry.Layer;
             var mode = options?.OpenModeOverride ?? entry.OpenMode;
             var keepAlive = options?.KeepAliveOverride ?? entry.KeepAlive;
@@ -319,7 +258,7 @@ namespace Evo.Infrastructure.Services.UI
                 return tcs.Task;
             }
 
-            return OpenInternal(entry, viewId, layer, mode, keepAlive, keepHistory, keepAcrossSceneLoads, options?.Context, options?.ContextType, options?.ContextPayload);
+            return OpenInternal(entry, viewId, layer, mode, keepAlive, keepHistory, keepAcrossSceneLoads, options?.Context, options?.ContextType, options?.ContextPayload, options?.ViewModelFactory);
         }
 
         internal async UniTask CloseAsync(UiHandle handle)
@@ -366,7 +305,8 @@ namespace Evo.Infrastructure.Services.UI
             bool keepAcrossSceneLoads,
             object context,
             Type contextType,
-            IUiContextPayload contextPayload)
+            IUiContextPayload contextPayload,
+            Func<IUiViewModel> viewModelFactory)
         {
             var state = GetLayerState(layer);
             if (state == null)
@@ -391,14 +331,14 @@ namespace Evo.Infrastructure.Services.UI
                 }
             }
 
-            var viewModelType = entry.GetViewModelType();
+            var viewModelType = GetViewModelType(entry);
             var view = await GetViewInstance(entry, viewId, layer);
             if (view == null)
             {
                 return null;
             }
 
-            var viewModel = CreateViewModel(viewModelType);
+            var viewModel = CreateViewModel(viewModelType, viewModelFactory);
             if (viewModel == null)
             {
                 EvoDebug.LogWarning($"Failed to create ViewModel for {viewModelType?.Name}.", nameof(UiService));
@@ -432,7 +372,8 @@ namespace Evo.Infrastructure.Services.UI
             bool keepAcrossSceneLoads,
             object context,
             Type contextType,
-            IUiContextPayload contextPayload)
+            IUiContextPayload contextPayload,
+            Func<IUiViewModel> viewModelFactory)
         {
             var state = GetLayerState(layer);
             if (state == null)
@@ -457,7 +398,7 @@ namespace Evo.Infrastructure.Services.UI
                 }
             }
 
-            var viewModel = CreateViewModel(viewModelType);
+            var viewModel = CreateViewModel(viewModelType, viewModelFactory);
             if (viewModel == null)
             {
                 EvoDebug.LogWarning($"Failed to create ViewModel for {viewModelType?.Name}.", nameof(UiService));
@@ -485,7 +426,7 @@ namespace Evo.Infrastructure.Services.UI
         {
             if (entry.IsSceneView)
             {
-                var viewType = entry.GetViewType();
+                var viewType = GetViewType(entry);
                 if (viewType != null && _sceneViewsByType.TryGetValue(viewType, out var sceneView))
                 {
                     return sceneView;
@@ -505,7 +446,7 @@ namespace Evo.Infrastructure.Services.UI
             if (_resources == null || entry.ViewPrefab == null)
             {
                 EvoDebug.LogWarning(
-                    $"Missing view prefab for {entry.GetViewModelType()?.Name}.",
+                    $"Missing view prefab for {GetViewModelType(entry)?.Name}.",
                     nameof(UiService));
                 return null;
             }
@@ -669,7 +610,7 @@ namespace Evo.Infrastructure.Services.UI
                 UiHandle handle;
                 if (request.View != null)
                 {
-                    var viewModelType = request.ViewModelType ?? GetViewModelTypeFromView(request.View.GetType());
+                    var viewModelType = request.ViewModelType ?? GetViewModelTypeByView(request.View.GetType());
                     if (viewModelType == null)
                     {
                         request.Tcs.TrySetResult(null);
@@ -681,7 +622,7 @@ namespace Evo.Infrastructure.Services.UI
                     var keepHistory = options.KeepHistory;
                     var keepAlive = options.KeepAliveOverride ?? true;
                     var keepAcrossSceneLoads = options.KeepAcrossSceneLoadsOverride ?? false;
-                    handle = await OpenInstanceInternal(request.View, viewModelType, layer, mode, keepAlive, keepHistory, keepAcrossSceneLoads, options.Context, options.ContextType, options.ContextPayload);
+                    handle = await OpenInstanceInternal(request.View, viewModelType, layer, mode, keepAlive, keepHistory, keepAcrossSceneLoads, options.Context, options.ContextType, options.ContextPayload, options.ViewModelFactory);
                 }
                 else
                 {
@@ -690,7 +631,7 @@ namespace Evo.Infrastructure.Services.UI
                     var keepAlive = options.KeepAliveOverride ?? entry.KeepAlive;
                     var keepHistory = options.KeepHistory || entry.KeepHistory;
                     var keepAcrossSceneLoads = options.KeepAcrossSceneLoadsOverride ?? entry.KeepAcrossSceneLoads;
-                    handle = await OpenInternal(entry, request.ViewId, layer, mode, keepAlive, keepHistory, keepAcrossSceneLoads, options.Context, options.ContextType, options.ContextPayload);
+                    handle = await OpenInternal(entry, request.ViewId, layer, mode, keepAlive, keepHistory, keepAcrossSceneLoads, options.Context, options.ContextType, options.ContextPayload, options.ViewModelFactory);
                 }
                 request.Tcs.TrySetResult(handle);
             }
@@ -899,7 +840,7 @@ namespace Evo.Infrastructure.Services.UI
             }
 
             return _entryByViewType.TryGetValue(viewType, out var entry)
-                ? entry.GetViewModelType()
+                ? GetViewModelType(entry)
                 : null;
         }
 
@@ -920,7 +861,7 @@ namespace Evo.Infrastructure.Services.UI
                     continue;
                 }
 
-                var type = entry.GetViewModelType();
+                var type = GetViewModelType(entry);
                 if (type == null)
                 {
                     continue;
@@ -934,7 +875,7 @@ namespace Evo.Infrastructure.Services.UI
 
                 list.Add(entry);
 
-                var viewType = entry.GetViewType();
+                var viewType = GetViewType(entry);
                 if (viewType != null && !_entryByViewType.ContainsKey(viewType))
                 {
                     _entryByViewType[viewType] = entry;
@@ -1007,8 +948,23 @@ namespace Evo.Infrastructure.Services.UI
             return state;
         }
 
-        private IUiViewModel CreateViewModel(Type viewModelType)
+        private IUiViewModel CreateViewModel(Type viewModelType, Func<IUiViewModel> factory)
         {
+            if (factory != null)
+            {
+                try
+                {
+                    return factory();
+                }
+                catch (Exception ex)
+                {
+                    EvoDebug.LogWarning(
+                        $"ViewModel factory for '{viewModelType?.Name}' failed. {ex.Message}",
+                        nameof(UiService));
+                    return null;
+                }
+            }
+
             if (_resolver == null || viewModelType == null)
             {
                 return null;
@@ -1059,45 +1015,12 @@ namespace Evo.Infrastructure.Services.UI
                 return;
             }
 
-            var contextType = explicitContextType ?? context?.GetType();
-            if (contextType == null)
+            if (context != null || explicitContextType != null)
             {
-                return;
+                EvoDebug.LogWarning(
+                    "Untyped UI context is no longer supported. Use OpenAsync<TViewModel, TContext> or UiOpenBuilder.WithContext<TContext>.",
+                    nameof(UiService));
             }
-
-            var viewModelType = viewModel.GetType();
-            var key = new ContextReceiverKey(viewModelType, contextType);
-            if (!ContextApplierCache.TryGetValue(key, out var applier))
-            {
-                applier = CreateContextApplier(viewModelType, contextType);
-                ContextApplierCache[key] = applier;
-            }
-
-            applier.Apply(viewModel, context);
-        }
-
-        private static IContextApplier CreateContextApplier(Type viewModelType, Type contextType)
-        {
-            var interfaces = viewModelType.GetInterfaces();
-            for (var i = 0; i < interfaces.Length; i++)
-            {
-                var candidate = interfaces[i];
-                if (!candidate.IsGenericType ||
-                    candidate.GetGenericTypeDefinition() != typeof(IUiContextReceiver<>))
-                {
-                    continue;
-                }
-
-                var acceptedType = candidate.GetGenericArguments()[0];
-                if (!acceptedType.IsAssignableFrom(contextType))
-                {
-                    continue;
-                }
-
-                return (IContextApplier)Activator.CreateInstance(typeof(ContextApplier<>).MakeGenericType(acceptedType));
-            }
-
-            return NullContextApplier.Instance;
         }
 
         private static UiOpenOptions WithContext<TContext>(UiOpenOptions options, TContext context)
@@ -1109,6 +1032,7 @@ namespace Evo.Infrastructure.Services.UI
                 KeepAliveOverride = options?.KeepAliveOverride,
                 KeepHistory = options?.KeepHistory ?? false,
                 KeepAcrossSceneLoadsOverride = options?.KeepAcrossSceneLoadsOverride,
+                ViewModelFactory = options?.ViewModelFactory,
                 ContextType = typeof(TContext),
                 ContextPayload = new UiContextPayload<TContext>(context)
             };
@@ -1123,78 +1047,10 @@ namespace Evo.Infrastructure.Services.UI
 
             if (!string.IsNullOrEmpty(viewId))
             {
-                return $"{entry.ViewModelTypeName}:{viewId}";
+                return $"{entry.EffectiveBindingId}:{viewId}";
             }
 
-            return $"{entry.ViewModelTypeName}:{entry.Id}";
-        }
-
-        private void TryAutoRegisterSceneView(UiViewEntry entry)
-        {
-            if (entry == null)
-            {
-                return;
-            }
-
-            var viewType = entry.GetViewType();
-            if (viewType == null)
-            {
-                EvoDebug.LogWarning("Scene view entry has no ViewType.", nameof(UiService));
-                return;
-            }
-
-            if (_sceneViewsByType.ContainsKey(viewType))
-            {
-                return;
-            }
-
-            var view = FindSceneView(viewType);
-            if (view == null)
-            {
-                EvoDebug.LogWarning(
-                    $"Scene view not found for type '{viewType.Name}'.",
-                    nameof(UiService));
-                return;
-            }
-
-            RegisterSceneView(view);
-        }
-
-        private static UiViewBase FindSceneView(Type viewType)
-        {
-#if UNITY_2022_2_OR_NEWER
-            var found = UnityEngine.Object.FindObjectsByType(viewType, FindObjectsInactive.Include, FindObjectsSortMode.None);
-            return GetRootSceneView(found);
-#else
-            var objects = UnityEngine.Object.FindObjectsOfType(viewType, true);
-            return GetRootSceneView(objects);
-#endif
-        }
-
-        private static UiViewBase GetRootSceneView(UnityEngine.Object[] objects)
-        {
-            if (objects == null || objects.Length == 0)
-            {
-                return null;
-            }
-
-            for (var i = 0; i < objects.Length; i++)
-            {
-                if (objects[i] is not UiViewBase view)
-                {
-                    continue;
-                }
-
-                var parentView = view.transform.parent != null
-                    ? view.transform.parent.GetComponentInParent<UiViewBase>()
-                    : null;
-                if (parentView == null)
-                {
-                    return view;
-                }
-            }
-
-            return objects[0] as UiViewBase;
+            return $"{entry.EffectiveBindingId}:{entry.Id}";
         }
 
         private static Transform CreateCanvas(Transform parent, string name, int sortingOrder = 0)
@@ -1363,23 +1219,33 @@ namespace Evo.Infrastructure.Services.UI
                    view.transform.IsChildOf(_root.transform);
         }
 
-        private static Type GetViewModelTypeFromView(Type viewType)
+        private Type GetViewModelType(UiViewEntry entry)
         {
-            while (viewType != null)
-            {
-                if (viewType.IsGenericType && viewType.GetGenericTypeDefinition() == typeof(UiView<>))
-                {
-                    var args = viewType.GetGenericArguments();
-                    if (args.Length == 1)
-                    {
-                        return args[0];
-                    }
-                }
+            return TryGetBinding(entry, out var binding) ? binding.ViewModelType : null;
+        }
 
-                viewType = viewType.BaseType;
+        private Type GetViewType(UiViewEntry entry)
+        {
+            return TryGetBinding(entry, out var binding) ? binding.ViewType : null;
+        }
+
+        private bool TryGetBinding(UiViewEntry entry, out UiBinding binding)
+        {
+            binding = null;
+            if (entry == null || _bindings == null)
+            {
+                return false;
             }
 
-            return null;
+            if (_bindings.TryGet(entry.EffectiveBindingId, out binding))
+            {
+                return true;
+            }
+
+            EvoDebug.LogWarning(
+                $"UI binding '{entry.EffectiveBindingId}' is not registered for view entry '{entry.Id}'.",
+                nameof(UiService));
+            return false;
         }
     }
 }

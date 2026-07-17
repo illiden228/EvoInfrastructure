@@ -12,6 +12,7 @@ namespace Evo.Infrastructure.Services.UI
         public bool? KeepAcrossSceneLoadsOverride;
         public object Context;
         public Type ContextType;
+        public Func<IUiViewModel> ViewModelFactory;
         internal IUiContextPayload ContextPayload;
     }
 

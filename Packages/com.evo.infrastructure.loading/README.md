@@ -59,6 +59,14 @@ Regular scene transitions after startup keep using
 `ISceneLoadingPipeline.LoadSceneAsync`; that method owns a separate lifecycle for
 post-start scene changes.
 
+Projects that keep the transition-scene name in a project-owned config register
+an explicit `ITransitionSceneProvider`. The loading package does not scan project
+assemblies or reflect project config properties:
+
+```csharp
+builder.Register<ITransitionSceneProvider, ProjectTransitionSceneProvider>(Lifetime.Singleton);
+```
+
 `LoadSceneMode.Single` reloads of the currently active Addressables scene use its
 stable scene identity and unload the old instance before loading the replacement.
 When no transition scene is configured, the pipeline creates a temporary empty

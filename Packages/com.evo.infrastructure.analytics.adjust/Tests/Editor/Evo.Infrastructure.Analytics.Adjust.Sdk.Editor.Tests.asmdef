@@ -5,7 +5,8 @@
     "Evo.Infrastructure.Analytics.Adjust",
     "Evo.Infrastructure.Analytics.Adjust.Sdk",
     "Evo.Infrastructure.Config",
-    "AdjustSdk.Scripts"
+    "AdjustSdk.Scripts",
+    "VContainer"
   ],
   "includePlatforms": ["Editor"],
   "optionalUnityReferences": ["TestAssemblies"],

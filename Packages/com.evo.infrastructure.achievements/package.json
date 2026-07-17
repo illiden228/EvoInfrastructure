@@ -1,1 +1,1 @@
-{"name":"com.evo.infrastructure.achievements","version":"0.5.23","displayName":"Evo Infrastructure Achievements","description":"Platform-neutral achievement service and adapter routing.","unity":"2022.3","author":{"name":"Evo"},"dependencies":{"com.evo.infrastructure.di":"0.5.23"}}
+{"name":"com.evo.infrastructure.achievements","version":"0.5.24","displayName":"Evo Infrastructure Achievements","description":"Platform-neutral achievement service and adapter routing.","unity":"2022.3","author":{"name":"Evo"},"dependencies":{"com.evo.infrastructure.di":"0.5.24"}}

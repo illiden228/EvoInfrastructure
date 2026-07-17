@@ -1,12 +1,12 @@
 {
   "name": "com.evo.infrastructure.config",
-  "version": "0.5.23",
+  "version": "0.5.24",
   "displayName": "Evo Infrastructure Config",
   "description": "Runtime config catalogs and config service.",
   "unity": "2022.3",
   "author": { "name": "Evo" },
   "dependencies": {
-    "com.evo.infrastructure.di": "0.5.23",
-    "com.evo.infrastructure.debug": "0.5.23"
+    "com.evo.infrastructure.di": "0.5.24",
+    "com.evo.infrastructure.debug": "0.5.24"
   }
 }

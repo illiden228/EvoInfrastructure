@@ -11,37 +11,42 @@ namespace Evo.Infrastructure.Services.UI
     {
         public static EvoFeatureRegistry UseUi(
             this EvoFeatureRegistry features,
-            UiSystemConfig uiSystemConfig = null)
+            UiSystemConfig uiSystemConfig = null,
+            Action<UiBindingRegistry> configureBindings = null)
         {
-            var builder = features.Builder;
-            if (uiSystemConfig != null)
+            if (uiSystemConfig == null)
             {
-                builder.RegisterInstance(uiSystemConfig);
-                RegisterUiViewModels(builder, uiSystemConfig);
+                throw new ArgumentNullException(nameof(uiSystemConfig));
             }
+
+            var builder = features.Builder;
+            var bindings = new UiBindingRegistry();
+            configureBindings?.Invoke(bindings);
+            builder.RegisterInstance(bindings);
+            builder.RegisterInstance(uiSystemConfig);
+            RegisterUiViewModels(builder, bindings);
 
             builder.Register<IUiService, UiService>(Lifetime.Singleton);
             return features;
         }
 
-        private static void RegisterUiViewModels(IContainerBuilder builder, UiSystemConfig config)
+        private static void RegisterUiViewModels(IContainerBuilder builder, UiBindingRegistry bindings)
         {
-            if (builder == null || config == null || config.Views == null)
+            if (builder == null || bindings == null)
             {
                 return;
             }
 
             var registered = new HashSet<Type>();
-            for (var i = 0; i < config.Views.Count; i++)
+            foreach (var binding in bindings.Bindings)
             {
-                var entry = config.Views[i];
-                var viewModelType = entry?.GetViewModelType();
-                if (viewModelType == null || registered.Contains(viewModelType))
+                var viewModelType = binding.ViewModelType;
+                if (!binding.RegisterViewModel || viewModelType == null || registered.Contains(viewModelType))
                 {
                     continue;
                 }
 
-                builder.Register(viewModelType, Lifetime.Transient);
+                binding.RegisterViewModelAction(builder);
                 registered.Add(viewModelType);
             }
         }

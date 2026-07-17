@@ -7,6 +7,8 @@ using Evo.Infrastructure.Services.Analytics.Adjust;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using VContainer;
+using Evo.Infrastructure.Services.Config;
 
 namespace Evo.Infrastructure.Analytics.Adjust.Tests
 {
@@ -20,6 +22,20 @@ namespace Evo.Infrastructure.Analytics.Adjust.Tests
             foreach (var config in _configs)
                 UnityEngine.Object.DestroyImmediate(config);
             _configs.Clear();
+        }
+
+        [Test]
+        public void VContainer_UsesConfigServiceConstructor()
+        {
+            var builder = new ContainerBuilder();
+            builder.RegisterInstance<IConfigService>(new EmptyConfigService());
+            builder.Register<AdjustAnalyticsAdapter>(Lifetime.Singleton);
+
+            using var container = builder.Build();
+            var adapter = container.Resolve<AdjustAnalyticsAdapter>();
+
+            Assert.That(adapter, Is.Not.Null);
+            Assert.That(adapter.IsInitialized, Is.True);
         }
 
         [Test]
@@ -183,6 +199,23 @@ namespace Evo.Infrastructure.Analytics.Adjust.Tests
                 AdjustEvent adjustEvent,
                 Action<AdjustPurchaseVerificationResult> callback) =>
                 PlayStoreVerifiedEvents.Add(adjustEvent);
+        }
+
+        private sealed class EmptyConfigService : IConfigService
+        {
+            public T Get<T>() where T : class => null;
+            public bool TryGet<T>(out T config) where T : class
+            {
+                config = null;
+                return false;
+            }
+
+            public object Get(Type type) => null;
+            public bool TryGet(Type type, out object config)
+            {
+                config = null;
+                return false;
+            }
         }
     }
 }

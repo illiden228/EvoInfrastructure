@@ -1,5 +1,6 @@
 using Evo.Infrastructure.DI;
 using System.Runtime.CompilerServices;
+using UnityEngine;
 
 namespace Evo.Infrastructure.GooglePlayGames.Identity
 {
@@ -13,7 +14,10 @@ namespace Evo.Infrastructure.GooglePlayGames.Identity
             if (Registrations.TryGetValue(features, out _)) return features;
             Registrations.Add(features, new object());
             features.UseGooglePlayGames();
-            EvoOptionalFeatureRegistry.TryRegister(features, ProviderId);
+            if (!EvoOptionalFeatureRegistry.TryRegister(features, ProviderId))
+            {
+                Debug.LogWarning("[GooglePlayGamesIdentityFeatureExtensions] Identity bridge is unavailable; provider was not registered.");
+            }
             return features;
         }
     }

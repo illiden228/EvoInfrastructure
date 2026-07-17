@@ -1,5 +1,6 @@
 using Evo.Infrastructure.DI;
 using System.Runtime.CompilerServices;
+using UnityEngine;
 
 namespace Evo.Infrastructure.GooglePlayGames.Leaderboards
 {
@@ -14,7 +15,10 @@ namespace Evo.Infrastructure.GooglePlayGames.Leaderboards
             Registrations.Add(features, new object());
             features.UseGooglePlayGames();
             features.Builder.RegisterInstance(options ?? new GooglePlayGamesLeaderboardsOptions());
-            EvoOptionalFeatureRegistry.TryRegister(features, AdapterId);
+            if (!EvoOptionalFeatureRegistry.TryRegister(features, AdapterId))
+            {
+                Debug.LogWarning("[GooglePlayGamesLeaderboardsFeatureExtensions] Leaderboards bridge is unavailable; adapter was not registered.");
+            }
             return features;
         }
     }

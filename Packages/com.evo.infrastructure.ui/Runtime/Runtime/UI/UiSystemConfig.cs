@@ -51,17 +51,9 @@ namespace Evo.Infrastructure.Runtime.UI
         [ValidateInput(nameof(IsIdUnique), "Duplicate Id", InfoMessageType.Error)]
 #endif
         public string Id;
+        [Tooltip("Stable id resolved through UiBindingRegistry at startup.")]
+        public string BindingId;
         public AssetReference ViewPrefab;
-#if ODIN_INSPECTOR
-        [ValidateInput(nameof(IsViewTypeUnique), "Duplicate ViewType", InfoMessageType.Error)]
-        [ReadOnly]
-#endif
-        public string ViewTypeName;
-#if ODIN_INSPECTOR
-        [ValidateInput(nameof(IsViewModelSet), "Missing ViewModelType", InfoMessageType.Error)]
-        [ReadOnly]
-#endif
-        public string ViewModelTypeName;
         public UiLayer Layer = UiLayer.Hud;
         public UiOpenMode OpenMode = UiOpenMode.Queue;
         public bool IsSceneView;
@@ -71,40 +63,13 @@ namespace Evo.Infrastructure.Runtime.UI
 
         [NonSerialized] internal UiSystemConfig Owner;
 
-        public Type GetViewModelType()
-        {
-            if (string.IsNullOrEmpty(ViewModelTypeName))
-            {
-                return null;
-            }
-
-            return Type.GetType(ViewModelTypeName);
-        }
-
-        public Type GetViewType()
-        {
-            if (string.IsNullOrEmpty(ViewTypeName))
-            {
-                return null;
-            }
-
-            return Type.GetType(ViewTypeName);
-        }
+        public string EffectiveBindingId => string.IsNullOrWhiteSpace(BindingId) ? Id : BindingId;
 
         private bool IsIdUnique()
         {
             return Owner == null || Owner.IsIdUnique(this);
         }
 
-        private bool IsViewTypeUnique()
-        {
-            return Owner == null || Owner.IsViewTypeUnique(this);
-        }
-
-        private bool IsViewModelSet()
-        {
-            return !string.IsNullOrEmpty(ViewModelTypeName);
-        }
     }
 
     [CreateAssetMenu(fileName = "UiSystemConfig", menuName = "Project/UI System Config")]
@@ -212,9 +177,8 @@ namespace Evo.Infrastructure.Runtime.UI
                 var entry = new UiViewEntry
                 {
                     Id = name,
+                    BindingId = name,
                     ViewPrefab = new AssetReference(guid),
-                    ViewTypeName = viewType.AssemblyQualifiedName,
-                    ViewModelTypeName = viewModelType.AssemblyQualifiedName,
                     Layer = UiLayer.Window,
                     OpenMode = UiOpenMode.Queue
                 };
@@ -302,9 +266,8 @@ namespace Evo.Infrastructure.Runtime.UI
                 views.Add(new UiViewEntry
                 {
                     Id = name,
+                    BindingId = name,
                     ViewPrefab = new AssetReference(guid),
-                    ViewTypeName = viewType.AssemblyQualifiedName,
-                    ViewModelTypeName = viewModelType.AssemblyQualifiedName,
                     Layer = UiLayer.Window,
                     OpenMode = UiOpenMode.Queue
                 });
@@ -462,7 +425,6 @@ namespace Evo.Infrastructure.Runtime.UI
                 return;
             }
 
-            var viewTypeCounts = new Dictionary<string, int>(StringComparer.Ordinal);
             var idCounts = new Dictionary<string, int>(StringComparer.Ordinal);
 
             for (var i = 0; i < entries.Count; i++)
@@ -473,24 +435,10 @@ namespace Evo.Infrastructure.Runtime.UI
                     continue;
                 }
 
-                if (!string.IsNullOrEmpty(entry.ViewTypeName))
-                {
-                    viewTypeCounts.TryGetValue(entry.ViewTypeName, out var count);
-                    viewTypeCounts[entry.ViewTypeName] = count + 1;
-                }
-
                 if (!string.IsNullOrEmpty(entry.Id))
                 {
                     idCounts.TryGetValue(entry.Id, out var count);
                     idCounts[entry.Id] = count + 1;
-                }
-            }
-
-            foreach (var kvp in viewTypeCounts)
-            {
-                if (kvp.Value > 1)
-                {
-                    EvoDebug.LogWarning($"Duplicate ViewType found: {kvp.Key} (count {kvp.Value}).", nameof(UiSystemConfig));
                 }
             }
 
@@ -515,6 +463,10 @@ namespace Evo.Infrastructure.Runtime.UI
             {
                 if (views[i] != null)
                 {
+                    if (string.IsNullOrWhiteSpace(views[i].BindingId))
+                    {
+                        views[i].BindingId = views[i].Id;
+                    }
                     views[i].Owner = this;
                 }
             }
@@ -543,27 +495,5 @@ namespace Evo.Infrastructure.Runtime.UI
             return true;
         }
 
-        internal bool IsViewTypeUnique(UiViewEntry entry)
-        {
-            if (entry == null || views == null || string.IsNullOrEmpty(entry.ViewTypeName))
-            {
-                return true;
-            }
-
-            var count = 0;
-            for (var i = 0; i < views.Count; i++)
-            {
-                if (views[i] != null && string.Equals(views[i].ViewTypeName, entry.ViewTypeName, StringComparison.Ordinal))
-                {
-                    count++;
-                    if (count > 1)
-                    {
-                        return false;
-                    }
-                }
-            }
-
-            return true;
-        }
     }
 }

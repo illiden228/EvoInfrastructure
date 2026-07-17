@@ -6,6 +6,13 @@ PluginYG2 Payments adapter for `com.evo.infrastructure.purchases`.
 
 The package does not embed PluginYG2. Import PluginYG2 and enable its **Payments** module in the PluginYG2 project settings. Yandex Games also requires cloud persistence through the PluginYG2 Storage or PlayerStats module. Without the `Payments_yg` scripting define the package remains compile-safe; the feature registers an unavailable adapter that finishes initialization without blocking startup.
 
+The bridge uses the typed `YG2` Payments API directly and the Evo assembly is
+marked with `AlwaysLinkAssembly`; it does not discover PluginYG2 through runtime
+reflection. PluginYG2 2.0092 is still distributed as project source without an
+asmdef, so projects that introduce a PluginYG runtime asmdef must add that exact
+assembly reference to `Evo.Infrastructure.Yandex.Purchases` as part of their SDK
+import workflow.
+
 Configure product mappings in `PurchaseCatalogConfig` with the Yandex platform ID from
 `PlatformCatalog`. The logical product ID and grants belong to the game catalog; the Yandex
 override supplies the product ID configured in the Yandex Games dashboard. Titles, descriptions,
