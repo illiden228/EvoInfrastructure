@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Evo.Infrastructure.Services.Config;
 using UnityEngine;
@@ -23,6 +24,11 @@ namespace Evo.Infrastructure.Runtime.Config.Catalogs
         string BuildAssetBaseName(Type itemType);
         string BuildSuggestedId(string assetName, Type itemType);
         CatalogValidationResult ValidateCatalog();
+    }
+
+    public interface ICatalogEditorItemsProvider
+    {
+        IList MutableEditorItems { get; }
     }
 
     public sealed class CatalogValidationResult
@@ -52,7 +58,8 @@ namespace Evo.Infrastructure.Runtime.Config.Catalogs
         }
     }
 
-    public abstract class CatalogConfigBase<TItem> : ScriptableObject, IGameConfig, IConfigCatalog<TItem>, ICatalogEditorMetadata
+    public abstract class CatalogConfigBase<TItem> : ScriptableObject, IGameConfig, IConfigCatalog<TItem>,
+        ICatalogEditorMetadata, ICatalogEditorItemsProvider
         where TItem : UnityEngine.Object
     {
         [NonSerialized] private CatalogValidationResult _lastValidation;
@@ -62,6 +69,7 @@ namespace Evo.Infrastructure.Runtime.Config.Catalogs
 
         public IReadOnlyList<TItem> Items => MutableItems;
         public Type ItemType => typeof(TItem);
+        public IList MutableEditorItems => MutableItems;
         public virtual string CreateAssetDirectory => "Assets/_Project/Configs";
 
         protected virtual string DefaultAssetBaseName => $"new_{NormalizeId(typeof(TItem).Name)}";

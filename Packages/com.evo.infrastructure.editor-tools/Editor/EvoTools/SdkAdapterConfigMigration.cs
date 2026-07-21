@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
+using System.Linq;
+using Evo.Infrastructure.Services.Config;
 using UnityEditor;
 using UnityEngine;
 
@@ -56,13 +57,10 @@ namespace Evo.Infrastructure.Editor.EvoTools
             foreach (var guid in AssetDatabase.FindAssets("t:ScriptableConfigCatalog"))
             {
                 var path = AssetDatabase.GUIDToAssetPath(guid);
-                var asset = AssetDatabase.LoadMainAssetAtPath(path);
-                var method = asset?.GetType().GetMethod(
-                    "RebuildFromFolders",
-                    BindingFlags.Instance | BindingFlags.Public);
-                if (method != null && method.Invoke(asset, null) is bool changed && changed)
+                var catalog = AssetDatabase.LoadAssetAtPath<ScriptableConfigCatalog>(path);
+                if (catalog != null && catalog.RebuildFromFolders())
                 {
-                    EditorUtility.SetDirty(asset);
+                    EditorUtility.SetDirty(catalog);
                     changedPaths.Add(path);
                 }
             }
@@ -86,7 +84,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
             var paths = new List<string>();
             foreach (var migration in Migrations)
             {
-                var type = Type.GetType(migration.TargetAssemblyQualifiedName, false);
+                var type = ResolveTargetType(migration);
                 if (type == null)
                 {
                     continue;
@@ -118,7 +116,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
             Migration migration,
             IDictionary<UnityEngine.Object, UnityEngine.Object> migrated)
         {
-            var targetType = Type.GetType(migration.TargetAssemblyQualifiedName, false);
+            var targetType = ResolveTargetType(migration);
             if (targetType == null)
             {
                 Debug.LogWarning(
@@ -160,6 +158,15 @@ namespace Evo.Infrastructure.Editor.EvoTools
                 migrated[AssetDatabase.LoadMainAssetAtPath(legacyPath)] = target;
                 EditorUtility.SetDirty(target);
             }
+        }
+
+        private static Type ResolveTargetType(Migration migration)
+        {
+            return TypeCache.GetTypesDerivedFrom<ScriptableObject>()
+                .FirstOrDefault(type => string.Equals(
+                    type.AssemblyQualifiedName,
+                    migration.TargetAssemblyQualifiedName,
+                    StringComparison.Ordinal));
         }
 
         private static void EnsureBackupFolder()

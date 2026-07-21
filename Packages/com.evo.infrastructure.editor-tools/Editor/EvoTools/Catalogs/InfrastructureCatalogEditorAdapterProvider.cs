@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using Evo.Infrastructure.Services.Ads.Config;
 using Evo.Infrastructure.Services.Analytics.Config;
 using Evo.Infrastructure.Services.PlatformInfo.Config;
@@ -11,8 +10,14 @@ using UnityEngine;
 
 namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
 {
+    [InitializeOnLoad]
     internal sealed class InfrastructureCatalogEditorAdapterProvider : ICatalogEditorAdapterProvider
     {
+        static InfrastructureCatalogEditorAdapterProvider()
+        {
+            CatalogEditorRegistry.RegisterProvider(new InfrastructureCatalogEditorAdapterProvider());
+        }
+
         public bool TryCreateAdapter(ScriptableObject catalogAsset, out ICatalogEditorAdapter adapter)
         {
             adapter = catalogAsset switch
@@ -21,8 +26,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
                     catalog,
                     "ads_adapters",
                     "Ads Adapters",
-                    "adapters",
                     typeof(AdsAdapterConfigBase),
+                    () => catalog.Adapters as IList,
                     catalog.AdapterAssetsFolder,
                     type => type?.Name ?? "AdsAdapterConfig",
                     catalog.ValidateCatalog),
@@ -30,8 +35,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
                     catalog,
                     "analytics_adapters",
                     "Analytics Adapters",
-                    "adapters",
                     typeof(AnalyticsAdapterConfigBase),
+                    () => catalog.Adapters as IList,
                     catalog.AdapterAssetsFolder,
                     type => type?.Name ?? "AnalyticsAdapterConfig",
                     catalog.ValidateCatalog),
@@ -39,8 +44,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
                     catalog,
                     "platforms",
                     "Platforms",
-                    "platforms",
                     typeof(PlatformDefinition),
+                    () => catalog.Entries as IList,
                     catalog.PlatformAssetsFolder,
                     _ => "Platform",
                     catalog.ValidateCatalog),
@@ -54,14 +59,13 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
             ScriptableObject catalogAsset,
             string id,
             string name,
-            string fieldName,
             Type itemType,
+            Func<IList> getMutableList,
             string defaultDirectory,
             Func<Type, string> buildAssetBaseName,
             Func<CatalogValidationResult> validate)
         {
-            var field = FindListField(catalogAsset.GetType(), fieldName, itemType);
-            if (field == null)
+            if (getMutableList?.Invoke() == null)
             {
                 return null;
             }
@@ -73,25 +77,14 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
                 ItemType = itemType,
                 DefaultCreateDirectory = string.IsNullOrWhiteSpace(defaultDirectory) ? "Assets/_Project/Configs" : defaultDirectory,
                 Contains = _ => true,
-                GetMutableList = () => field.GetValue(catalogAsset) as IList,
+                GetMutableList = getMutableList,
                 BuildAssetBaseName = buildAssetBaseName,
                 BuildSuggestedId = (assetName, _) => DefaultCatalogEditorAdapter.NormalizeId(assetName),
                 GetCreatableTypes = DefaultCatalogEditorAdapter.GetCreatableTypes,
-                KeyProvider = new ReflectionCatalogItemKeyProvider()
+                KeyProvider = new SerializedCatalogItemKeyProvider()
             };
 
             return new SingleListCatalogEditorAdapter(catalogAsset, category, validate);
-        }
-
-        private static FieldInfo FindListField(Type catalogType, string fieldName, Type itemType)
-        {
-            var field = catalogType.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
-            if (field == null || !field.FieldType.IsGenericType || field.FieldType.GetGenericTypeDefinition() != typeof(List<>))
-            {
-                return null;
-            }
-
-            return field.FieldType.GetGenericArguments()[0] == itemType ? field : null;
         }
 
         private sealed class SingleListCatalogEditorAdapter : ICatalogEditorAdapter

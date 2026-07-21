@@ -1,4 +1,3 @@
-using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
@@ -75,28 +74,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
 
         private static Rect GetMainEditorWindowRect()
         {
-            var containerWindowType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.ContainerWindow");
-            if (containerWindowType == null)
-            {
-                return new Rect(100f, 100f, 1280f, 720f);
-            }
-
-            var showModeField = containerWindowType.GetField("m_ShowMode", BindingFlags.NonPublic | BindingFlags.Instance);
-            var positionProperty = containerWindowType.GetProperty("position", BindingFlags.Public | BindingFlags.Instance);
-            var windows = Resources.FindObjectsOfTypeAll(containerWindowType);
-
-            for (var i = 0; i < windows.Length; i++)
-            {
-                if (showModeField?.GetValue(windows[i]) is int showMode && showMode == 4)
-                {
-                    if (positionProperty?.GetValue(windows[i], null) is Rect rect)
-                    {
-                        return rect;
-                    }
-                }
-            }
-
-            return new Rect(100f, 100f, 1280f, 720f);
+            return EditorGUIUtility.GetMainWindowPosition();
         }
     }
 }

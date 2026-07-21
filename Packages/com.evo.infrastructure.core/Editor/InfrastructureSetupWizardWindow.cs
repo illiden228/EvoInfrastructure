@@ -23,15 +23,17 @@ namespace Evo.Infrastructure.Core.Editor
 {
     public sealed class InfrastructureSetupWizardWindow : EditorWindow
     {
+        private static Dictionary<string, Type> _unityObjectTypesByName;
+
         private const string YandexPackageName = "com.evo.infrastructure.yandex";
         private const string CrazyGamesPackageName = "com.evo.infrastructure.crazygames";
         private const string CorePackageName = "com.evo.infrastructure.core";
         private const string LegacyRuntimePackageName = "com.evo.infrastructure.runtime";
         private const string EvoRepositoryUrl = "https://github.com/illiden228/EvoInfrastructure.git";
         private const string EvoTagsApiUrl = "https://api.github.com/repos/illiden228/EvoInfrastructure/tags?per_page=100";
-        private const string RuntimeGitTag = "v0.5.24";
-        private const string YandexGitTag = "v0.5.24";
-        private const string CrazyGamesGitTag = "v0.5.24";
+        private const string RuntimeGitTag = "v0.5.25";
+        private const string YandexGitTag = "v0.5.25";
+        private const string CrazyGamesGitTag = "v0.5.25";
         private static readonly EvoPackageDescriptor[] EvoPackages =
         {
             new("com.evo.infrastructure.di", "DI", "Core", "Feature registry and VContainer helpers."),
@@ -3266,6 +3268,8 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
+            // Intentional editor-only optional-package boundary: core cannot reference config and
+            // platform packages that the wizard may be in the process of installing.
             var type = Type.GetType(typeName);
             if (type == null || !typeof(ScriptableObject).IsAssignableFrom(type))
             {
@@ -3289,6 +3293,8 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
+            // See CreateScriptableAsset: the core wizard cannot take a hard dependency on the
+            // optional config package, so this single editor bridge remains reflective.
             var rebuildMethod = catalog.GetType().GetMethod("RebuildFromFolders", BindingFlags.Public | BindingFlags.Instance);
             if (rebuildMethod == null)
             {
@@ -3849,28 +3855,8 @@ namespace Evo.Infrastructure.Core.Editor
                 return false;
             }
 
-            var field = scope.GetType().GetField("parentReference", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            if (field != null)
-            {
-                var value = field.GetValue(scope);
-                if (value != null)
-                {
-                    var typeProperty = field.FieldType.GetProperty("Type", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (typeProperty?.GetValue(value) is Type type && type == parentType)
-                    {
-                        return true;
-                    }
-
-                    var typeNameField = field.FieldType.GetField("TypeName", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (typeNameField?.GetValue(value) is string typeName &&
-                        string.Equals(typeName, parentType.FullName, StringComparison.Ordinal))
-                    {
-                        return true;
-                    }
-                }
-            }
-
             var serialized = new SerializedObject(scope);
+            serialized.UpdateIfRequiredOrScript();
             var serializedTypeName = serialized.FindProperty("parentReference")?.FindPropertyRelative("TypeName");
             return serializedTypeName != null &&
                    string.Equals(serializedTypeName.stringValue, parentType.FullName, StringComparison.Ordinal);
@@ -3878,32 +3864,17 @@ namespace Evo.Infrastructure.Core.Editor
 
         private static bool TrySetParentReferenceType(Component scope, Type parentType)
         {
-            var field = scope.GetType().GetField("parentReference", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            if (field == null)
+            var serialized = new SerializedObject(scope);
+            serialized.UpdateIfRequiredOrScript();
+            var serializedTypeName = serialized.FindProperty("parentReference")?.FindPropertyRelative("TypeName");
+            if (serializedTypeName == null)
             {
                 return false;
             }
 
-            var parentReferenceType = field.FieldType;
-            var constructor = parentReferenceType.GetConstructor(
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                null,
-                new[] { typeof(Type) },
-                null);
-            object parentReference;
-            if (constructor != null)
-            {
-                parentReference = constructor.Invoke(new object[] { parentType });
-            }
-            else
-            {
-                parentReference = field.GetValue(scope) ?? Activator.CreateInstance(parentReferenceType);
-                var typeNameField = parentReferenceType.GetField("TypeName", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                typeNameField?.SetValue(parentReference, parentType.FullName);
-            }
-
-            field.SetValue(scope, parentReference);
-            return true;
+            Undo.RecordObject(scope, "Set lifetime scope parent");
+            serializedTypeName.stringValue = parentType.FullName;
+            return serialized.ApplyModifiedProperties();
         }
 
         private static bool EnsureSceneScopeParent(
@@ -4075,6 +4046,8 @@ namespace Evo.Infrastructure.Core.Editor
                 return;
             }
 
+            // Addressables is optional for the core package. The reflective calls below are kept
+            // inside this editor-only setup bridge so player code stays reflection-free.
             var settings = GetAddressableSettings(true);
             if (settings == null)
             {
@@ -5192,17 +5165,7 @@ namespace Evo.Infrastructure.Core.Editor
 
         private static bool IsAssemblyLoaded(string assemblyName)
         {
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            for (var i = 0; i < assemblies.Length; i++)
-            {
-                var name = assemblies[i].GetName().Name;
-                if (string.Equals(name, assemblyName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return SdkAssemblyDetector.IsAvailable(assemblyName);
         }
 
         private static bool IsOdinInstalled()
@@ -5993,6 +5956,28 @@ namespace Evo.Infrastructure.Core.Editor
                 return null;
             }
 
+            if (_unityObjectTypesByName == null)
+            {
+                _unityObjectTypesByName = new Dictionary<string, Type>(StringComparer.Ordinal);
+                var unityObjectTypes = TypeCache.GetTypesDerivedFrom<UnityEngine.Object>();
+                for (var i = 0; i < unityObjectTypes.Count; i++)
+                {
+                    var type = unityObjectTypes[i];
+                    if (type != null && !string.IsNullOrWhiteSpace(type.FullName))
+                    {
+                        _unityObjectTypesByName[type.FullName] = type;
+                    }
+                }
+            }
+
+            if (_unityObjectTypesByName.TryGetValue(fullName, out var unityObjectType))
+            {
+                return unityObjectType;
+            }
+
+            // Intentional editor-only fallback for optional SDK/editor types (for example
+            // Addressables settings and Odin attributes) that are not UnityEngine.Object-derived
+            // and cannot be referenced from the dependency-light core package.
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             for (var i = 0; i < assemblies.Length; i++)
             {

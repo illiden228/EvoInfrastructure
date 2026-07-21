@@ -1,6 +1,8 @@
 #if UNITY_EDITOR
 using System;
 using System.Linq;
+using UnityEditor;
+using UnityEngine;
 
 namespace Evo.Infrastructure.Core.Editor.Setup
 {
@@ -15,12 +17,16 @@ namespace Evo.Infrastructure.Core.Editor.Setup
 
         public static Type Resolve()
         {
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-            foreach (var name in SupportedNames)
+            var componentTypes = TypeCache.GetTypesDerivedFrom<Component>();
+            for (var i = 0; i < componentTypes.Count; i++)
             {
-                var type = assembly.GetType(name, false);
-                if (type != null) return type;
+                var type = componentTypes[i];
+                if (type != null && IsSupported(type))
+                {
+                    return type;
+                }
             }
+
             return null;
         }
 

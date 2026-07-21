@@ -22,12 +22,6 @@ namespace Evo.Infrastructure.Core.Editor.Setup
                 return true;
             }
 
-            if (AppDomain.CurrentDomain.GetAssemblies()
-                .Any(assembly => string.Equals(assembly.GetName().Name, assemblyName, StringComparison.OrdinalIgnoreCase)))
-            {
-                return true;
-            }
-
             return AssetDatabase.FindAssets(assemblyName)
                 .Select(AssetDatabase.GUIDToAssetPath)
                 .Any(path => MatchesPrecompiledAssemblyPath(path, assemblyName));

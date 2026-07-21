@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 
 namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
@@ -8,7 +7,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
     public static class CatalogEditorRegistry
     {
         private static readonly List<Func<ScriptableObject, ICatalogEditorAdapter>> Factories = new();
-        private static List<ICatalogEditorAdapterProvider> _providers;
+        private static readonly List<ICatalogEditorAdapterProvider> Providers = new();
 
         public static void Register(Func<ScriptableObject, ICatalogEditorAdapter> factory)
         {
@@ -29,6 +28,24 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
             Register(catalog => catalog is TCatalog typed ? factory(typed) : null);
         }
 
+        public static void RegisterProvider(ICatalogEditorAdapterProvider provider)
+        {
+            if (provider == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < Providers.Count; i++)
+            {
+                if (Providers[i]?.GetType() == provider.GetType())
+                {
+                    return;
+                }
+            }
+
+            Providers.Add(provider);
+        }
+
         public static bool TryCreateAdapter(ScriptableObject catalogAsset, out ICatalogEditorAdapter adapter)
         {
             adapter = null;
@@ -46,42 +63,15 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
                 }
             }
 
-            var providers = GetProviders();
-            for (var i = 0; i < providers.Count; i++)
+            for (var i = 0; i < Providers.Count; i++)
             {
-                if (providers[i].TryCreateAdapter(catalogAsset, out adapter) && adapter != null)
+                if (Providers[i].TryCreateAdapter(catalogAsset, out adapter) && adapter != null)
                 {
                     return true;
                 }
             }
 
             return DefaultCatalogEditorAdapter.TryCreate(catalogAsset, out adapter);
-        }
-
-        private static List<ICatalogEditorAdapterProvider> GetProviders()
-        {
-            if (_providers != null)
-            {
-                return _providers;
-            }
-
-            _providers = new List<ICatalogEditorAdapterProvider>();
-            var providerTypes = TypeCache.GetTypesDerivedFrom<ICatalogEditorAdapterProvider>();
-            for (var i = 0; i < providerTypes.Count; i++)
-            {
-                var type = providerTypes[i];
-                if (type == null || type.IsAbstract || type.IsInterface || type.ContainsGenericParameters)
-                {
-                    continue;
-                }
-
-                if (Activator.CreateInstance(type) is ICatalogEditorAdapterProvider provider)
-                {
-                    _providers.Add(provider);
-                }
-            }
-
-            return _providers;
         }
     }
 }

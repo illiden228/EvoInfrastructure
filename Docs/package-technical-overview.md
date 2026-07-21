@@ -210,7 +210,7 @@ Example:
 ```json
 {
   "dependencies": {
-    "com.evo.infrastructure.core": "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.core#v0.5.24"
+    "com.evo.infrastructure.core": "https://github.com/illiden228/EvoInfrastructure.git?path=Packages/com.evo.infrastructure.core#v0.5.25"
   }
 }
 ```

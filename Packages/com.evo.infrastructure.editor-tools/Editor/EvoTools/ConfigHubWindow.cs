@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Sirenix.OdinInspector;
 using Sirenix.OdinInspector.Editor;
 using UnityEditor;
@@ -153,8 +152,9 @@ namespace Evo.Infrastructure.Editor.EvoTools
             }
             else
             {
-                var attr = type.GetCustomAttributes(typeof(GameConfigAttribute), false)
-                    .FirstOrDefault() as GameConfigAttribute;
+                // Attribute metadata is read only in the editor to group configs in the UI.
+                var attr = Attribute.GetCustomAttribute(type, typeof(GameConfigAttribute), false)
+                    as GameConfigAttribute;
                 category = attr != null && !string.IsNullOrEmpty(attr.Category)
                     ? attr.Category
                     : EvoToolsLocalization.Get("config_hub.category.general", "General");
@@ -400,47 +400,28 @@ namespace Evo.Infrastructure.Editor.EvoTools
             }
 
             var result = new List<Type>();
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            for (var i = 0; i < assemblies.Length; i++)
-            {
-                Type[] types;
-                try
-                {
-                    types = assemblies[i].GetTypes();
-                }
-                catch (ReflectionTypeLoadException e)
-                {
-                    types = e.Types;
-                }
-
-                if (types == null)
-                {
-                    continue;
-                }
-
-                for (var t = 0; t < types.Length; t++)
-                {
-                    var type = types[t];
-                    if (type == null ||
-                        type.IsAbstract ||
-                        !typeof(ScriptableObject).IsAssignableFrom(type))
-                    {
-                        continue;
-                    }
-
-                    if (typeof(IGameConfig).IsAssignableFrom(type) ||
-                        Attribute.IsDefined(type, typeof(GameConfigAttribute)))
-                    {
-                        result.Add(type);
-                    }
-                }
-            }
+            AddConfigTypes(TypeCache.GetTypesDerivedFrom<IGameConfig>(), result);
+            AddConfigTypes(TypeCache.GetTypesWithAttribute<GameConfigAttribute>(), result);
 
             _configTypesCache = result
                 .Distinct()
                 .OrderBy(t => t.FullName)
                 .ToList();
             return _configTypesCache;
+        }
+
+        private static void AddConfigTypes(IEnumerable<Type> types, ICollection<Type> result)
+        {
+            foreach (var type in types)
+            {
+                if (type != null &&
+                    !type.IsAbstract &&
+                    typeof(ScriptableObject).IsAssignableFrom(type) &&
+                    !result.Contains(type))
+                {
+                    result.Add(type);
+                }
+            }
         }
 
         private void RefreshCatalogState(bool rebuildMenu)

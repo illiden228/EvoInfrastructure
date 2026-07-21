@@ -8,9 +8,8 @@ using UnityEngine;
 
 namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
 {
-    public sealed class ReflectionCatalogItemKeyProvider : ICatalogItemKeyProvider
+    public class SerializedCatalogItemKeyProvider : ICatalogItemKeyProvider
     {
-        private static readonly string[] PropertyNames = { "Id", "PlatformId", "AdapterId", "CueName", "Key", "Name" };
         private static readonly string[] FieldNames = { "id", "platformId", "adapterId", "cueName", "key", "name" };
 
         public CatalogItemKey GetKey(UnityEngine.Object item, int index)
@@ -25,12 +24,17 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
                 return new CatalogItemKey(withId.Id.Trim(), CatalogItemKeySource.Explicit, true);
             }
 
-            for (var i = 0; i < PropertyNames.Length; i++)
+            var serialized = new SerializedObject(item);
+            for (var i = 0; i < FieldNames.Length; i++)
             {
-                var value = ResolveStringProperty(item, PropertyNames[i]);
-                if (!string.IsNullOrWhiteSpace(value))
+                var property = serialized.FindProperty(FieldNames[i]);
+                if (property?.propertyType == SerializedPropertyType.String &&
+                    !string.IsNullOrWhiteSpace(property.stringValue))
                 {
-                    return new CatalogItemKey(value.Trim(), i == 0 ? CatalogItemKeySource.Explicit : CatalogItemKeySource.Custom, true);
+                    return new CatalogItemKey(
+                        property.stringValue.Trim(),
+                        i == 0 ? CatalogItemKeySource.Explicit : CatalogItemKeySource.Custom,
+                        true);
                 }
             }
 
@@ -60,7 +64,7 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
 
         public bool CanSetKey(UnityEngine.Object item)
         {
-            return item != null && FindWritableStringMember(item.GetType()) != null;
+            return item != null && FindSerializedStringProperty(new SerializedObject(item)) != null;
         }
 
         public bool TrySetKey(UnityEngine.Object item, string value)
@@ -70,59 +74,47 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
                 return false;
             }
 
-            var member = FindWritableStringMember(item.GetType());
-            switch (member)
+            var serialized = new SerializedObject(item);
+            serialized.UpdateIfRequiredOrScript();
+            var property = FindSerializedStringProperty(serialized);
+            if (property == null)
             {
-                case PropertyInfo property:
-                    property.SetValue(item, value ?? string.Empty);
-                    return true;
-                case FieldInfo field:
-                    field.SetValue(item, value ?? string.Empty);
-                    return true;
-                default:
-                    return false;
+                return false;
             }
+
+            property.stringValue = value ?? string.Empty;
+            serialized.ApplyModifiedProperties();
+            return true;
         }
 
-        private static string ResolveStringProperty(object item, string propertyName)
+        private static SerializedProperty FindSerializedStringProperty(SerializedObject serialized)
         {
-            var property = item.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
-            return property?.PropertyType == typeof(string) ? property.GetValue(item) as string ?? string.Empty : string.Empty;
-        }
-
-        private static MemberInfo FindWritableStringMember(Type type)
-        {
-            for (var i = 0; i < PropertyNames.Length; i++)
+            if (serialized == null)
             {
-                var property = type.GetProperty(PropertyNames[i], BindingFlags.Instance | BindingFlags.Public);
-                if (property?.PropertyType == typeof(string) && property.CanWrite)
+                return null;
+            }
+
+            for (var i = 0; i < FieldNames.Length; i++)
+            {
+                var property = serialized.FindProperty(FieldNames[i]);
+                if (property?.propertyType == SerializedPropertyType.String)
                 {
                     return property;
                 }
-            }
-
-            var current = type;
-            while (current != null && current != typeof(object))
-            {
-                for (var i = 0; i < FieldNames.Length; i++)
-                {
-                    var field = current.GetField(FieldNames[i], BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                    if (field?.FieldType == typeof(string) && !field.IsInitOnly)
-                    {
-                        return field;
-                    }
-                }
-
-                current = current.BaseType;
             }
 
             return null;
         }
     }
 
+    [Obsolete("Use SerializedCatalogItemKeyProvider. The compatibility name no longer uses reflection.")]
+    public sealed class ReflectionCatalogItemKeyProvider : SerializedCatalogItemKeyProvider
+    {
+    }
+
     internal sealed class DefaultCatalogEditorAdapter : ICatalogEditorAdapter
     {
-        private static readonly ReflectionCatalogItemKeyProvider DefaultKeyProvider = new();
+        private static readonly SerializedCatalogItemKeyProvider DefaultKeyProvider = new();
 
         private readonly List<CatalogCategoryDescriptor> _categories;
         private readonly Func<CatalogValidationResult> _validate;
@@ -213,8 +205,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
                 return false;
             }
 
-            var field = FindListField(catalogAsset.GetType(), metadata.ItemType);
-            if (field == null)
+            if (catalogAsset is not ICatalogEditorItemsProvider itemsProvider ||
+                itemsProvider.MutableEditorItems == null)
             {
                 return false;
             }
@@ -223,14 +215,14 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
             {
                 new()
                 {
-                    Id = field.Name,
+                    Id = "items",
                     Name = "All",
                     ItemType = metadata.ItemType,
                     DefaultCreateDirectory = string.IsNullOrWhiteSpace(metadata.CreateAssetDirectory)
                         ? ResolveDefaultDirectory(catalogAsset)
                         : metadata.CreateAssetDirectory,
                     Contains = _ => true,
-                    GetMutableList = () => field.GetValue(catalogAsset) as IList,
+                    GetMutableList = () => itemsProvider.MutableEditorItems,
                     BuildAssetBaseName = metadata.BuildAssetBaseName,
                     BuildSuggestedId = metadata.BuildSuggestedId,
                     GetCreatableTypes = itemType => ResolveCreatableTypes(metadata, itemType),
@@ -242,32 +234,8 @@ namespace Evo.Infrastructure.Editor.EvoTools.Catalogs
             return true;
         }
 
-        private static FieldInfo FindListField(Type catalogType, Type itemType)
-        {
-            var current = catalogType;
-            while (current != null && current != typeof(ScriptableObject) && current != typeof(object))
-            {
-                var fields = current.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
-                for (var i = 0; i < fields.Length; i++)
-                {
-                    var field = fields[i];
-                    if (!field.FieldType.IsGenericType || field.FieldType.GetGenericTypeDefinition() != typeof(List<>))
-                    {
-                        continue;
-                    }
-
-                    if (field.FieldType.GetGenericArguments()[0] == itemType)
-                    {
-                        return field;
-                    }
-                }
-
-                current = current.BaseType;
-            }
-
-            return null;
-        }
-
+        // Reflection is intentionally limited to the legacy fallback for project-owned catalogs
+        // that do not implement ICatalogEditorMetadata. Infrastructure catalogs use typed adapters.
         private static List<FieldInfo> FindListFields(Type catalogType)
         {
             var result = new List<FieldInfo>();

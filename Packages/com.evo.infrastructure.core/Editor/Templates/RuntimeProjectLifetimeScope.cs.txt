@@ -1,5 +1,3 @@
-using System;
-using System.Reflection;
 using Evo.Infrastructure.DI;
 using Evo.Infrastructure.Runtime.Loading;
 using Evo.Infrastructure.Runtime.UI;
@@ -78,72 +76,26 @@ namespace Game.Runtime.EntryPoint
 
         private void RegisterOptionalYandex(EvoFeatureRegistry features)
         {
-            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Yandex.YandexPlatformFeatureExtensions", "UseYandexPlatform");
-            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Yandex.YandexAdsFeatureExtensions", "UseYandexAds");
-            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Yandex.YandexAnalyticsFeatureExtensions", "UseYandexAnalytics");
-            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Yandex.YandexSaveFeatureExtensions", "UseYandexSave");
-            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Yandex.YandexLeaderboardsFeatureExtensions", "UseYandexLeaderboards");
-            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.Purchases.Yandex.YandexPurchasesFeatureExtensions", "UseYandexPurchases");
+            EvoOptionalFeatureRegistry.TryRegister(features, "yandex_platform");
+            EvoOptionalFeatureRegistry.TryRegister(features, "yandex_ads");
+            EvoOptionalFeatureRegistry.TryRegister(features, "yandex_analytics");
+            EvoOptionalFeatureRegistry.TryRegister(features, "yandex_save");
+            EvoOptionalFeatureRegistry.TryRegister(features, "yandex_leaderboards");
+            EvoOptionalFeatureRegistry.TryRegister(features, "yandex_purchases");
         }
 
         private void RegisterOptionalCrazyGames(EvoFeatureRegistry features)
         {
-            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesPlatformFeatureExtensions", "UseCrazyGamesPlatform");
-            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesAdsFeatureExtensions", "UseCrazyGamesAds");
-            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesSaveFeatureExtensions", "UseCrazyGamesSave");
-            RegisterOptionalFeature(features, "Evo.Infrastructure.Services.CrazyGames.CrazyGamesLeaderboardsFeatureExtensions", "UseCrazyGamesLeaderboards");
+            EvoOptionalFeatureRegistry.TryRegister(features, "crazygames_platform");
+            EvoOptionalFeatureRegistry.TryRegister(features, "crazygames_ads");
+            EvoOptionalFeatureRegistry.TryRegister(features, "crazygames_save");
+            EvoOptionalFeatureRegistry.TryRegister(features, "crazygames_leaderboards");
         }
 
         private void RegisterOptionalPurchaseAdapters(EvoFeatureRegistry features)
         {
-            RegisterOptionalFeature(
-                features,
-                "Evo.Infrastructure.Services.Purchases.UnityIap.UnityIapPurchaseFeatureExtensions",
-                "UseUnityIapPurchases");
-            RegisterOptionalFeature(
-                features,
-                "Evo.Infrastructure.Services.Purchases.RuStore.RuStorePurchasesFeatureExtensions",
-                "UseRuStorePurchases");
-        }
-
-        private void RegisterOptionalFeature(EvoFeatureRegistry features, string extensionsTypeName, string methodName)
-        {
-            var extensionsType = FindTypeByName(extensionsTypeName);
-            var method = extensionsType?.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
-            if (method == null)
-            {
-                return;
-            }
-
-            var parameters = method.GetParameters();
-            var arguments = new object[parameters.Length];
-            arguments[0] = features;
-            for (var i = 1; i < parameters.Length; i++)
-            {
-                arguments[i] = parameters[i].HasDefaultValue ? parameters[i].DefaultValue : null;
-            }
-
-            method.Invoke(null, arguments);
-        }
-
-        private static Type FindTypeByName(string fullName)
-        {
-            if (string.IsNullOrWhiteSpace(fullName))
-            {
-                return null;
-            }
-
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            for (var i = 0; i < assemblies.Length; i++)
-            {
-                var type = assemblies[i].GetType(fullName, false);
-                if (type != null)
-                {
-                    return type;
-                }
-            }
-
-            return null;
+            EvoOptionalFeatureRegistry.TryRegister(features, "unity_iap");
+            EvoOptionalFeatureRegistry.TryRegister(features, "rustore");
         }
     }
 }
