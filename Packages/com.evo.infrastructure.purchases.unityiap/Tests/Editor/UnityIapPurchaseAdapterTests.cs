@@ -6,11 +6,23 @@ using Evo.Infrastructure.Services.Purchases;
 using Evo.Infrastructure.Services.Purchases.UnityIap;
 using NUnit.Framework;
 using UnityEngine.Purchasing;
+using UnityEngine.Scripting;
 
 namespace Evo.Infrastructure.Purchases.UnityIap.Tests
 {
     public sealed class UnityIapPurchaseAdapterTests
     {
+        [Test]
+        public void RuntimeAssembly_IsAlwaysLinked_ForOptionalFactoryRegistration()
+        {
+            var assembly = typeof(UnityIapPurchaseAdapterFactory).Assembly;
+
+            Assert.That(
+                assembly.IsDefined(typeof(AlwaysLinkAssemblyAttribute), false),
+                Is.True,
+                "RuntimeInitializeOnLoadMethod is the only linker root for optional factory registration.");
+        }
+
         [Test]
         public void Factory_CreatesUnavailableUninitializedAdapter()
         {

@@ -2,7 +2,11 @@
   "name": "Evo.Infrastructure.EditorTools.Editor",
   "references": [
     "Evo.Infrastructure.Ads",
+    "Evo.Infrastructure.Ads.AppLovin",
     "Evo.Infrastructure.Analytics",
+    "Evo.Infrastructure.Analytics.Adjust",
+    "Evo.Infrastructure.Analytics.AppMetrica",
+    "Evo.Infrastructure.Analytics.Firebase",
     "Evo.Infrastructure.Config",
     "Evo.Infrastructure.Debug",
     "Evo.Infrastructure.Platform",

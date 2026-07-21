@@ -7,7 +7,11 @@
   "author": { "name": "Evo" },
   "dependencies": {
     "com.evo.infrastructure.ads": "0.5.25",
+    "com.evo.infrastructure.ads.applovin": "0.5.25",
     "com.evo.infrastructure.analytics": "0.5.25",
+    "com.evo.infrastructure.analytics.adjust": "0.5.25",
+    "com.evo.infrastructure.analytics.appmetrica": "0.5.25",
+    "com.evo.infrastructure.analytics.firebase": "0.5.25",
     "com.evo.infrastructure.config": "0.5.25",
     "com.evo.infrastructure.debug": "0.5.25",
     "com.evo.infrastructure.platform": "0.5.25",

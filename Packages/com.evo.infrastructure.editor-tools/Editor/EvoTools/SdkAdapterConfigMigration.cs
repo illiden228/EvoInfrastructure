@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using Evo.Infrastructure.Services.Ads.AppLovin;
+using Evo.Infrastructure.Services.Analytics.Adjust;
+using Evo.Infrastructure.Services.Analytics.AppMetrica;
+using Evo.Infrastructure.Services.Analytics.Firebase;
 using Evo.Infrastructure.Services.Config;
 using UnityEditor;
 using UnityEngine;
@@ -15,20 +18,16 @@ namespace Evo.Infrastructure.Editor.EvoTools
         {
             new(
                 "Game.Runtime.Analytics.FirebaseAnalyticsAdapterConfig",
-                "Evo.Infrastructure.Services.Analytics.Firebase.FirebaseAnalyticsAdapterConfig, " +
-                "Evo.Infrastructure.Analytics.Firebase"),
+                typeof(FirebaseAnalyticsAdapterConfig)),
             new(
                 "Game.Runtime.Analytics.AppMetricaAnalyticsAdapterConfig",
-                "Evo.Infrastructure.Services.Analytics.AppMetrica.AppMetricaAnalyticsAdapterConfig, " +
-                "Evo.Infrastructure.Analytics.AppMetrica"),
+                typeof(AppMetricaAnalyticsAdapterConfig)),
             new(
                 "Game.Runtime.Analytics.AdjustAnalyticsAdapterConfig",
-                "Evo.Infrastructure.Services.Analytics.Adjust.AdjustAnalyticsAdapterConfig, " +
-                "Evo.Infrastructure.Analytics.Adjust"),
+                typeof(AdjustAnalyticsAdapterConfig)),
             new(
                 "Game.Runtime.Ads.AppLovinAdsAdapterConfig",
-                "Evo.Infrastructure.Services.Ads.AppLovin.AppLovinAdsAdapterConfig, " +
-                "Evo.Infrastructure.Ads.AppLovin")
+                typeof(AppLovinAdsAdapterConfig))
         };
 
         [MenuItem("EvoTools/Config Maintenance/Migrate SDK Adapter Configs")]
@@ -84,12 +83,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
             var paths = new List<string>();
             foreach (var migration in Migrations)
             {
-                var type = ResolveTargetType(migration);
-                if (type == null)
-                {
-                    continue;
-                }
-
+                var type = migration.TargetType;
                 foreach (var guid in AssetDatabase.FindAssets($"t:{type.Name}"))
                 {
                     var path = AssetDatabase.GUIDToAssetPath(guid);
@@ -116,15 +110,7 @@ namespace Evo.Infrastructure.Editor.EvoTools
             Migration migration,
             IDictionary<UnityEngine.Object, UnityEngine.Object> migrated)
         {
-            var targetType = ResolveTargetType(migration);
-            if (targetType == null)
-            {
-                Debug.LogWarning(
-                    $"[Evo Config Migration] Target type unavailable: " +
-                    migration.TargetAssemblyQualifiedName);
-                return;
-            }
-
+            var targetType = migration.TargetType;
             foreach (var guid in AssetDatabase.FindAssets("t:ScriptableObject", new[] { "Assets" }))
             {
                 var path = AssetDatabase.GUIDToAssetPath(guid);
@@ -158,15 +144,6 @@ namespace Evo.Infrastructure.Editor.EvoTools
                 migrated[AssetDatabase.LoadMainAssetAtPath(legacyPath)] = target;
                 EditorUtility.SetDirty(target);
             }
-        }
-
-        private static Type ResolveTargetType(Migration migration)
-        {
-            return TypeCache.GetTypesDerivedFrom<ScriptableObject>()
-                .FirstOrDefault(type => string.Equals(
-                    type.AssemblyQualifiedName,
-                    migration.TargetAssemblyQualifiedName,
-                    StringComparison.Ordinal));
         }
 
         private static void EnsureBackupFolder()
@@ -242,11 +219,12 @@ namespace Evo.Infrastructure.Editor.EvoTools
         private readonly struct Migration
         {
             public readonly string LegacyFullName;
-            public readonly string TargetAssemblyQualifiedName;
-            public Migration(string legacyFullName, string targetAssemblyQualifiedName)
+            public readonly Type TargetType;
+
+            public Migration(string legacyFullName, Type targetType)
             {
                 LegacyFullName = legacyFullName;
-                TargetAssemblyQualifiedName = targetAssemblyQualifiedName;
+                TargetType = targetType;
             }
         }
     }

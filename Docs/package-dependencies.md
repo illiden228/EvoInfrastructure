@@ -17,7 +17,11 @@ The supported monorepo install path is `com.evo.infrastructure.core` plus `EvoTo
 
 `com.evo.infrastructure.editor-tools`
 - `com.evo.infrastructure.ads`
+- `com.evo.infrastructure.ads.applovin`
 - `com.evo.infrastructure.analytics`
+- `com.evo.infrastructure.analytics.adjust`
+- `com.evo.infrastructure.analytics.appmetrica`
+- `com.evo.infrastructure.analytics.firebase`
 - `com.evo.infrastructure.config`
 - `com.evo.infrastructure.debug`
 - `com.evo.infrastructure.leaderboards`
